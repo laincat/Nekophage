@@ -373,6 +373,11 @@ func (a *App) favouriteRow(c *ui.Context, t *ui.Theme, folder string, it shelf.C
 			if it.Author != "" {
 				ui.Text(c, it.Author).FontSize(12).TextColor(t.TextMuted).SingleLine()
 			}
+			// A kept comic may also be a comic being read; the position is
+			// what makes "open" useful rather than a fresh start.
+			if line := a.positionLine(it.Source, it.ID); line != "" {
+				ui.Text(c, line).FontSize(12).TextColor(t.TextMuted).SingleLine()
+			}
 		})
 		ui.Spacer(c)
 		if names := a.folderNames(); len(names) > 1 {
@@ -401,6 +406,30 @@ func (a *App) favouriteRow(c *ui.Context, t *ui.Theme, folder string, it shelf.C
 			a.win.Update(func() {})
 		}
 	})
+}
+
+// positionLine describes where reading stopped in one comic, empty when the
+// shelf has no position for it.
+func (a *App) positionLine(source, id string) string {
+	h, ok := a.shelf.HistoryEntry(source, id)
+	if !ok {
+		return ""
+	}
+	var parts []string
+	if h.Page > 0 {
+		parts = append(parts, "第 "+itoa(h.Page)+" 页")
+	}
+	if h.Percent > 0 {
+		parts = append(parts, itoa(h.Percent)+"%")
+	}
+	if len(parts) == 0 {
+		if h.Chapter != "" {
+			parts = append(parts, h.Chapter)
+		} else {
+			parts = append(parts, "第 "+itoa(h.ChapterIndex+1)+" 话")
+		}
+	}
+	return "读到 " + strings.Join(parts, " · ")
 }
 
 // pictureRow is one kept page: its thumbnail, where it came from, and a way
