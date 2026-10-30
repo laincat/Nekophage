@@ -38,7 +38,7 @@ Komiic 顺带暴露了两处服务端标注问题:页面图实际是 WebP,响应
 
 阅读器的两个接口按网页真实调用的方式各跑了一遍:拷贝漫画 `/chapter` 返回 209 张、`/img` 返回 339,596 字节;MangaDex 53 张、122,856 字节。
 
-界面用截图核对(Comick `one piece`):原生主窗口显示 18+ 张真实封面、标题、源选择器中的 `comick` 与「第 1 页 / 下一页」,封面是 WebP 也正常解码(MyGo 的 `ui.DecodeBitmap` 已引入 `x/image/webp`)。此前还核对过:原生主窗口显示了真实封面、标题与作者;详情页显示了封面、标签分组、Markdown 渲染的简介(`**Note:**` 成为粗体、`---` 成为分隔线、链接可点)和 962 行章节,章节筛选框就位。源设置验证(MangaDex):面板显示 `Image Quality` 两个选项,改成 Compressed 后提示「已保存设置」,该源的数据文件变为 `{"data":{},"settings":{"image_quality":"Compressed"}}`;并且该设置真的影响了请求——单测 `TestLiveSourceSettingsTakeEffect` 显示默认取图地址是 `/data/…`,改成 Compressed 后变成 `/data-saver/…` 且文件哈希不同。
+界面用截图核对(Comick `one piece`):原生主窗口显示 18+ 张真实封面、标题、源选择器中的 `comick` 与「第 1 页 / 下一页」,封面是 WebP 也正常解码(MyGo 的 `ui.DecodeBitmap` 已引入 `x/image/webp`)。此前还核对过:原生主窗口显示了真实封面、标题与作者;详情页显示了封面、标签分组、Markdown 渲染的简介(`**Note:**` 成为粗体、`---` 成为分隔线、链接可点)和 962 行章节,章节筛选框就位。源设置验证(MangaDex):面板显示 `Image Quality` 两个选项,改成 Compressed 后提示「已保存设置」,该源的数据文件变为 `{"data":{},"settings":{"image_quality":"Compressed"}}`;并且该设置真的影响了请求——单测 `TestLiveSourceSettingsTakeEffect` 显示默认取图地址是 `/data/…`,改成 Compressed 后变成 `/data-saver/…` 且文件哈希不同。这个测试现在与源无关:它从该源自己声明的选项里取一个不同于默认值的值,断言图片地址发生变化,所以在拷贝漫画上也成立(`…c1500x.webp` → 改成 800 后变 `…c800x.webp`),不再写死 MangaDex 的 `data-saver` 字样。
 
 真源端到端(MangaDex,one piece,3 秒内跑完):搜索 20 部→详情 962 章→遇到 6 个无页章节后找到 53 页章节→取图 122,856 字节→`/chapter` 53 张→`/img` 同样字节→书架记下进度 `page 3, 42%`→收藏第 1 页→`/switch` 返回该话地址→重开 shelf 读回 1 条历史 1 张图片。
 
