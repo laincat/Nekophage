@@ -1,0 +1,34 @@
+#!/bin/sh
+# Points the build at a VeneraCat Core checkout and resolves the module graph.
+#
+#   scripts/fetch-core.sh [path-to-VeneraCat-Core]
+#
+# Without an argument it clones github.com/laincat/VeneraCat-Core at the
+# branch, tag or commit in scripts/core-version into build/core. Either way it
+# writes go.work (which is not committed) so go build and go test find Core.
+set -eu
+
+root=$(cd "$(dirname "$0")/.." && pwd)
+pin=$(tr -d ' \n' < "$root/scripts/core-version")
+
+if [ $# -ge 1 ]; then
+	core=$(cd "$1" && pwd)
+else
+	core="$root/build/core"
+	if [ ! -d "$core/.git" ]; then
+		git clone --quiet https://github.com/laincat/VeneraCat-Core.git "$core"
+	fi
+	git -C "$core" fetch --quiet --force origin "+refs/heads/*:refs/remotes/origin/*" --tags
+	if git -C "$core" rev-parse --verify --quiet "origin/$pin" >/dev/null; then
+		git -C "$core" checkout --quiet --detach "origin/$pin"
+	else
+		git -C "$core" checkout --quiet --detach "$pin"
+	fi
+fi
+
+echo "Core: $(git -C "$core" rev-parse --short HEAD) (pinned $pin)"
+cd "$root"
+rm -f go.work go.work.sum
+go work init . "$core"
+go mod tidy
+echo "go.work points at $core"

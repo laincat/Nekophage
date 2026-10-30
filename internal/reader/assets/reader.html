@@ -1,0 +1,395 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>阅读</title>
+<style>
+	:root {
+		--bg: #101014;
+		--fg: #e8e8ee;
+		--muted: #8b8b96;
+		--line: #26262e;
+		--accent: #6f8cff;
+	}
+	@media (prefers-color-scheme: light) {
+		:root { --bg: #f6f6f8; --fg: #17171c; --muted: #6b6b75; --line: #e0e0e6; --accent: #3b5bdb; }
+	}
+	* { box-sizing: border-box; }
+	html, body { margin: 0; background: var(--bg); color: var(--fg); }
+	body {
+		font: 13px/1.5 -apple-system, "Segoe UI", "Noto Sans SC", system-ui, sans-serif;
+		-webkit-font-smoothing: antialiased;
+	}
+	#bar {
+		position: sticky; top: 0; z-index: 2;
+		display: flex; align-items: center; gap: 10px;
+		padding: 6px 12px;
+		background: color-mix(in srgb, var(--bg) 88%, transparent);
+		backdrop-filter: blur(12px);
+		border-bottom: 1px solid var(--line);
+		font-size: 12px; color: var(--muted);
+	}
+	#bar .grow { flex: 1; }
+	#bar button {
+		font: inherit; color: var(--fg);
+		background: transparent; border: 1px solid var(--line);
+		border-radius: 6px; padding: 2px 8px; cursor: pointer;
+	}
+	#bar button:hover { border-color: var(--accent); color: var(--accent); }
+	#bar progress { width: 120px; height: 4px; }
+	#bar button[hidden] { display: none; }
+	#pages { display: flex; flex-direction: column; align-items: center; }
+	#pages img {
+		display: block; width: 100%; max-width: var(--fit, 900px);
+		height: auto; background: var(--line);
+	}
+	#pages img.loading { min-height: 60vh; }
+	#pages figure { margin: 0; width: 100%; display: flex; justify-content: center; position: relative; }
+	/* Two pages side by side, and the right column first for right-to-left. */
+	#pages.spread {
+		display: grid; grid-template-columns: 1fr 1fr; gap: 2px;
+		align-items: start; margin: 0 auto;
+		width: 100%; max-width: calc(var(--fit, 900px) * 2 + 2px);
+	}
+	#pages.spread.rtl { direction: rtl; }
+	#pages.spread figure { width: auto; }
+	#pages.spread img { max-width: 100%; }
+	/* A page wider than it is tall keeps both columns to itself. */
+	#pages.spread figure.wide { grid-column: 1 / -1; }
+	#pages figure .n {
+		position: absolute; top: 8px; left: 8px;
+		font-size: 11px; color: var(--muted);
+		background: color-mix(in srgb, var(--bg) 70%, transparent);
+		padding: 1px 6px; border-radius: 4px; opacity: 0; transition: opacity .15s;
+	}
+	#pages figure:hover .n { opacity: 1; }
+	#pages figure .retry {
+		position: absolute; inset: auto 0 0 0; padding: 12px;
+		text-align: center; color: var(--muted);
+	}
+	#pages figure .retry button { font: inherit; color: var(--accent); background: none; border: 0; cursor: pointer; }
+	#message { padding: 64px 24px; text-align: center; color: var(--muted); }
+	#message.error { color: #e03131; }
+	#message button {
+		font: inherit; margin-top: 12px; color: var(--fg);
+		background: transparent; border: 1px solid var(--line);
+		border-radius: 6px; padding: 4px 12px; cursor: pointer;
+	}
+	#end { padding: 32px; text-align: center; color: var(--muted); font-size: 12px; }
+	#end button {
+		font: inherit; color: var(--fg);
+		background: transparent; border: 1px solid var(--line);
+		border-radius: 6px; padding: 4px 12px; margin: 0 4px; cursor: pointer;
+	}
+	#end button:hover { border-color: var(--accent); color: var(--accent); }
+</style>
+</head>
+<body>
+<div id="bar">
+	<span id="title">阅读</span>
+	<span class="grow"></span>
+	<span id="count"></span>
+	<progress id="progress" value="0" max="1"></progress>
+	<button id="wider" title="更宽">宽</button>
+	<button id="narrower" title="更窄">窄</button>
+	<button id="spread" title="单页或双页(D)">单页</button>
+	<button id="dir" title="翻页方向(R)">左→右</button>
+	<button id="prev" title="上一话" hidden>上一话</button>
+	<button id="next" title="下一话" hidden>下一话</button>
+	<button id="keep" title="收藏当前页">收藏本页</button>
+	<button id="auto" title="读到章末自动接下一话(A)">自动接下一话</button>
+</div>
+<div id="pages"></div>
+<div id="end">
+	<span>本章结束</span> <span id="loaded"></span>
+	<div id="ends" style="margin-top: 10px">
+		<button id="endprev" hidden>上一话</button>
+		<button id="endnext" hidden>下一话</button>
+	</div>
+</div>
+<div id="message">正在加载…</div>
+<script>
+(() => {
+	const q = new URLSearchParams(location.search);
+	const source = q.get('source') || '';
+	const comic = q.get('comic') || '';
+	const chapter = q.get('chapter') || '';
+	const title = q.get('title') || '阅读';
+	const prevTitle = q.get('prevtitle') || '';
+	const nextTitle = q.get('nexttitle') || '';
+	const ref = { source, comic, chapter };
+
+	const pages = document.getElementById('pages');
+	const message = document.getElementById('message');
+	const end = document.getElementById('end');
+	const progress = document.getElementById('progress');
+	const count = document.getElementById('count');
+	document.getElementById('title').textContent = title;
+	document.title = title;
+
+	// The page's width: a strip of pages, or as wide as the window.
+	let fit = Number(localStorage.getItem('nkreader.fit') || 900);
+	const applyFit = () => document.documentElement.style.setProperty('--fit', fit + 'px');
+	applyFit();
+	document.getElementById('wider').onclick = () => { fit = Math.min(2400, fit + 200); localStorage.setItem('nkreader.fit', fit); applyFit(); };
+	document.getElementById('narrower').onclick = () => { fit = Math.max(360, fit - 200); localStorage.setItem('nkreader.fit', fit); applyFit(); };
+
+	// Layout: one page at a time or two side by side, and which of the two
+	// comes first. Right-to-left is what manga usually wants.
+	const spreadBtn = document.getElementById('spread');
+	const dirBtn = document.getElementById('dir');
+	let spread = localStorage.getItem('nkreader.spread') === '1';
+	let rtl = localStorage.getItem('nkreader.dir') === 'rtl';
+	function applyLayout() {
+		pages.classList.toggle('spread', spread);
+		pages.classList.toggle('rtl', rtl);
+		spreadBtn.textContent = spread ? '双页' : '单页';
+		dirBtn.textContent = rtl ? '右→左' : '左→右';
+		dirBtn.disabled = !spread;
+	}
+	spreadBtn.onclick = () => { spread = !spread; localStorage.setItem('nkreader.spread', spread ? '1' : '0'); applyLayout(); };
+	dirBtn.onclick = () => { rtl = !rtl; localStorage.setItem('nkreader.dir', rtl ? 'rtl' : 'ltr'); applyLayout(); };
+	applyLayout();
+
+	// The chapters on either side come from the window, which knows the
+	// list. Switching goes back through it, so its own state follows.
+	const prevID = q.get('prev') || '';
+	const nextID = q.get('next') || '';
+	async function openChapter(id) {
+		try {
+			const r = await fetch('switch?' + new URLSearchParams({ source, comic, chapter: id }), { cache: 'no-store' });
+			const data = await r.json().catch(() => ({}));
+			if (!r.ok || !data.url) throw new Error(data.error || ('HTTP ' + r.status));
+			// The window knows the chapter's neighbours, so it hands back the
+			// address to load rather than the page guessing.
+			location.assign(data.url);
+		} catch (e) {
+			message.hidden = false;
+			message.className = 'error';
+			message.textContent = '这一话没有打开:' + (e.message || e);
+		}
+	}
+	const wireNeighbours = () => {
+		const pairs = [['prev', prevID, prevTitle || '上一话'], ['next', nextID, nextTitle || '下一话'],
+			['endprev', prevID, prevTitle || '上一话'], ['endnext', nextID, nextTitle || '下一话']];
+		for (const [id, chapterID, label] of pairs) {
+			const el = document.getElementById(id);
+			if (!el) continue;
+			if (!chapterID) { el.hidden = true; continue; }
+			el.textContent = label.length > 24 ? label.slice(0, 24) + '…' : label;
+			el.hidden = false;
+			el.onclick = () => openChapter(chapterID);
+		}
+	};
+	wireNeighbours();
+
+	// Reading on to the next chapter can be automatic, but it is off unless
+	// asked for: a comic should not run away from the reader.
+	const autoBtn = document.getElementById('auto');
+	let auto = localStorage.getItem('nkreader.auto') === '1';
+	let autoFired = false;
+	// A short chapter can show its end the moment it opens; only a reader
+	// who has actually moved on should be carried to the next chapter.
+	let hasScrolled = false;
+	addEventListener('scroll', () => { if (scrollY > 0) hasScrolled = true; }, { passive: true });
+	function applyAuto() {
+		autoBtn.textContent = auto ? '自动接续:开' : '自动接续:关';
+		autoBtn.style.borderColor = auto ? 'var(--accent)' : '';
+		autoBtn.style.color = auto ? 'var(--accent)' : '';
+	}
+	autoBtn.onclick = () => { auto = !auto; localStorage.setItem('nkreader.auto', auto ? '1' : '0'); applyAuto(); };
+	applyAuto();
+	// The end of the chapter is watched rather than guessed from a scroll
+	// position, so a short chapter does not fire early.
+	const watchEnd = () => {
+		if (!nextID) return;
+		const sentinel = document.getElementById('end');
+		const io = new IntersectionObserver((entries) => {
+			for (const e of entries) {
+				if (!e.isIntersecting || !auto || autoFired || !hasScrolled) continue;
+				autoFired = true;
+				setTimeout(() => openChapter(nextID), 800);
+			}
+		}, { rootMargin: '0px 0px -10% 0px' });
+		io.observe(sentinel);
+	};
+
+	// The pages of the chapter, so the page being read can be kept.
+	let chapterImages = [];
+	document.getElementById('keep').onclick = async (e) => {
+		const button = e.currentTarget;
+		const number = currentPage();
+		const url = chapterImages[number - 1];
+		if (!url) return;
+		try {
+			const r = await fetch('keep?' + new URLSearchParams({
+				source, comic, chapter, page: String(number), u: b64url(url),
+			}), { cache: 'no-store' });
+			if (!r.ok) throw new Error('HTTP ' + r.status);
+			button.textContent = '已收藏';
+		} catch (_) {
+			button.textContent = '收藏失败';
+		}
+		setTimeout(() => { button.textContent = '收藏本页'; }, 2000);
+	};
+
+	const imgURL = (u) => new URL('img?' + new URLSearchParams({
+		source: ref.source, comic: ref.comic, chapter: ref.chapter, u: b64url(u),
+	}), location.href).href;
+
+	// base64url of UTF-8 text, matching Go's RawURLEncoding.
+	function b64url(s) {
+		const bytes = new TextEncoder().encode(s);
+		let bin = '';
+		for (const b of bytes) bin += String.fromCharCode(b);
+		return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+	}
+
+	// The place in the chapter is remembered, so coming back to a chapter
+	// returns to where reading stopped.
+	const placeKey = () => 'nkreader.at:' + [source, comic, chapter].join('/');
+	let saveTimer = 0;
+	// The chapter's length is known once its images are listed; the report
+	// waits for it so the window can show a page number and a percentage.
+	let pageCount = 0;
+	const currentPage = () => {
+		const figures = pages.children;
+		for (let i = 0; i < figures.length; i++) {
+			const r = figures[i].getBoundingClientRect();
+			if (r.bottom > 0) return i + 1;
+		}
+		return figures.length ? figures.length : 0;
+	};
+	const reportProgress = () => {
+		const room = document.body.scrollHeight - innerHeight;
+		const percent = room > 0 ? Math.round(Math.min(1, Math.max(0, scrollY / room)) * 100) : 100;
+		const u = 'progress?' + new URLSearchParams({
+			source: ref.source, comic: ref.comic, chapter: ref.chapter,
+			page: String(currentPage()), pages: String(pageCount), percent: String(percent),
+		});
+		fetch(u, { cache: 'no-store' }).catch(() => {});
+		// The window reads this for the shelf; the page keeps its own place.
+		try { localStorage.setItem(placeKey() + ':pct', String(percent)); } catch (_) {}
+	};
+	addEventListener('scroll', () => {
+		clearTimeout(saveTimer);
+		saveTimer = setTimeout(() => {
+			try { localStorage.setItem(placeKey(), String(scrollY)); } catch (_) {}
+			if (pageCount) reportProgress();
+		}, 400);
+	}, { passive: true });
+	function restorePlace() {
+		let y = 0;
+		try { y = Number(localStorage.getItem(placeKey()) || 0); } catch (_) {}
+		if (y > 0 && y < document.body.scrollHeight - innerHeight) scrollTo(0, y);
+	}
+
+	function fail(text, retry) {
+		message.hidden = false;
+		message.className = 'error';
+		message.textContent = text;
+		if (retry) {
+			const b = document.createElement('button');
+			b.textContent = '重试';
+			b.onclick = retry;
+			message.appendChild(document.createElement('br'));
+			message.appendChild(b);
+		}
+	}
+
+	async function load() {
+		message.hidden = false;
+		message.className = '';
+		message.textContent = '正在加载…';
+		pages.replaceChildren();
+		document.getElementById('loaded').textContent = '';
+		let data;
+		try {
+			const r = await fetch('chapter?' + new URLSearchParams({ source, comic, chapter }), { cache: 'no-store' });
+			data = await r.json();
+			if (!r.ok) throw new Error(data.error || ('HTTP ' + r.status));
+		} catch (e) {
+			message.textContent = '';
+			fail('这一章没有取到:' + (e.message || e), load);
+			return;
+		}
+		const images = data.images || [];
+		if (!images.length) { fail('这一章没有图片。', load); return; }
+		message.hidden = true;
+		count.textContent = images.length + ' 页';
+		progress.max = images.length;
+		pageCount = images.length;
+		chapterImages = images;
+
+		let loaded = 0;
+		images.forEach((u, i) => {
+			const fig = document.createElement('figure');
+			const img = document.createElement('img');
+			img.className = 'loading';
+			img.alt = '第 ' + (i + 1) + ' 页';
+			img.decoding = 'async';
+			img.loading = i < 2 ? 'eager' : 'lazy';
+			const label = document.createElement('span');
+			label.className = 'n';
+			label.textContent = i + 1 + ' / ' + images.length;
+			fig.append(img, label);
+			img.onload = () => {
+				img.classList.remove('loading');
+				// A wide page reads badly in half a column.
+				if (img.naturalWidth > img.naturalHeight * 1.15) fig.classList.add('wide');
+				loaded++;
+				progress.value = loaded;
+				// The end of the chapter is there from the start, so the
+				// sentinel the automatic next chapter watches never misses;
+				// this just says how much has decoded.
+				document.getElementById('loaded').textContent = '(' + loaded + ' / ' + images.length + ')';
+			};
+			img.onerror = () => {
+				img.classList.remove('loading');
+				const retry = document.createElement('div');
+				retry.className = 'retry';
+				retry.innerHTML = '第 ' + (i + 1) + ' 页加载失败 ';
+				const b = document.createElement('button');
+				b.textContent = '重试';
+				b.onclick = () => { retry.remove(); img.classList.add('loading'); img.src = imgURL(u) + '&r=' + Date.now(); };
+				retry.appendChild(b);
+				fig.appendChild(retry);
+			};
+			img.src = imgURL(u);
+			pages.appendChild(fig);
+		});
+		// Restoring needs a height to scroll to, so it waits for the first
+		// images to take their room.
+		requestAnimationFrame(() => requestAnimationFrame(restorePlace));
+		setTimeout(restorePlace, 600);
+		// Say where reading starts, so opening a chapter alone is recorded.
+		setTimeout(reportProgress, 900);
+		watchEnd();
+		// A chapter left at the bottom still reports its last position.
+		addEventListener('beforeunload', reportProgress);
+	}
+
+	// j/k and the arrows scroll, Home and End jump, as a reader expects.
+	window.addEventListener('keydown', (e) => {
+		const page = innerHeight * 0.9;
+		switch (e.key) {
+			case 'j': case 'ArrowDown': scrollBy(0, 80); break;
+			case 'k': case 'ArrowUp': scrollBy(0, -80); break;
+			case ' ': case 'PageDown': scrollBy(0, page); break;
+			case 'PageUp': scrollBy(0, -page); break;
+			case 'Home': scrollTo(0, 0); break;
+			case 'End': scrollTo(0, document.body.scrollHeight); break;
+			case 'd': spreadBtn.onclick(); return;
+			case 'r': if (spread) dirBtn.onclick(); return;
+			case 'a': autoBtn.onclick(); return;
+			default: return;
+		}
+		e.preventDefault();
+	});
+
+	load();
+})();
+</script>
+</body>
+</html>

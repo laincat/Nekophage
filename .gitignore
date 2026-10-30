@@ -1,0 +1,7 @@
+# Core checkout and the Go workspace that points at it (scripts/fetch-core.sh).
+/build/
+/go.work
+/go.work.sum
+/Nekophage.app
+/dist/
+*.exe
