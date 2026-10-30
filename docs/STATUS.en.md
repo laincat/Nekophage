@@ -121,5 +121,4 @@ go run ./cmd/verifycheck -e2e
 1. Find a reproducible live Cloudflare challenge (a site that answers a command-line client with 403 and does hand out `cf_clearance`) and check the done rule against it. Sites like 18comic.vip, which open in WebView2 but never set `cf_clearance`, cannot be judged passed today; relaxing the rule is a design decision.
 2. Build and run on macOS and Linux.
 3. Wire video sources and sniffing.
-4. Render descriptions as Markdown.
-5. The workbench module.
+4. The workbench module.

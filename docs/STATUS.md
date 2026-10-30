@@ -113,5 +113,4 @@ go run ./cmd/verifycheck -e2e
 1. 找可复现的真实 Cloudflare 挑战(需要站点当前对命令行回 403 且会下发 `cf_clearance`),用它核对完成规则;目前 18comic.vip 这类「WebView 能开但不发 `cf_clearance`」的站点,验证后仍无法判定通过,可能要放宽完成规则,这属于设计决定。
 2. 在 macOS 与 Linux 上编译并运行。
 3. 接上视频源与嗅探。
-4. 简介按 Markdown 渲染。
-5. 制作台模块。
+4. 制作台模块。
