@@ -172,6 +172,9 @@ type DevOptions struct {
 	// ShelfDemo edits folders at startup (create, move, rename) so the tools
 	// can check that the shelf's own editing works end to end.
 	ShelfDemo bool
+	// Favourite keeps the first search result, so the tools can check that
+	// the result grid marks what is already on the shelf.
+	Favourite bool
 	// OpenChapter opens that chapter in the reader once details arrive; -1
 	// leaves the reader closed. The tools use it to check the reader path.
 	OpenChapter int
@@ -181,7 +184,8 @@ type DevOptions struct {
 	ExploreIndex int
 	ExplorePage  int
 
-	opened bool
+	opened     bool
+	favourited bool
 }
 
 // New builds the app.
@@ -494,6 +498,15 @@ func (a *App) searchPage(key, query string, page int) {
 			a.maxPage = res.MaxPage
 			if len(a.results) == 0 {
 				a.notice = "没有结果"
+			}
+			if a.dev.Favourite && !a.dev.favourited && len(a.results) > 0 {
+				a.dev.favourited = true
+				first := a.results[0]
+				if a.shelf != nil {
+					if _, err := a.shelf.Add(shelf.DefaultFolder, shelfComic(key, first, core.Details{})); err != nil {
+						a.notice = err.Error()
+					}
+				}
 			}
 			if a.dev.OpenFirst && !a.dev.opened && len(a.results) > 0 {
 				a.dev.opened = true
@@ -948,6 +961,12 @@ func (a *App) resultsView(c *ui.Context, t *ui.Theme, busy bool) {
 			source = a.resultSources[i]
 		}
 		a.mu.Unlock()
+		// Result cards say when the comic is already on the shelf, so the
+		// reader does not look for it twice.
+		held := false
+		if a.shelf != nil {
+			_, held = a.shelf.Holds(source, comic.ID)
+		}
 		name := source + "/" + comic.ID
 		a.cover(source, comic.ID, comic.Cover)
 		ui.Column(c).Gap(6).Children(func() {
@@ -962,6 +981,9 @@ func (a *App) resultsView(c *ui.Context, t *ui.Theme, busy bool) {
 			}
 			if merged {
 				ui.Text(c, a.sourceName(source)).FontSize(10).TextColor(t.TextMuted).SingleLine()
+			}
+			if held {
+				ui.Text(c, "已在书架").FontSize(10).TextColor(t.Accent).SingleLine()
 			}
 		})
 	}).Grow(1).Padding(16).Gap(16)
@@ -1206,9 +1228,26 @@ func (a *App) detailsView(c *ui.Context, t *ui.Theme, busy bool) {
 	// The chapter read last, so the list shows where reading stopped even
 	// after another chapter was opened and closed.
 	var lastChapter shelf.History
-	hasLast := false
 	if sh != nil && comic.ID != "" {
-		lastChapter, hasLast = sh.HistoryEntry(key, comic.ID)
+		if e, ok := sh.HistoryEntry(key, comic.ID); ok {
+			lastChapter = e
+		}
+	}
+	// One row carries the marker: the recorded index while it still names
+	// the same chapter, otherwise the first row with that title, since a
+	// source may repeat a title across groups.
+	markIndex := -1
+	if lastChapter.Chapter != "" || lastChapter.Time != 0 {
+		if i := lastChapter.ChapterIndex; i >= 0 && i < len(chapters) && chapters[i].Title == lastChapter.Chapter {
+			markIndex = i
+		} else {
+			for i, ch := range chapters {
+				if ch.Title == lastChapter.Chapter {
+					markIndex = i
+					break
+				}
+			}
+		}
 	}
 
 	if busy {
@@ -1317,9 +1356,8 @@ func (a *App) detailsView(c *ui.Context, t *ui.Theme, busy bool) {
 				}
 				ui.Row(c).Padding(6, 16).Gap(8).AlignItems(ui.Center).Children(func() {
 					ui.Text(c, label).Grow(1)
-					// Mark where reading stopped: the recorded index, or the
-					// same title when the list has shifted since.
-					if hasLast && (idx == lastChapter.ChapterIndex || ch.Title == lastChapter.Chapter) {
+					// Mark where reading stopped.
+					if idx == markIndex {
 						ui.Text(c, "读到").FontSize(11).TextColor(t.Accent)
 					}
 					if ui.Button(c, "阅读").Clicked() {
