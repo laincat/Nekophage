@@ -29,7 +29,10 @@
 |---|---|
 | 拷贝漫画 `copy_manga` v1.4.3 | 搜索「海贼王」21 部、2 页;详情 401 章、4 组标签;章节 209 张图;取图 339,596 字节 `image/webp`;封面 108,565 字节 `image/jpeg` |
 | MangaDex `manga_dex` v1.2.0 | 搜索「one piece」20 部、2 页;详情 962 章、3 组标签;章节 53 张图;取图 122,856 字节 `image/jpeg`;封面 56,745 字节 `image/jpeg` |
+| Comick `comick` v1.x | 搜索「one piece」：章节 51 张图、取图 37,912 字节、封面 44,668 字节(均为 WebP);书架记下 `page 3, 42%` |
 | Komiic `komiic` v1.x | 分类浏览(分页型)第 1 页与第 2 页内容不同,封面与作者正常,翻页生效;端到端:章节 67 张图、取图 248,508 字节、封面 27,252 字节;书架记下 `page 3, 42%` |
+
+Comick 顺带暴露了真实源测试自己的一个缺陷:测试直接拼 `...&chapter=<章节 id>`,而它的章节 id 本身带斜杠,拼出来的请求行变成非法 HTTP 版本,`httptest.NewRequest` 直接 panic。现在四个 reader 请求(`/chapter`、`/progress`、`/keep`、`/switch`)都改用 `url.Values` 编码,`/switch` 也改为解析返回的 JSON 再比对 `chapter` 参数,而不是在原始响应体里找子串。
 
 Komiic 顺带暴露了两处服务端标注问题:页面图实际是 WebP,响应头却写 `image/jpeg`;封面响应头写 `application/octet-stream`。真实源测试因此改为按文件头判断图片类型(JPEG/PNG/GIF/WebP/HEIF/AVIF/BMP),不再信任 `Content-Type`——原来的写法会把一个能正常显示的 WebP 判成「不是图片」。WebP 的封面由 MyGo 的 `ui.DecodeBitmap` 解码(它已经引入 `x/image/webp`),阅读器里的页面图交给 WebView,两者都不受影响。
 

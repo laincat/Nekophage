@@ -5,10 +5,10 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strconv"
-	"strings"
 	"testing"
 	"time"
 
@@ -134,7 +134,7 @@ func TestLiveSource(t *testing.T) {
 	// The reader page's own requests, exactly as the WebView makes them: it
 	// asks /chapter for the list, then /img per page.
 	srv := reader.New(c)
-	chapterURL := reader.Scheme + "://localhost/chapter?source=" + rec.Key + "&comic=" + pick.ID + "&chapter=" + chapterID
+	chapterURL := readerURL("/chapter", "source", rec.Key, "comic", pick.ID, "chapter", chapterID)
 	rec2 := httptest.NewRecorder()
 	srv.ServeHTTP(rec2, httptest.NewRequest(http.MethodGet, chapterURL, nil))
 	if rec2.Code != http.StatusOK {
@@ -190,8 +190,8 @@ func TestLiveSource(t *testing.T) {
 			t.Errorf("shelf progress: %v", err)
 		}
 	})
-	progressURL := reader.Scheme + "://localhost/progress?source=" + rec.Key + "&comic=" + pick.ID +
-		"&chapter=" + chapterID + "&page=3&pages=" + itoa(len(images)) + "&percent=42"
+	progressURL := readerURL("/progress", "source", rec.Key, "comic", pick.ID,
+		"chapter", chapterID, "page", "3", "pages", itoa(len(images)), "percent", "42")
 	if rec := httptest.NewRecorder(); true {
 		srv.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, progressURL, nil))
 		if rec.Code != http.StatusOK {
@@ -209,8 +209,8 @@ func TestLiveSource(t *testing.T) {
 			ComicTitle: d.Title, ChapterID: k.Chapter, ChapterIndex: chapterIndex,
 			ChapterName: chapterTitle, Page: k.Page, URL: k.URL}) == nil
 	})
-	keepURL := reader.Scheme + "://localhost/keep?source=" + rec.Key + "&comic=" + pick.ID +
-		"&chapter=" + chapterID + "&page=1&u=" + base64.RawURLEncoding.EncodeToString([]byte(images[0]))
+	keepURL := readerURL("/keep", "source", rec.Key, "comic", pick.ID,
+		"chapter", chapterID, "page", "1", "u", base64.RawURLEncoding.EncodeToString([]byte(images[0])))
 	if rec := httptest.NewRecorder(); true {
 		srv.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, keepURL, nil))
 		if rec.Code != http.StatusOK {
@@ -226,11 +226,19 @@ func TestLiveSource(t *testing.T) {
 	srv.OnSwitch(func(sw reader.Switch) (string, bool) {
 		return reader.ReaderURL(sw.Source, sw.Comic, sw.Chapter, d.Title), true
 	})
-	switchURL := reader.Scheme + "://localhost/switch?source=" + rec.Key + "&comic=" + pick.ID + "&chapter=" + chapterID
+	switchURL := readerURL("/switch", "source", rec.Key, "comic", pick.ID, "chapter", chapterID)
 	rec6 := httptest.NewRecorder()
 	srv.ServeHTTP(rec6, httptest.NewRequest(http.MethodGet, switchURL, nil))
-	if rec6.Code != http.StatusOK || !strings.Contains(rec6.Body.String(), "chapter="+chapterID) {
+	var moved struct {
+		OK  bool   `json:"ok"`
+		URL string `json:"url"`
+	}
+	if err := json.Unmarshal(rec6.Body.Bytes(), &moved); err != nil || rec6.Code != http.StatusOK || !moved.OK {
 		t.Errorf("reader /switch: %d %s", rec6.Code, rec6.Body.String())
+	} else if target, err := url.Parse(moved.URL); err != nil {
+		t.Errorf("reader /switch url: %v", err)
+	} else if got := target.Query().Get("chapter"); got != chapterID {
+		t.Errorf("reader /switch points at %q, want %q", got, chapterID)
 	}
 
 	// Reopening the profile reads the same shelf back.
@@ -253,6 +261,16 @@ func TestLiveSource(t *testing.T) {
 			t.Logf("cover bytes: %d, content type %q", len(cover), ctype)
 		}
 	}
+}
+
+// readerURL is how the WebView asks the reader server for something: the
+// values are escaped, because they are URLs and titles themselves.
+func readerURL(path string, kv ...string) string {
+	q := url.Values{}
+	for i := 0; i+1 < len(kv); i += 2 {
+		q.Set(kv[i], kv[i+1])
+	}
+	return reader.Scheme + "://localhost" + path + "?" + q.Encode()
 }
 
 // imageKind names the image container by its magic bytes, whatever the
