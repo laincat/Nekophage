@@ -5,3 +5,4 @@
 /Nekophage.app
 /dist/
 *.exe
+corestamp.go

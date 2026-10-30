@@ -28,6 +28,7 @@ import (
 	"github.com/laincat/nekophage/internal/reader"
 	"github.com/laincat/nekophage/internal/ui"
 	"github.com/laincat/veneracat-core/host"
+	coreversion "github.com/laincat/veneracat-core/version"
 
 	// MyGo's own control strings (placeholders, dialog buttons) in the same
 	// language as the rest of the interface.
@@ -47,8 +48,8 @@ func buildInfo() string {
 			}
 		}
 	}
-	return fmt.Sprintf("Nekophage %s (Venera source API %s)\ncommit %s\n%s %s/%s",
-		version, sourceVersion, commit, runtime.Version(), runtime.GOOS, runtime.GOARCH)
+	return fmt.Sprintf("Nekophage %s (Venera source API %s)\nCore %s\ncommit %s\n%s %s/%s",
+		version, sourceVersion, coreversion.String(), commit, runtime.Version(), runtime.GOOS, runtime.GOARCH)
 }
 
 func main() {
