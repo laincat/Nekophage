@@ -31,6 +31,7 @@ Nekularity 的桌面端:用 Venera 兼容的漫画源阅读,并把视频播放�
 ```sh
 scripts/fetch-core.sh      # 把 Core 拉到 build/core(版本见 scripts/core-version)
 go build .                 # 生成 Nekophage 可执行文件
+./Nekophage -version        # 版本、源 API 级别、提交号与 Go 运行时,不开窗
 go test ./...              # 单元与端到端测试
 ```
 

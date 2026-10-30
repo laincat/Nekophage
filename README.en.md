@@ -31,6 +31,7 @@ Needs Go 1.27 or later.
 ```sh
 scripts/fetch-core.sh      # clones Core into build/core (version in scripts/core-version)
 go build .                 # builds the Nekophage executable
+./Nekophage -version        # version, source API level, commit and Go runtime, no window
 go test ./...              # unit and end-to-end tests
 ```
 

@@ -13,7 +13,12 @@ package main
 
 import (
 	"context"
+	"flag"
+	"fmt"
 	"log"
+	"os"
+	"runtime"
+	"runtime/debug"
 
 	"github.com/egoist/mygo"
 	"github.com/laincat/nekophage/internal/browser"
@@ -29,7 +34,31 @@ import (
 	_ "github.com/egoist/mygo/locales/zh-Hans"
 )
 
+// buildInfo answers "which build is this" without opening a window: the version,
+// the source API level sources see, the Go runtime, and the commit when the binary
+// was built from a checkout. A report that says "it does not start" is much easier
+// to act on with the commit in hand.
+func buildInfo() string {
+	commit := "unknown"
+	if info, ok := debug.ReadBuildInfo(); ok {
+		for _, setting := range info.Settings {
+			if setting.Key == "vcs.revision" && setting.Value != "" {
+				commit = setting.Value
+			}
+		}
+	}
+	return fmt.Sprintf("Nekophage %s (Venera source API %s)\ncommit %s\n%s %s/%s",
+		version, sourceVersion, commit, runtime.Version(), runtime.GOOS, runtime.GOARCH)
+}
+
 func main() {
+	showVersion := flag.Bool("version", false, "print the build and exit")
+	flag.Parse()
+	if *showVersion {
+		fmt.Fprintln(os.Stdout, buildInfo())
+		return
+	}
+
 	// Sources, settings and cookies live in the per-user data directory.
 	dataDir, err := mygo.App.Path(mygo.PathUserData)
 	if err != nil {
