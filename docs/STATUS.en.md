@@ -96,9 +96,10 @@ Browsing works on all three sources: MangaDex showed its Popular part as a list 
 
 Re-running the live sources on 2026-10-31, Copy Manga began answering **HTTP 210** for details, and
 that source accepts only 200 (`copy_manga.js` throws ``Invalid status code: ${res.status}``), so the
-run reports `js: Invalid status code: 210`. It is not a client defect: MangaDex went end to end in
-the same run, and the text is thrown by the source itself. A 210 is an off-spec answer from the
-site — plausibly a challenge or a rate limit — and this E2E stays red until the site recovers.
+run reports `js: Invalid status code: 210`. It is not a client defect: on the same day MangaDex (6.4 s), Komiic (1.7 s) and Comick (56 s) all
+went end to end, and the text is thrown by the source itself.
+A 210 is an off-spec answer from the site — plausibly a challenge or a rate limit — and this E2E
+stays red until the site recovers.
 
 ## Not verified
 

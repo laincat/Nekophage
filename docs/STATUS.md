@@ -89,7 +89,7 @@ Core 同步到 `af4f1a0` 之后又跑了两条真实源:MangaDex(`one piece` —
 
 2026-10-31 复跑真实源时,拷贝漫画的详情请求开始返回 **HTTP 210**,而该源的脚本自己只接受 200
 (`copy_manga.js` 里 `throw \`Invalid status code: ${res.status}\``),于是报 `js: Invalid status code: 210`。
-这不是客户端缺陷:同一次运行里 MangaDex 端到端全过,错误文本也是源脚本自己抛的。210 属于站点侧的非标准响应,
+这不是客户端缺陷:同一天复跑,MangaDex(6.4s)、Komiic(1.7s)、Comick(56s)三条端到端全过,错误文本也是源脚本自己抛的。210 属于站点侧的非标准响应,
 可能与人机验证或限流有关;在站点恢复正常前,拷贝漫画这条 E2E 会失败。
 
 ## 未验证
