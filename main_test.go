@@ -10,7 +10,10 @@ import (
 // easier to act on with the commit and the runtime in hand.
 func TestBuildInfoNamesTheBuild(t *testing.T) {
 	got := buildInfo()
-	for _, want := range []string{version, sourceVersion, runtime.Version(), runtime.GOOS, runtime.GOARCH, "commit "} {
+	for _, want := range []string{
+		version, sourceVersion, runtime.Version(), runtime.GOOS, runtime.GOARCH,
+		"commit ", "Core ",
+	} {
 		if !strings.Contains(got, want) {
 			t.Errorf("buildInfo() = %q, missing %q", got, want)
 		}
