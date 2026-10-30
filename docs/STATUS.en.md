@@ -70,7 +70,7 @@ The shelf was checked on a real source: opening chapter 3 of 我的女友老師 
 
 Backup import was checked with a `.venera` carrying the real `copy_manga.js`: the preview reported 1 source, 2 with data and 2 search-history entries; the import installed `copy_manga` 1.4.3 through the normal flow and wrote back 4 data keys, keeping `12345678901234567890` intact.
 
-Browsing works on all three sources: MangaDex showed its Popular part as a list with covers, Copy Manga showed its 推荐 and 热门 parts, and Komiic's paging browse changed content between page 1 and page 2. The reader window really runs in the WebView: the page's title was the comic's, it built 53 figures, images decoded (the first at 757×1200), and `currentSrc` pointed at the `nkreader://` image URL (`http://nkreader.localhost` on Windows). Reopening the same chapter returns to where reading stopped: after scrolling to 1200 and reloading, `scrollY` was still 1200.
+Browsing works on all three sources: MangaDex showed its Popular part as a list with covers, Copy Manga showed its 推荐 and 热门 parts, and Komiic's paging browse changed content between page 1 and page 2. The reader window really runs in the WebView: the page's title was the comic's, it built 53 figures, images decoded (the first at 757×1200), and `currentSrc` pointed at the `nkreader://` image URL (`http://nkreader.localhost` on Windows). Reopening the same chapter returns to where reading stopped: after scrolling to 1200 and reloading, `scrollY` was still 1200. Comick passes the same check: 51 figures, 51 images, the 4 visible ones decoded (the rest load on demand), the first at 750×1194, with `currentSrc` pointing at `http://nkreader.localhost/img?source=comick&…`.
 
 ### Verification (2026-10-30)
 
