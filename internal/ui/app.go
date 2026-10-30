@@ -1200,7 +1200,16 @@ func (a *App) detailsView(c *ui.Context, t *ui.Theme, busy bool) {
 	a.mu.Lock()
 	d, comic, chapters := a.detail, a.detailComic, a.detail.Chapters
 	key := a.currentKey()
+	sh := a.shelf
 	a.mu.Unlock()
+
+	// The chapter read last, so the list shows where reading stopped even
+	// after another chapter was opened and closed.
+	var lastChapter shelf.History
+	hasLast := false
+	if sh != nil && comic.ID != "" {
+		lastChapter, hasLast = sh.HistoryEntry(key, comic.ID)
+	}
 
 	if busy {
 		ui.Row(c).Padding(16).Gap(10).AlignItems(ui.Center).Children(func() {
@@ -1308,6 +1317,11 @@ func (a *App) detailsView(c *ui.Context, t *ui.Theme, busy bool) {
 				}
 				ui.Row(c).Padding(6, 16).Gap(8).AlignItems(ui.Center).Children(func() {
 					ui.Text(c, label).Grow(1)
+					// Mark where reading stopped: the recorded index, or the
+					// same title when the list has shifted since.
+					if hasLast && (idx == lastChapter.ChapterIndex || ch.Title == lastChapter.Chapter) {
+						ui.Text(c, "读到").FontSize(11).TextColor(t.Accent)
+					}
 					if ui.Button(c, "阅读").Clicked() {
 						a.openReader(idx)
 					}

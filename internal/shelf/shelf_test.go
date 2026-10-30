@@ -376,3 +376,25 @@ func TestAnOlderCopyDoesNotReplaceANewerOne(t *testing.T) {
 		t.Errorf("after an older import = %+v", got)
 	}
 }
+
+func TestHistoryEntryFindsOneComic(t *testing.T) {
+	s := open(t, t.TempDir())
+	a := Comic{Source: "copy_manga", ID: "1", Title: "A"}
+	if err := s.Record(History{Comic: a, Chapter: "第 3 话", ChapterIndex: 2, Page: 7, Percent: 42, Time: 100}); err != nil {
+		t.Fatal(err)
+	}
+	got, ok := s.HistoryEntry("copy_manga", "1")
+	if !ok {
+		t.Fatal("entry not found")
+	}
+	if got.Chapter != "第 3 话" || got.ChapterIndex != 2 || got.Page != 7 || got.Percent != 42 {
+		t.Errorf("entry = %+v", got)
+	}
+	// Another source may use the same id, and an unknown comic has no entry.
+	if _, ok := s.HistoryEntry("komiic", "1"); ok {
+		t.Error("entry found under the wrong source")
+	}
+	if _, ok := s.HistoryEntry("copy_manga", "9"); ok {
+		t.Error("entry found for an unknown comic")
+	}
+}

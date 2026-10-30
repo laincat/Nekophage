@@ -206,6 +206,19 @@ func (s *Shelf) History(limit int) []History {
 	return append([]History(nil), s.history[:limit]...)
 }
 
+// HistoryEntry returns the reading position of one comic in one source.
+// The detail page uses it to mark the chapter that was read last.
+func (s *Shelf) HistoryEntry(source, id string) (History, bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for _, e := range s.history {
+		if e.Source == source && e.ID == id {
+			return e, true
+		}
+	}
+	return History{}, false
+}
+
 // ForgetHistory drops one comic's reading positions.
 func (s *Shelf) ForgetHistory(source, id string) error {
 	s.mu.Lock()
