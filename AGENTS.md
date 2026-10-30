@@ -52,3 +52,7 @@ CGO_ENABLED=0 GOOS=darwin  go build ./...
 ```
 
 需要把 Go 的临时目录和缓存放到别处时,设置 `GOTMPDIR` 和 `GOCACHE`。
+
+## 提交前跑检查,别接管道
+
+`bash scripts/check-docs.sh | tail -1 && git commit ...` 看起来在把关,其实**退出码是 `tail` 的**:检查失败也会照常提交。这次就是这样把根目录多出的文件提交进去的。要么直接跑脚本,要么用 `set -o pipefail`,或者先跑后提交两步分开。
