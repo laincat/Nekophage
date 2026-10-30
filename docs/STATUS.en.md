@@ -32,6 +32,8 @@ Updated 2026-10-30. Every result below comes from **Windows** on this machine, w
 | Comick `comick` v1.x | searched "one piece": 51 images in a chapter, a 37,912-byte image and a 44,668-byte cover, both WebP; the shelf recorded `page 3, 42%` |
 | Komiic `komiic` v1.x | the paging browse returns different comics on page 1 and page 2, with covers and authors, so paging works; end to end: 67 images in a chapter, a 248,508-byte image, a 27,252-byte cover, and the shelf recording `page 3, 42%` |
 
+The human-verification path runs too: `go run ./cmd/verifycheck --local` returns `ok` — a local fake site answers 403, the WebView opens, the challenge is solved, and `cf_clearance=local-ok` is written for that site's domain 2.8 seconds later. Rerun after Core was synced to `af4f1a0`.
+
 Comick also exposed a defect in the test itself: it built `...&chapter=<chapter id>` by hand, and that source's chapter ids contain slashes, so the request line became an invalid HTTP version and `httptest.NewRequest` panicked. All four reader requests (`/chapter`, `/progress`, `/keep`, `/switch`) now encode with `url.Values`, and `/switch` parses the returned JSON and compares the `chapter` parameter instead of looking for a substring in the raw body.
 
 Komiic also exposed two labelling problems on the server side: page images are WebP while the header says `image/jpeg`, and covers come back as `application/octet-stream`. The live test therefore classifies images by their header bytes (JPEG/PNG/GIF/WebP/HEIF/AVIF/BMP) instead of trusting `Content-Type` — the old check called a perfectly displayable WebP "not an image". WebP covers decode through MyGo's `ui.DecodeBitmap`, which already pulls in `x/image/webp`; page images go to the WebView, so both paths are unaffected.
