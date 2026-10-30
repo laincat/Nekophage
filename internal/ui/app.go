@@ -1339,6 +1339,20 @@ func (a *App) detailsView(c *ui.Context, t *ui.Theme, busy bool) {
 				if a.chapterQuery != "" {
 					ui.Textf(c, "· 找到 %d 章", len(matches)).FontSize(12).TextColor(t.TextMuted)
 				}
+				// Where reading stopped, with a way back into it.
+				if markIndex >= 0 {
+					switch {
+					case lastChapter.Page > 0 && lastChapter.Percent > 0:
+						ui.Textf(c, "· 上次读到 第 %d 页 · %d%%", lastChapter.Page, lastChapter.Percent).FontSize(12).TextColor(t.Accent)
+					case lastChapter.Page > 0:
+						ui.Textf(c, "· 上次读到 第 %d 页", lastChapter.Page).FontSize(12).TextColor(t.Accent)
+					default:
+						ui.Text(c, "· 有未读完的记录").FontSize(12).TextColor(t.Accent)
+					}
+					if ui.Button(c, "继续阅读").Clicked() {
+						a.openReader(markIndex)
+					}
+				}
 				ui.SearchField(c, &a.chapterQuery).Placeholder("筛选章节标题").Label("筛选章节").Grow(1)
 			})
 			if len(matches) == 0 {
