@@ -124,7 +124,10 @@ func TestLiveSource(t *testing.T) {
 		t.Fatalf("fetch image: %v", err)
 	}
 	t.Logf("image bytes: %d, content type %q", len(img), ctype)
-	if len(img) == 0 || !strings.HasPrefix(ctype, "image/") {
+	// What matters is that the body is image data, not how the server
+	// labelled it: sources answer with octet-stream or with a type that
+	// does not match the bytes.
+	if kind := imageKind(img); kind == "" {
 		t.Errorf("not an image: %d bytes, %q", len(img), ctype)
 	}
 
@@ -157,7 +160,7 @@ func TestLiveSource(t *testing.T) {
 	}
 	ctype2 := rec3.Header().Get("Content-Type")
 	t.Logf("reader /img: %d bytes, %s", rec3.Body.Len(), ctype2)
-	if rec3.Body.Len() == 0 || !strings.HasPrefix(ctype2, "image/") {
+	if imageKind(rec3.Body.Bytes()) == "" {
 		t.Errorf("reader /img is not an image: %d bytes, %q", rec3.Body.Len(), ctype2)
 	}
 
@@ -244,12 +247,35 @@ func TestLiveSource(t *testing.T) {
 		cover, ctype, err := c.FetchThumbnail(ctx, rec.Key, pick.Cover, pick.ID)
 		if err != nil {
 			t.Errorf("cover: %v", err)
-		} else if len(cover) == 0 || !strings.HasPrefix(ctype, "image/") {
+		} else if imageKind(cover) == "" {
 			t.Errorf("cover is not an image: %d bytes, %q", len(cover), ctype)
 		} else {
 			t.Logf("cover bytes: %d, content type %q", len(cover), ctype)
 		}
 	}
+}
+
+// imageKind names the image container by its magic bytes, whatever the
+// server said in Content-Type. Sources do mislabel: Komiic answers with
+// image/jpeg for a WebP body, and Go's standard decoders cannot read WebP.
+// Returns "" for bytes that are not a known container.
+func imageKind(data []byte) string {
+	png := []byte{0x89, 'P', 'N', 'G', 0x0D, 0x0A, 0x1A, 0x0A}
+	switch {
+	case len(data) > 3 && data[0] == 0xFF && data[1] == 0xD8 && data[2] == 0xFF:
+		return "jpeg"
+	case len(data) >= len(png) && string(data[:len(png)]) == string(png):
+		return "png"
+	case len(data) > 6 && (string(data[:6]) == "GIF87a" || string(data[:6]) == "GIF89a"):
+		return "gif"
+	case len(data) > 12 && string(data[:4]) == "RIFF" && string(data[8:12]) == "WEBP":
+		return "webp"
+	case len(data) > 12 && string(data[4:8]) == "ftyp":
+		return "heif/avif"
+	case len(data) > 2 && string(data[:2]) == "BM":
+		return "bmp"
+	}
+	return ""
 }
 
 // itoa keeps the URL building above readable.

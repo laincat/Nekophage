@@ -29,7 +29,9 @@ Updated 2026-10-30. Every result below comes from **Windows** on this machine, w
 |---|---|
 | Copy Manga `copy_manga` v1.4.3 | searched 海贼王: 21 comics over 2 pages; details: 401 chapters, 4 tag groups; chapter: 209 images; image: 339,596 bytes of `image/webp`; cover: 108,565 bytes of `image/jpeg` |
 | MangaDex `manga_dex` v1.2.0 | searched "one piece": 20 comics over 2 pages; details: 962 chapters, 3 tag groups; chapter: 53 images; image: 122,856 bytes of `image/jpeg`; cover: 56,745 bytes of `image/jpeg` |
-| Komiic `komiic` v1.x | the paging browse returns different comics on page 1 and page 2, with covers and authors, so paging works |
+| Komiic `komiic` v1.x | the paging browse returns different comics on page 1 and page 2, with covers and authors, so paging works; end to end: 67 images in a chapter, a 248,508-byte image, a 27,252-byte cover, and the shelf recording `page 3, 42%` |
+
+Komiic also exposed two labelling problems on the server side: page images are WebP while the header says `image/jpeg`, and covers come back as `application/octet-stream`. The live test therefore classifies images by their header bytes (JPEG/PNG/GIF/WebP/HEIF/AVIF/BMP) instead of trusting `Content-Type` — the old check called a perfectly displayable WebP "not an image". WebP covers decode through MyGo's `ui.DecodeBitmap`, which already pulls in `x/image/webp`; page images go to the WebView, so both paths are unaffected.
 
 The reader's two endpoints were called the way the page calls them: Copy Manga `/chapter` returned 209 images and `/img` 339,596 bytes; MangaDex 53 and 122,856.
 
