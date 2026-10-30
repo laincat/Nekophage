@@ -135,7 +135,10 @@ func main() {
 		}
 		keptPages++
 	}
-	fmt.Printf("  pages: %d kept\n", keptPages)
+	// Kept pages arrive from two places in a backup (image favourites and the
+	// episode rows that point at them), so the count read and the count stored
+	// are reported separately rather than assumed equal.
+	fmt.Printf("  pages: %d rows -> %d kept\n", keptPages, len(sh.Pages(0)))
 
 	searched, err := searches.Open(*dir)
 	if err != nil {
