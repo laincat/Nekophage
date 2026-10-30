@@ -340,6 +340,9 @@ func (a *App) historyRow(c *ui.Context, t *ui.Theme, h shelf.History) {
 			if line == "" {
 				line = "第 " + itoa(h.ChapterIndex+1) + " 话"
 			}
+			if h.Page > 0 {
+				line += " · 第 " + itoa(h.Page) + " 页"
+			}
 			if h.Percent > 0 {
 				line += " · " + itoa(h.Percent) + "%"
 			}
