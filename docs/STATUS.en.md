@@ -92,6 +92,14 @@ Browsing works on all three sources: MangaDex showed its Popular part as a list 
 4. **Covers stayed grey**: the first frame ran before a cover arrived, and the decode cache remembered "no image" for good. Only decoded bitmaps and failed downloads are remembered now.
 5. **A stale source list**: `Library.Sources()` read its own cache, so a source installed another way never showed. It asks Core every time now.
 
+## A source changing, not a regression
+
+Re-running the live sources on 2026-10-31, Copy Manga began answering **HTTP 210** for details, and
+that source accepts only 200 (`copy_manga.js` throws ``Invalid status code: ${res.status}``), so the
+run reports `js: Invalid status code: 210`. It is not a client defect: MangaDex went end to end in
+the same run, and the text is thrown by the source itself. A 210 is an off-spec answer from the
+site — plausibly a challenge or a rate limit — and this E2E stays red until the site recovers.
+
 ## Not verified
 
 - **A live Cloudflare challenge**: none could be reproduced. 18comic.vip answers 403 to a command-line client but opens in WebView2 without setting `cf_clearance`, so the current rule cannot call it passed; whether such a site lets the client in after verification needs another sample.
