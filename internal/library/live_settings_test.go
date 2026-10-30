@@ -39,6 +39,23 @@ func TestLiveSourceSettingsTakeEffect(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	// Only a source that declares image_quality can show it reaching the
+	// source. Running the suite against another source used to fail here for
+	// the wrong reason, so it skips instead.
+	settings, err := c.Settings(ctx, rec.Key)
+	if err != nil {
+		t.Fatal(err)
+	}
+	hasQuality := false
+	for _, s := range settings {
+		if s.Key == "image_quality" {
+			hasQuality = true
+			break
+		}
+	}
+	if !hasQuality {
+		t.Skipf("%s declares no image_quality setting", rec.Key)
+	}
 	page, err := c.Search(ctx, rec.Key, query, options, 1)
 	if err != nil || len(page.Comics) == 0 {
 		t.Fatalf("search: %v, %d comics", err, len(page.Comics))
