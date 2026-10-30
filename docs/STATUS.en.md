@@ -88,7 +88,7 @@ Browsing works on all three sources: MangaDex showed its Popular part as a list 
 ## Not verified
 
 - **A live Cloudflare challenge**: none could be reproduced. 18comic.vip answers 403 to a command-line client but opens in WebView2 without setting `cf_clearance`, so the current rule cannot call it passed; whether such a site lets the client in after verification needs another sample.
-- **macOS and Linux**: cross-compiled only, never run.
+- **macOS and Linux**: cross-compile and `go vet` both pass (`GOOS=darwin GOARCH=arm64`, `GOOS=linux GOARCH=amd64`, rechecked 2026-10-31), but neither is **run**. Compiling is not opening a window: that layer needs each platform's own system libraries, so a real run still has to happen on those machines.
 - **Video sources**: Core supports them, the desktop app does not wire them yet; `browser.Sniffer` returns "unsupported" for now.
 - **The workbench**: not started; see [ARCHITECTURE.en.md](ARCHITECTURE.en.md).
 - **A source's own decay**: vensrc's `wnacg` 1.4.1 fails to install because both release pages it reads now only offer an e-mail address instead of listing comic domains, so its `init` throws. The official client treats a failing `init` the same way, so this is not a client deviation.

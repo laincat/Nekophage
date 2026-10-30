@@ -84,7 +84,7 @@ Komiic 顺带暴露了两处服务端标注问题:页面图实际是 WebP,响应
 ## 未验证
 
 - **真实 Cloudflare 挑战**:没有遇到可复现的挑战页。18comic.vip 对命令行返回 403,但 WebView2 能直接打开且**不设置 `cf_clearance`**,因此按现在的完成规则无法判定通过;这类站点是否能在验证后放行,需要再找样本。
-- **macOS 与 Linux**:只做交叉编译,没有运行。
+- **macOS 与 Linux**:交叉编译与 `go vet` 都过(`GOOS=darwin GOARCH=arm64`、`GOOS=linux GOARCH=amd64`,2026-10-31 复查),但**没有运行**。能编译不等于能开窗:窗口那一层要各自平台的系统库,真实运行仍需在对应机器上做。
 - **视频源**:Core 支持,桌面端还没接上;`browser.Sniffer` 目前明确返回不支持。
 - **制作台**:未开始,设计见 [ARCHITECTURE.md](ARCHITECTURE.md)。
 - **源本身失效**:vensrc 的 `wnacg` 1.4.1 安装失败,因为它依赖的两个发布页现在只留「邮件获取地址」,不再列出漫画域名,`init` 因此抛错。官方客户端同样把 `init` 的错误当成安装失败,所以这不是客户端的偏差。
