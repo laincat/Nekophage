@@ -122,5 +122,5 @@ go run ./cmd/verifycheck -e2e
 
 1. 找可复现的真实 Cloudflare 挑战(需要站点当前对命令行回 403 且会下发 `cf_clearance`),用它核对完成规则;目前 18comic.vip 这类「WebView 能开但不发 `cf_clearance`」的站点,验证后仍无法判定通过,可能要放宽完成规则,这属于设计决定。
 2. 在 macOS 与 Linux 上编译并运行。
-3. 接上视频源与嗅探。
+3. 接上视频源与嗅探 —— 三个选项各自的工作量与代价已量在 [VIDEO-PLAYBACK.md](VIDEO-PLAYBACK.md):WebView + `<video>`(纯 Go,复用阅读器那套代理)、原生播放器(需 cgo 与自写解码,MyGo 只带 GIF 解码器)、只嗅探直链交给系统播放器(请求头带不过去)。
 4. 制作台模块。

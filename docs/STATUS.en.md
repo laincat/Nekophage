@@ -132,5 +132,5 @@ go run ./cmd/verifycheck -e2e
 
 1. Find a reproducible live Cloudflare challenge (a site that answers a command-line client with 403 and does hand out `cf_clearance`) and check the done rule against it. Sites like 18comic.vip, which open in WebView2 but never set `cf_clearance`, cannot be judged passed today; relaxing the rule is a design decision.
 2. Build and run on macOS and Linux.
-3. Wire video sources and sniffing.
+3. Wire video sources and sniffing — the three options, with the work and cost of each, are measured in [VIDEO-PLAYBACK.en.md](VIDEO-PLAYBACK.en.md): WebView with `<video>` (pure Go, reusing the reader's proxy), a native player (needs cgo and its own decoders; MyGo ships only GIF), or sniffing a direct URL for the system player (headers cannot travel with it).
 4. The workbench module.
