@@ -2,13 +2,13 @@
 
 [English](README.en.md) | 简体中文
 
-Nekularity 的桌面端:用 Venera 兼容的漫画源和视频源阅读、播放,并把扩展的制作与分发作为后续模块。Go 编写,界面由 [MyGo](https://github.com/egoist/mygo) 绘制,许可证 GPL-3.0-or-later。
+Nekularity 的桌面端:用 Venera 兼容的漫画源阅读,并把视频播放与扩展的制作分发作为后续模块。Go 编写,界面由 [MyGo](https://github.com/egoist/mygo) 绘制,许可证 GPL-3.0-or-later。
 
 业务逻辑来自 [VeneraCat Core](https://github.com/laincat/VeneraCat-Core),直接编译进同一个可执行文件:不需要 FFI,不需要 cgo,也不需要单独的 Core 进程。
 
 ## 形态
 
-- **主界面**:原生 UI,Go 写,MyGo 用 GPU 绘制。没有 WebView,启动快、内存小。
+- **主界面**:原生 UI,Go 写,MyGo 用 GPU 绘制,没有 WebView,启动快、内存小;只有阅读器与人机验证窗口用 WebView。
 - **阅读器**:章末与顶栏都能直接翻到下一话,也可以开「自动接续」一路读下去,单页或双页、左起或右起(漫画常用右起),横图自动占满一行;WebView 里的一个网页,图片由 Go 按源的规则取回再流式送出,所以需要 Referer 或登录的源也能正常显示。
 - **人机验证**:Cloudflare 挑战在单独的窗口里打开,通过后自动继续。
 - **多源搜索**:一次搜索所有已装的源,结果合并展示并标注来源,点开别家的漫画会自动切过去。

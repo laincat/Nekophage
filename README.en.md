@@ -2,13 +2,13 @@
 
 English | [简体中文](README.md)
 
-The desktop companion of Nekularity: read comics and watch video from Venera-compatible sources, with authoring and publishing of extensions as a later module. Written in Go, with an interface [MyGo](https://github.com/egoist/mygo) draws; licensed GPL-3.0-or-later.
+The desktop companion of Nekularity: read comics from Venera-compatible sources, with video playback and authoring or publishing of extensions as later modules. Written in Go, with an interface [MyGo](https://github.com/egoist/mygo) draws; licensed GPL-3.0-or-later.
 
 Logic comes from [VeneraCat Core](https://github.com/laincat/VeneraCat-Core), compiled into the same executable: no FFI, no cgo, no separate Core process.
 
 ## Shape
 
-- **Main window**: native UI, written in Go, drawn by MyGo on the GPU. No WebView: it opens at once and takes little memory.
+- **Main window**: native UI, written in Go, drawn by MyGo on the GPU, with no WebView: it opens at once and takes little memory. Only the reader and the verification window use a WebView.
 - **Reader**: a web page in a WebView. Go fetches each page through the source's own rules and streams it, so a source that needs a Referer or a login still shows its pages.
 - **Verification**: a Cloudflare challenge opens in a window of its own and the app continues once it is passed.
 - **Search every source**: one keyword searches all installed sources, results are merged with their source on each card, and opening another source's comic switches to it.
