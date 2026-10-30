@@ -8,7 +8,7 @@ Updated 2026-10-30. Every result below comes from **Windows** on this machine, w
 
 | Part | Contents |
 |---|---|
-| Wiring | Core is compiled into the same process; `internal/core` provides the runtime, the registry and the comic data API |
+| Wiring | Core is compiled into the same process; `internal/core` provides the runtime, the registry and the comic data API. On 2026-10-31 it was rebuilt against the **latest Core** (including `magpieplugin`, `host/sse` and the Magpie mobile API) and rechecked whole: `gofmt` clean, `go vet ./...` and `go test ./...` all pass — the desktop does no AI work, but Core's new packages must not break it |
 | Networking | `internal/core/transport.go`: net/http, cookies by partition, cookies stored and sent on every redirect hop, 64 MiB per response; bytes a request line cannot carry (spaces, control characters) are escaped |
 | Cookies | `internal/cookies`: host-only and domain cookies, paths, Secure, expiry; persistent cookies go to `cookies.json` |
 | Storage | `internal/store`: source data, settings and plugin records; values stay as Core wrote them, large integers and key order included |
