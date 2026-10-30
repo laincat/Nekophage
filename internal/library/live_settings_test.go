@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 	"time"
 
@@ -81,7 +80,26 @@ func TestLiveSourceSettingsTakeEffect(t *testing.T) {
 	}
 	t.Logf("default  : %s", first)
 
-	if err := c.Store().SaveSetting(rec.Key, "image_quality", json.RawMessage(`"Compressed"`)); err != nil {
+	// Each source spells its qualities differently (MangaDex says
+	// "Compressed", Copy Manga says "800"), so the new value is taken from the
+	// source's own options rather than hard-coded.
+	var wanted json.RawMessage
+	for _, s := range settings {
+		if s.Key != "image_quality" || len(s.Options) < 2 {
+			continue
+		}
+		for _, opt := range s.Options {
+			if string(opt.Value) != string(s.Default) {
+				wanted = opt.Value
+				break
+			}
+		}
+	}
+	if wanted == nil {
+		t.Skipf("%s declares no second image_quality option", rec.Key)
+	}
+	t.Logf("setting   : %s", wanted)
+	if err := c.Store().SaveSetting(rec.Key, "image_quality", wanted); err != nil {
 		t.Fatal(err)
 	}
 	compressed := ""
@@ -95,11 +113,13 @@ func TestLiveSourceSettingsTakeEffect(t *testing.T) {
 			break
 		}
 	}
-	t.Logf("compressed: %s", compressed)
+	t.Logf("changed   : %s", compressed)
 	if compressed == "" {
 		t.Fatal("no chapter with pages after the setting")
 	}
-	if !strings.Contains(strings.ToLower(compressed), "data-saver") {
-		t.Errorf("the setting did not reach the source: %s", compressed)
+	// The check is that the setting reached the source, not one source's
+	// naming: the address it now returns must differ from the default one.
+	if compressed == first {
+		t.Errorf("the setting did not reach the source: still %s", compressed)
 	}
 }
