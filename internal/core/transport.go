@@ -44,10 +44,15 @@ func NewTransport(jar *cookies.Jar, userAgent string, timeout time.Duration) *Tr
 			}
 			// Store what the previous hop set, then send this partition's
 			// cookies to the next URL, which may be another host.
+			//
+			// The redirect response is `req.Response`, not the last entry of
+			// `via`: Go fills Response only on the request it creates for the
+			// next hop, so reading it from `via` finds nil and quietly stores
+			// nothing.
 			part := partitionOf(req.Context())
 			if part != "" {
-				if prev := via[len(via)-1]; prev.Response != nil && prev.URL != nil {
-					t.jar.SetURL(part, prev.URL, prev.Response.Cookies())
+				if prev := req.Response; prev != nil && prev.Request != nil && prev.Request.URL != nil {
+					t.jar.SetURL(part, prev.Request.URL, prev.Cookies())
 				}
 				if h := t.jar.Header(part, req.URL.String()); h != "" {
 					req.Header.Set("Cookie", h)

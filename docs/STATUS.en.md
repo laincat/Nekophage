@@ -90,6 +90,8 @@ Browsing works on all three sources: MangaDex showed its Popular part as a list 
 
 ## Problems found and fixed this round
 
+**Cookies set on a redirect hop were never stored (2026-10-31)**: the `CheckRedirect` in `internal/core/transport.go` read `via[len(via)-1].Response`, but Go attaches the redirect response to the **new** request's `Response` field; entries in `via` keep it `nil`. So the code that was supposed to store the previous hop's `Set-Cookie` and send this partition's cookies onward quietly did nothing, while its comment said otherwise. The new test "a cookie set on a redirect hop must be stored" failed on the first run and exposed it; the fix reads `req.Response` and its `Request.URL`. On a real site this looks like being signed out after a redirect, which is hard to attribute.
+
 1. **The version number shut real sources out**: the app reported 0.1.0, while sources ask for `minAppVersion` 1.3.4 or 1.6.0, so they refused to install. The app's own version and the source API version are separate now; the latter reports 1.6.0.
 2. **Core had no search options**: `search.load(keyword, options, page)` takes one value per option group, and without them a source pastes `undefined` into its URL. Core now reads `search.optionList` (`js.Runtime.SearchOptions`, `mobile.SearchOptions`) and the desktop app passes the defaults. MangaDex went from a protocol error to 20 comics.
 3. **Spaces in URLs**: the MangaDex source pastes the keyword into `?title=one piece`; Go wrote the raw space and the server answered `PROTOCOL_ERROR`. Bytes a request line cannot carry are escaped now, as Dart's `Uri` does.

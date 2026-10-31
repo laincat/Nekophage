@@ -83,6 +83,8 @@ Core 同步到 `af4f1a0` 之后又跑了两条真实源:MangaDex(`one piece` —
 
 ## 本轮发现并修掉的问题
 
+**重定向跳上的 Cookie 从来没被存过(2026-10-31)**:`internal/core/transport.go` 的 `CheckRedirect` 里读的是 `via[len(via)-1].Response`,而 Go 只在**新请求**的 `Response` 字段上挂那个重定向响应,`via` 里的前一个请求始终是 `nil` —— 于是「保存上一跳的 Set-Cookie、并把本分区 Cookie 发给下一跳」这段代码**静默地什么也没做**,注释还写着它做了。新加的 5 条用例里「重定向跳上的 Cookie 要被存下」直接失败,才把它暴露出来。修法是用 `req.Response` 与它的 `Request.URL`。这类问题真实站点上表现为「登录后跳转一下就要重新登录」,不容易第一时间归因。
+
 1. **版本号把真实源挡在外面**:应用原来报 0.1.0,而源要求 `minAppVersion` 1.3.4 或 1.6.0,源会直接拒绝安装。现在区分「应用版本」与「源接口版本」,后者报 1.6.0。
 2. **Core 没有搜索选项**:`search.load(keyword, options, page)` 需要每个选项组一个值,缺了会变成 `undefined` 拼进 URL。Core 新增 `search.optionList` 读取(`js.Runtime.SearchOptions`、`mobile.SearchOptions`),桌面端按默认值传参。MangaDex 因此从协议错误变成正常返回 20 部。
 3. **URL 里的空格**:MangaDex 的源把关键词直接拼进 `?title=one piece`,Go 会原样写出,服务端回 `PROTOCOL_ERROR`。现在发送前转义非法字节(Dart 的 `Uri` 也这么做)。
