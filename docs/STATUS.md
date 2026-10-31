@@ -116,18 +116,22 @@ Core 同步到 `af4f1a0` 之后又跑了两条真实源:MangaDex(`one piece` —
 
 ### 第三方源的一次巡检(2026-11-01)
 
-用 `venera-miuix`(Miuix 风格的 Venera 重写版,作者自用)自带的 **34 个漫画源**做了一次真源巡检(`NK_LIVE_DIR`,关键词「火影」):
+**先说方法上的一个错误**:第一轮我用 `NK_LIVE_REPEAT=1` 跑了一遍就下了结论,第二轮用 `NK_LIVE_REPEAT=2` 复跑,结果直接打脸 —— `copy_manga` 与 `copy_manga_multi_accounts` 第一次 PASS、第二次 FAIL(站点 210);`ykmh` 第一次 FAIL(Cloudflare)、第二次 PASS。**单次巡检不能当结论**,这正是 `live-sources.sh` 里 `FLAKY` 这个分类存在的理由。
 
-**7 个端到端通过**:`copy_manga`、`copy_manga_multi_accounts`、`goda`、`hcomic`、`hitomi`、`komiic`、`manhuagui`。
+用 `venera-miuix`(Miuix 风格的 Venera 重写版,作者自用)自带的 **34 个漫画源**,关键词「火影」:
 
-其余 27 个失败,**绝大多数不是客户端缺陷**,而是源脚本与站点现状不匹配,分三类:
-- **需要登录或凭据**:`baozi`、`comick`、`komga`、`mh18`、`picacg`、`ykmh`。
-- **站点改了返回结构**(返回 HTML 而不是 JSON,或换成 Cloudflare 挑战):`ccc`、`comic_walker`、`shonen_jump_plus`、`mh18`、`ykmh`。
-- **源脚本与站点不匹配**:详情页没有章节(`nhentai`、`mxs`、`mycomic`、`manhuaren`、`lanraragi`、`gelbooru`)、章节页是懒加载所以 `src` 属性为空(`jcomic`)、封面地址返回的不是图片(`manwaba`,该站自己返回加密字节,带不带 Referer 都一样)。
+**两轮都通过的 6 个**:`goda`、`hcomic`、`hitomi`、`komiic`、`manhuagui`。
+**一轮过一轮不过(FLAKY)**:`copy_manga`、`copy_manga_multi_accounts`、`ykmh`。
+
+其余失败的,**绝大多数不是客户端缺陷**,而是源脚本与站点现状不匹配,分三类:
+- **需要登录或凭据**:`baozi`、`comick`、`komga`、`mh18`、`picacg`。
+- **站点改了返回结构**(返回 HTML 而不是 JSON,或加上了 Cloudflare 挑战):`ccc`、`comic_walker`、`shonen_jump_plus`。
+- **源脚本与站点不匹配**:详情页没有章节(`nhentai`、`mxs`、`mycomic`、`manhuaren`、`lanraragi`、`gelbooru`)、章节页懒加载所以 `src` 属性为空(`jcomic`)、封面地址返回的不是图片(`manwaba`,该站自己返回加密字节,带不带 Referer 都一样)。
 
 **巡检里唯一由客户端引起的一个,已修**:见上面「协议相对 URL」那条。
 
 这个仓库本身**不是主题插件** —— 它是完整的 Android 客户端,主题是编译进代码的(`VeneraTheme.kt`、`MiuixMotion.kt`、`VeneraLiquidGlassNavBar.kt`),随包带的是上面那 34 个标准格式的 `.js` 源,我们的 Core 能直接吃。
+
 
 ## 未验证
 

@@ -125,18 +125,22 @@ stays red until the site recovers.
 
 ### One patrol of third-party sources (2026-11-01)
 
-The **34 comic sources** that ship with `venera-miuix` (a Miuix-styled rewrite of Venera, for the author's own use) went through one live patrol (`NK_LIVE_DIR`, keyword "火影"):
+**A methodological mistake first**: I ran one round with `NK_LIVE_REPEAT=1` and drew conclusions. A second round with `NK_LIVE_REPEAT=2` contradicted them — `copy_manga` and `copy_manga_multi_accounts` passed the first time and failed the second (the site answered 210), while `ykmh` failed the first time (Cloudflare) and passed the second. **One round is not a conclusion**, which is exactly why `live-sources.sh` has a `FLAKY` class.
 
-**7 passed end to end**: `copy_manga`, `copy_manga_multi_accounts`, `goda`, `hcomic`, `hitomi`, `komiic`, `manhuagui`.
+The **34 comic sources** that ship with `venera-miuix` (a Miuix-styled rewrite of Venera, for the author's own use), keyword "火影":
 
-The other 27 failed, and **almost none of that is a client defect** — the scripts no longer match the sites, in three kinds:
-- **A sign-in or a credential is needed**: `baozi`, `comick`, `komga`, `mh18`, `picacg`, `ykmh`.
-- **The site changed what it returns** (HTML instead of JSON, or a Cloudflare challenge): `ccc`, `comic_walker`, `shonen_jump_plus`, `mh18`, `ykmh`.
+**Passed both rounds (6)**: `goda`, `hcomic`, `hitomi`, `komiic`, `manhuagui`.
+**Passed one round and failed the other (FLAKY)**: `copy_manga`, `copy_manga_multi_accounts`, `ykmh`.
+
+The rest failed, and **almost none of that is a client defect** — the scripts no longer match the sites, in three kinds:
+- **A sign-in or a credential is needed**: `baozi`, `comick`, `komga`, `mh18`, `picacg`.
+- **The site changed what it returns** (HTML instead of JSON, or a Cloudflare challenge): `ccc`, `comic_walker`, `shonen_jump_plus`.
 - **The script and the site no longer match**: the details page has no chapters (`nhentai`, `mxs`, `mycomic`, `manhuaren`, `lanraragi`, `gelbooru`), the chapter page lazy-loads so the `src` attribute is empty (`jcomic`), and the cover address returns something that is not an image (`manwaba` — that site answers with encrypted bytes, with or without a Referer).
 
 **The one failure the client caused, now fixed**: see the scheme-relative URL entry above.
 
 That repository is **not a theme plugin** — it is a complete Android client whose theme is compiled into the code (`VeneraTheme.kt`, `MiuixMotion.kt`, `VeneraLiquidGlassNavBar.kt`). What it ships is the 34 standard `.js` sources above, which our Core reads directly.
+
 
 ## Not verified
 
