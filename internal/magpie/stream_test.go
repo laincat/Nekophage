@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 )
 
@@ -87,5 +88,45 @@ func TestAnErrorInsideTheStreamIsReported(t *testing.T) {
 	}
 	if seen != "quota exhausted" {
 		t.Fatalf("error text = %q", seen)
+	}
+}
+
+// The Responses stream sends the delta first and then a done event carrying
+// the finished text. Reading both appends the answer twice, which the
+// interface shows as a repeated sentence.
+func TestResponsesDoneEventIsNotAppendedAgain(t *testing.T) {
+	body := strings.Join([]string{
+		`event: response.output_text.delta`,
+		`data: {"type":"response.output_text.delta","delta":"ready"}`,
+		``,
+		`event: response.output_text.done`,
+		`data: {"type":"response.output_text.done","text":"ready"}`,
+		``,
+		`event: response.content_part.done`,
+		`data: {"type":"response.content_part.done","part":{"type":"output_text","text":"ready"}}`,
+		``,
+		`event: response.completed`,
+		`data: {"type":"response.completed","response":{"status":"completed"}}`,
+		``,
+	}, "\n")
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/event-stream")
+		_, _ = w.Write([]byte(body))
+	}))
+	defer srv.Close()
+	c := client(t, srv, Responses)
+
+	stream, err := c.Chat(context.Background(), Request{Model: "m", Messages: []Message{{Role: "user", Content: "hi"}}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var text strings.Builder
+	for ev := range stream {
+		if ev.Kind == EventText {
+			text.WriteString(ev.Text)
+		}
+	}
+	if got := text.String(); got != "ready" {
+		t.Errorf("text = %q, want %q", got, "ready")
 	}
 }

@@ -303,20 +303,19 @@ func errorText(payload map[string]json.RawMessage) string {
 // openAIText reads Chat Completions and Responses deltas.
 func openAIText(protocol Protocol, payload map[string]json.RawMessage) (string, bool) {
 	if protocol == Responses {
-		// Responses events name their own type.
-		if raw, ok := payload["delta"]; ok {
-			var text string
-			if json.Unmarshal(raw, &text) == nil {
-				return text, true
-			}
+		// Only `delta` carries new text. `text` is the finished text: the
+		// stream sends response.output_text.delta with delta="ready" and then
+		// response.output_text.done with text="ready", so reading both appends
+		// the whole answer a second time and the interface shows it twice.
+		raw, ok := payload["delta"]
+		if !ok {
+			return "", false
 		}
-		if raw, ok := payload["text"]; ok {
-			var text string
-			if json.Unmarshal(raw, &text) == nil && text != "" {
-				return text, true
-			}
+		var text string
+		if json.Unmarshal(raw, &text) != nil {
+			return "", false
 		}
-		return "", false
+		return text, true
 	}
 	raw, ok := payload["choices"]
 	if !ok {

@@ -106,6 +106,10 @@ Core 同步到 `af4f1a0` 之后又跑了两条真实源:MangaDex(`one piece` —
 4. **封面永远是灰块**:首帧渲染时封面还没下载完,解码缓存把「没有图片」记成了最终结果。现在只缓存解码成功的结果和失败的下载。
 5. **源列表陈旧**:`Library.Sources()` 原来读自己的缓存,从其他路径安装的源不显示;现在每次都向 Core 要。
 
+**真实 Magpie 安装版已连通(2026-11-01)**:此前「对真实 Magpie 发起请求」一直是待验证项。本机 `magpie-windows-amd64.exe` 正在运行,网关监听的 `127.0.0.1:3425` 与 `internal/magpie.DefaultAddr` 一致(同一进程另外在 3430 提供需要登录 cookie 的 Web UI)。新增的 `internal/magpie/live_test.go` 用 `NK_MAGPIE_LIVE=1` 才跑,对真实网关上做完整一条:**53 个模型**(首个 `group/laincat`)、真实补全、`chat` / `responses` / `messages` 三种协议各走一遍流式,三条回复都精确等于 `ready`。这条证据同时说明目录读取、协议选择、SSE 解析、流结束判定在这台机器上是通的。
+
+**`responses` 协议把回答拼了两遍(2026-11-01)**:上一条验证一开始返回的是 **`readyready`**。抓真实事件流才看清原因:网关先发 `response.output_text.delta`(字段 `delta:"ready"`),再发 `response.output_text.done`(字段 `text:"ready"`,是**整段成品文本**)。解析器对 `delta` 和 `text` 都取了,于是同一段文本进了两次。现在只取 `delta`;`text` 是结束事件里的成品,再取一次就是把答案复制一遍。反向验证:把 `text` 回退加回去,单元测试立刻得到 `text = "readyready", want "ready"` —— 与真实网关上一模一样的症状。
+
 **桌面端真实 UI 验证(2026-11-01)**:此前只有无头测试,界面本身没有证明过能用真实源走完。这轮用 `cmd/uicheck` 与 `cmd/readercheck` 在 **Windows 本机**、真实网络下跑了两条:
 
 - `goda`:搜索「火影」→ 详情显示封面、作者「集英社」、标签「冒险/战争」、**共 162 章**;`readercheck` 打开第 1 话得到 **57 页**,阅读器渲染 57 个 `figure`/`img`,已解码 4 页(首图 623×960);截图 `ui-real-goda.png` 与 `ui-real-reader.png` 保留在证据目录。界面在打开过阅读后出现「读到」「继续阅读」。
