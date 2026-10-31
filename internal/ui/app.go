@@ -1058,7 +1058,10 @@ func (a *App) resultsView(c *ui.Context, t *ui.Theme, busy bool) {
 	key := a.currentKey()
 	merged := len(a.resultSources) > 0
 	a.grid.Selected = &a.gridIndex
-	grid := ui.GridView(c, &a.grid, len(results), 150, 240, func(i int) {
+	// The cell has to fit the cover, the title and — in a merged search — the
+	// source name. At 240 the name was clipped off below the first row, and a
+	// result looked like it had come from nowhere.
+	grid := ui.GridView(c, &a.grid, len(results), 150, 260, func(i int) {
 		a.mu.Lock()
 		comic := results[i]
 		source := key
