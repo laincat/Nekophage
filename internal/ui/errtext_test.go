@@ -2,6 +2,7 @@ package ui
 
 import (
 	"errors"
+	"strings"
 	"testing"
 )
 
@@ -41,5 +42,18 @@ func TestExplainKeepsUnknownText(t *testing.T) {
 func TestExplainNilIsEmpty(t *testing.T) {
 	if got := explain(nil); got != "" {
 		t.Fatalf("explain(nil) = %q", got)
+	}
+}
+
+// The bar showing this is one line tall: a long message must end in an ellipsis
+// rather than be cut at the window edge.
+func TestExplainClipsLongText(t *testing.T) {
+	long := strings.Repeat("长", 200)
+	got := explain(errors.New(long))
+	if !strings.HasSuffix(got, "…") {
+		t.Fatalf("explain did not mark the truncation: %q", got)
+	}
+	if len([]rune(got)) > len("源返回错误:")+91 {
+		t.Fatalf("explain kept too much: %d runes", len([]rune(got)))
 	}
 }

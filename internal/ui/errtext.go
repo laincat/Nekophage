@@ -35,5 +35,17 @@ func explain(err error) string {
 	case strings.TrimSpace(message) == "":
 		return "操作失败,源没有给出原因"
 	}
-	return "源返回错误:" + message
+	return "源返回错误:" + clip(message)
+}
+
+// clip keeps an unrecognised message to one line's worth of text. The bar that
+// shows it is one line tall, so a long Core message would otherwise be cut at the
+// window edge mid-word; the truncation is visible instead.
+func clip(message string) string {
+	const limit = 90
+	runes := []rune(message)
+	if len(runes) <= limit {
+		return message
+	}
+	return string(runes[:limit]) + "…"
 }
