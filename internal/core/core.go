@@ -690,7 +690,11 @@ func (c *Core) ImageRequest(ctx context.Context, key, url, comicID, chapterID st
 	}
 	req.Handle = cfg.Handle
 	req.Callbacks = cfg.Callbacks
-	req.ModifyImage = cfg.ModifyImage
+	if !thumbnail {
+		// The official client ignores modifyImage for a cover, and a thumbnail
+		// is small enough that a pixel pass would cost more than it is worth.
+		req.ModifyImage = cfg.ModifyImage
+	}
 	return req, nil
 }
 

@@ -170,6 +170,8 @@ Core 同步到 `af4f1a0` 之后又跑了两条真实源:MangaDex(`one piece` —
 
 **`modifyImage` 已接上(2026-11-01,pin `6aa9356`)**:Core 新增 `Runtime.ModifyImage`(把解码后的 RGBA 放进一次性位图仓库、在独立运行时里跑源给的脚本、取回结果位图;解码与编码仍由客户端做),桌面端在图片路径里接上:取回 → 有 `onResponse` 先改写 → 有 `modifyImage` 就解码成 RGBA、跑脚本、编码回 PNG,内容类型随之改成 `image/png`。`modifyImage` 在配置里是**字符串脚本**而不是函数,所以它走 `ImageConfig.ModifyImage` 而不是回调句柄 —— 这一点最初写错过,补了一条用例钉住。确定性验证:源返回 4×2 的红蓝图 + 顺时针旋转脚本,取回后是 2×4 且红在上;脚本返回非图像时如实报错、不回落到原图。真实源侧 `hitomi`、`manhuagui` 实测通过(它们的图多为 avif/webp,不一定触发脚本)。
 
+**封面不跑像素脚本(2026-11-01)**:官方在 `onThumbnailLoad` 的注释里写明 `modifyImage` 与 `onLoadFailed` 对缩略图**会被忽略**。我们原来对封面也照做,现在按规格只对正文页执行 —— 封面本来也小,给它跑一遍解码/编码不划算。`TestModifyImageIsIgnoredForCovers` 用同一个源同时声明两个钩子,确认 `thumbnail=true` 的请求不带脚本、正文请求带。
+
 **`modifyImage` 的覆盖面,以及一处统计订正(2026-11-01)**:真正在 `onImageLoad` 里挂脚本的只有 **6 个文件** —— 官方只有 `jm`,vensrc 里是 `hanabimanga`、`jmcomic`、`recode-jm`、`shonen_jump_plus`、`sunday_webry`。此前写成「11 个源」是统计错误:那把 `hitomi`、`manhuagui`、`manhuaren`、`nhentai` 等只在**注释里提到** `modifyImage` 的文件也算进去了(它们写的是「这个字段在封面上会被忽略」这类说明)。脚本的两种典型用法:一种是 `jm` 把长条图按 `num` 等分并倒序重排,另一种是 `shonen_jump_plus` 把被切成 4×4 乱序块的页面还原。**这两种现在都已由桌面端执行**,`shonen_jump_plus` 实测从 232,750 字节 JPEG 变成 879,725 字节 PNG。
 
 **桌面端已接上图片回调,六个源当场修好(2026-11-01)**:`ImageRequest` 现在把 Core 给的句柄一起带回来,`doImage` 取回后按三点走 —— 有 `onResponse` 就先把响应体交给源改写(解密),取回成功但**是一张 HTML 页面**而源又声明了 `onLoadFailed` 就当成失败去问下一个镜像,真失败同样问下一个镜像;最多跳 4 次,每一跳都重新过 http(s) 校验与大小上限。`4khd_cosplay` 这类源正是「200 + 错误页」,官方客户端靠解码失败触发回退,我们这边解码在 WebView 里,所以由取回方判断。实测:原先归在「客户端缺口」的 6 个源全部转为通过 —— `cxc`(659,568 字节密文 → 494,647 字节真实 PNG)、`4khd_cosplay`(1,243 字节 HTML → 回退后 248,428 字节 webp)、`ccc`、`mojoin`、`mojoin_fixed_v107`、`manwaba_fixed`、`manwaba_fixed_v113`。

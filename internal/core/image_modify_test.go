@@ -211,3 +211,39 @@ class Jpg extends ComicSource {
 		t.Errorf("result is %dx%d, want 2x3", b.Dx(), b.Dy())
 	}
 }
+
+// A cover ignores the script: the official client documents modifyImage as
+// unsupported for thumbnails, and a cover is small.
+func TestModifyImageIsIgnoredForCovers(t *testing.T) {
+	c, err := Open(Options{DataDir: filepath.Join(t.TempDir(), "data"), AppVersion: "1.6.0", Locale: "zh_CN"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer c.Close()
+
+	script := `
+class Cover extends ComicSource {
+    name = "Cover"; key = "cover"; version = "1.0.0"
+    comic = {
+        onImageLoad: (url) => ({ url: url, modifyImage: "let modifyImage = (i) => i" }),
+        onThumbnailLoad: (url) => ({ url: url, modifyImage: "let modifyImage = (i) => i" }),
+    }
+}
+`
+	if _, err := c.Install(context.Background(), script, "test", ""); err != nil {
+		t.Fatalf("install: %v", err)
+	}
+	ctx := context.Background()
+	for _, thumbnail := range []bool{true, false} {
+		req, err := c.ImageRequest(ctx, "cover", "https://img.test/1.jpg", "c1", "e1", thumbnail)
+		if err != nil {
+			t.Fatalf("request (thumbnail=%v): %v", thumbnail, err)
+		}
+		if thumbnail && req.ModifyImage != "" {
+			t.Errorf("a cover request carries a pixel script")
+		}
+		if !thumbnail && req.ModifyImage == "" {
+			t.Errorf("a page request lost its pixel script")
+		}
+	}
+}
