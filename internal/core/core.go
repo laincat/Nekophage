@@ -335,15 +335,26 @@ type ExploreResult struct {
 	Sections []ExploreSection
 	// MaxPage is for "multiPageComicList" browses; 0 when unknown.
 	MaxPage int
+	// Next is the cursor for a browse that pages by token instead of by number.
+	// Empty means "no more", which is what a source returns at the end.
+	Next string
 }
 
 // Explore loads one browse. page is the page number for
-// "multiPageComicList" browses and the index for "mixed" ones.
-func (c *Core) Explore(ctx context.Context, key string, index, page int) (ExploreResult, error) {
+// "multiPageComicList" browses and the index for "mixed" ones; cursor is the
+// token a browse that pages by token handed back last time.
+//
+// A browse may declare load(page) or loadNext(next). ehentai declares only the
+// second kind, and calling load there is "source does not define this function":
+// the browse exists, the client asked for the wrong function.
+func (c *Core) Explore(ctx context.Context, key string, index, page int, cursor string) (ExploreResult, error) {
 	if page < 1 {
 		page = 1
 	}
 	path := fmt.Sprintf("explore[%d].load", index)
+	if !c.Has(ctx, key, path) {
+		return c.exploreNext(ctx, key, index, cursor)
+	}
 	switch c.exploreType(ctx, key, index) {
 	case "multiPageComicList":
 		raw, err := c.Call(ctx, key, path, page)
@@ -354,7 +365,7 @@ func (c *Core) Explore(ctx context.Context, key string, index, page int) (Explor
 		if err != nil {
 			return ExploreResult{}, err
 		}
-		return ExploreResult{Sections: []ExploreSection{{Comics: p.Comics}}, MaxPage: p.MaxPage}, nil
+		return ExploreResult{Sections: []ExploreSection{{Comics: p.Comics}}, MaxPage: p.MaxPage, Next: p.Next}, nil
 	case "multiPartPage":
 		raw, err := c.Call(ctx, key, path)
 		if err != nil {
@@ -409,6 +420,29 @@ func parseOrderedParts(raw json.RawMessage) ExploreResult {
 		}
 	}
 	return out
+}
+
+// exploreNext loads a browse that pages by cursor, and reports the cursor it
+// handed back. The source receives null on the first page, which is what its own
+// `next ?? default` expects.
+func (c *Core) exploreNext(ctx context.Context, key string, index int, cursor string) (ExploreResult, error) {
+	path := fmt.Sprintf("explore[%d].loadNext", index)
+	if !c.Has(ctx, key, path) {
+		return ExploreResult{}, fmt.Errorf("core: %s defines neither load nor loadNext", path)
+	}
+	var arg any
+	if cursor != "" {
+		arg = cursor
+	}
+	raw, err := c.Call(ctx, key, path, arg)
+	if err != nil {
+		return ExploreResult{}, err
+	}
+	page, err := parsePage(raw)
+	if err != nil {
+		return ExploreResult{}, err
+	}
+	return ExploreResult{Sections: []ExploreSection{{Comics: page.Comics}}, Next: page.Next}, nil
 }
 
 // exploreType is the declared type of browse index.

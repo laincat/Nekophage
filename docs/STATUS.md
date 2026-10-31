@@ -192,6 +192,19 @@ Network.get(`${this.baseUrl}/users-fav_del-id-${favoriteId}.html?ajax=true...`)
 
 单测覆盖参数形态:单收藏夹源必须收到 `null` 而不是空串;改名/移除的收尾都验证过。截图确认按钮与文件夹选择渲染正常。
 
+**「浏览」页从来没被活体验证过,而且对一类源完全不可用(2026-11-01,pin `110b0d8`)**
+
+34 个官方源**全都**声明了 `explore`,但活体测试只走搜索→详情→章节,浏览页一眼都没看过。写了 `cmd/explorecheck` 逐源列出浏览页并加载第一页,第一次跑:
+
+**24 通过 / 10 失败**,其中 `ehentai` 三个浏览页全部报 `source does not define this function`。
+
+原因是**契约形状**:官方 API 允许浏览页用 `load(page)`,也允许用 `loadNext(next) → {comics, next}`(游标式)。`ehentai` 只声明了后者,而我们永远只调 `load` —— 浏览页存在,客户端问错了函数。有 5 个源用 `loadNext`:ehentai、hitomi、jcomic、manhuagui、manhuaren。
+
+- Core 客户端层新增游标支持:`Explore` 发现 `load` 不存在时改调 `loadNext`,`ExploreResult.Next` 带回下一个游标;桌面端「下一页」按游标翻,没有页码时不显示页码。
+- 顺带修掉一个放大伤害的行为:**没有 UI handler 时,没有返回值的 UI 调用(showMessage / launchUrl / cancelLoading)不再报错**。`ehentai` 的「watched」页在未登录时先 `showMessage` 再返回空页;以前整个调用失败,现在按源的意图返回空页。需要答案的对话框(showDialog / showInputDialog)仍然报错 —— 那个答案决定源接下来做什么,不能编。
+
+修完 `ehentai` 三个浏览页全部可用(25 + 77 + 0 部,登录态相关的那页按源意图返回空)。`kavita`/`komga`/`lanraragi` 在探针里单列为 SKIP(需要用户自建服务),不再混进失败。
+
 **同一处缺口在 iOS 也存在(2026-11-01,pin `7019844`)**:mobile 层的 `CallComic` 原本失败也不记录,已按与桌面端相同的形状补上(源 key + 调用路径 + 原因);负向验证:把那处判断改成 `if false`,测试立刻失败。桌面端只跟 pin。
 
 **面板在真正需要它的时候是空的(2026-11-01)**:把「源日志」拿真实失败源(`jcomic`)去跑,截图是 **0 行** —— 因为那个源根本不打日志,错在 Core 侧(`image URL is not http(s)`)。也就是说,面板只在源自己 `console.log` 时有用,而用户最需要它的时刻恰恰相反。

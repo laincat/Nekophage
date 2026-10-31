@@ -199,6 +199,17 @@ Three deliberate choices:
 
 The unit test pins the argument shape: a single-folder source must receive `null`, not an empty string; add and remove are both covered. The capture confirms the button and the folder picker render.
 
+**The browse tab had never been tested live, and for one class of source it could not work at all (2026-11-01, pin `110b0d8`)**
+
+All 34 official sources declare `explore`, and the live test only walked search → details → chapter: the browse tab was never looked at. `cmd/explorecheck` lists each source's browses and loads the first page of each; the first run gave **24 passed / 10 failed**, and `ehentai` failed all three of its browses with `source does not define this function`.
+
+The cause is a **shape in the contract**: the official API lets a browse use `load(page)`, or `loadNext(next) → {comics, next}`, which pages by cursor. `ehentai` declares only the second, and the client only ever called `load` — the browse exists, and the client asked for the wrong function. Five sources use `loadNext`: ehentai, hitomi, jcomic, manhuagui, manhuaren.
+
+- The desktop's core layer gained cursor support: `Explore` falls back to `loadNext` when `load` is missing, `ExploreResult.Next` carries the next token, and 下一页 pages by cursor without pretending to know a page count.
+- Along the way, one behaviour that multiplied the damage: **without a UI handler, a UI call that returns nothing (showMessage / launchUrl / cancelLoading) no longer fails.** `ehentai`'s logged-out "watched" browse shows a message and then returns an empty page; that used to make the whole call fail and now returns what the source meant. A dialog that needs an answer still fails — its answer decides what the source does next, and it cannot be invented.
+
+After the fix all three `ehentai` browses work (25 + 77 + 0 galleries, the login-dependent one empty as the source intends). `kavita`/`komga`/`lanraragi` are SKIP in the probe (they need a server the user runs), no longer mixed into the failures.
+
 **The same gap existed on iOS (2026-11-01, pin `7019844`)**: mobile's `CallComic` also recorded nothing on failure; it now writes the same shape the desktop does (source key, call path, cause). Verified negatively: turning that check into `if false` makes the test fail. The desktop only moves its pin.
 
 **The panel was empty exactly when it was needed (2026-11-01)**: pointed at a real failing source (`jcomic`), the capture showed **0 lines** — because that source logs nothing and the failure is Core's (`image URL is not http(s)`). The panel only helped when a source used `console.log`, which is the opposite of the moment a user opens it.

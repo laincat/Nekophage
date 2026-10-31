@@ -363,7 +363,7 @@ func firstBrowseComics(ctx context.Context, c *core.Core, key string, t *testing
 		return nil
 	}
 	for i, p := range pages {
-		res, err := c.Explore(ctx, key, i, 1)
+		res, err := c.Explore(ctx, key, i, 1, "")
 		if err != nil {
 			t.Logf("browse %q: %v", p.Title, err)
 			continue

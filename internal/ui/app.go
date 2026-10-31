@@ -1691,8 +1691,13 @@ func (a *App) loadExplorePages() {
 	}()
 }
 
-// loadExplore loads one browse page.
+// loadExplore loads one browse page. cursor is the token a browse that pages by
+// token handed back last time; "" starts at the beginning.
 func (a *App) loadExplore(key string, index, page int) {
+	a.loadExploreAt(key, index, page, "")
+}
+
+func (a *App) loadExploreAt(key string, index, page int, cursor string) {
 	a.mu.Lock()
 	a.exploreBusy, a.errText = true, ""
 	a.exploreIndex, a.explorePage = index, page
@@ -1701,7 +1706,7 @@ func (a *App) loadExplore(key string, index, page int) {
 	go func() {
 		ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
 		defer cancel()
-		res, err := a.core.Explore(ctx, key, index, page)
+		res, err := a.core.Explore(ctx, key, index, page, cursor)
 		a.win.Update(func() {
 			a.mu.Lock()
 			defer a.mu.Unlock()
@@ -1792,16 +1797,26 @@ func (a *App) browseView(c *ui.Context, t *ui.Theme) {
 				a.browseRow(c, t, key, comic)
 			}
 		}
-		if res.MaxPage > 0 {
+		if res.MaxPage > 0 || res.Next != "" {
 			ui.Row(c).Padding(8, 0).Gap(10).AlignItems(ui.Center).Children(func() {
-				ui.Textf(c, "第 %d / %d 页", page, res.MaxPage).FontSize(12).TextColor(t.TextMuted)
+				if res.Next != "" {
+					// A cursor browse has no page numbers to show; the count of
+					// what has been fetched is the honest thing here.
+					ui.Textf(c, "第 %d 批", page).FontSize(12).TextColor(t.TextMuted)
+				} else {
+					ui.Textf(c, "第 %d / %d 页", page, res.MaxPage).FontSize(12).TextColor(t.TextMuted)
+				}
 				ui.Spacer(c)
 				if page > 1 {
 					if ui.Button(c, "上一页").Clicked() {
 						a.loadExplore(key, index, page-1)
 					}
 				}
-				if page < res.MaxPage {
+				if res.Next != "" {
+					if ui.Button(c, "下一页").Clicked() {
+						a.loadExploreAt(key, index, page+1, res.Next)
+					}
+				} else if page < res.MaxPage {
 					if ui.Button(c, "下一页").Clicked() {
 						a.loadExplore(key, index, page+1)
 					}
