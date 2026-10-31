@@ -28,6 +28,7 @@
 **一条命令复跑全部真实源**:`NK_LIVE_DIR=/path/to/scripts scripts/live-sources.sh` 会对目录里每个 `.js` 跑一遍 `TestLiveSource`(`NK_LIVE_REPEAT=3` 适用例连跑三次,**时好时坏的源单列为 `FLAKY`**,不混进 PASS 或 FAIL),逐个打印 PASS/FAIL,日志写到 `build/live/<源>.log`。一个源失败是一个结果,不是崩溃 —— 站点变了和客户端坏了要能分开。2026-10-31 实测 5 个脚本(comick、copy_manga、komiic、komiic2、manga_dex)全部 PASS。
 
 **2026-10-31 复跑四源**:Core 同步到 `519623d` 后,MangaDex、Komiic、Comick、拷贝漫画的 `TestLiveSource` 全部 PASS。但**同一天稍后又复跑一次,拷贝漫画回到 HTTP 210 而其余四源仍 PASS** —— 所以它的状态是「时好时坏」,不是「已恢复」;`live-sources.sh` 会把两类结果分开打印,正是为了这种情形。Comick 这次暴露了测试里的一个假设:它取到的章节只有 1 张图,而用例固定要求 `page=3`,被阅读器正确地钳到 1,于是断言失败 —— 错的是用例不是代码,现在按 `min(3, len(images))` 断言。拷贝漫画此前报的 HTTP 210 已不复现,那是站点侧的临时行为,不是客户端回归。
+**2026-10-31 再次复跑**(`NK_LIVE_REPEAT=3`,五个脚本各跑三遍):五个源全部 PASS,拷贝漫画 3/3。这加强但不证明「稳定」—— 一次 3/3 只能说明这半小时内没复现,前面的失败仍然真实发生过。
 
 | 源 | 结果 |
 |---|---|
