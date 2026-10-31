@@ -184,6 +184,8 @@ Core 同步到 `af4f1a0` 之后又跑了两条真实源:MangaDex(`one piece` —
 
 ### 两批源的真实巡检(2026-11-01,两轮)
 
+**官方源复查(2026-11-01,含限流说明)**:34 个官方源一次性跑完是 **16 个通过**,但**这个数字不能当结论** —— 同一批源单独重跑时,整轮里失败的 `ykmh`(403)与 `mycomic`(Cloudflare 挑战)都立刻通过,说明连续全量跑本身会触发站点限流/反爬。剩下的逐个看过:官方 `manwaba` 连 `onImageLoad` 都没声明,而 `vensrc` 的 `manwaba_fixed`(带 `onResponse` 解密)在同一客户端下通过 —— 是源没跟上站点把图片打乱;`copy_manga` 是**搜索能过、详情稳定 210**(换了关键词搜索拿到 30 条,详情每次都 210),同一套请求头与签名在搜索上被接受,所以属站点对详情端点的策略变化,不是客户端拦住了自己。判断一个源该不该算失败,要按上面的分类法看,而不是数通过个数。
+
 官方源(`venera-app/venera-configs`,34 个)第一轮 5 个通过,修完上面几处后 **10 个通过**:`copy_manga`、`copy_manga_multi_accounts`、`ehentai`、`goda`、`hcomic`、`hitomi`、`komiic`、`manhuagui`、`nhentai`、`wnacg`。第三方源(`laincat/vensrc`,`index.json` 24 个 + `extended.json` 47 个,去重后 71 个)从 31 个提升到 **34 个**。
 
 剩下的失败逐条看过,没有一条是本客户端的解析错:
