@@ -67,10 +67,14 @@ func main() {
 		log.Fatal(err)
 	}
 
+	// The source UI handler exists before Core, because a source may call UI
+	// during init; it is attached to the App once the window exists.
+	jsui := ui.NewJSHandler()
 	c, err := core.Open(core.Options{
 		DataDir:    dataDir,
 		Locale:     "zh_CN",
 		AppVersion: sourceVersion,
+		UI:         jsui,
 		// Challenges open in a window of their own; video sources that need
 		// a stream sniffed would use the same browser.
 		VerifierFactory: func(jar *cookies.Jar) host.Verifier { return browser.NewVerifier(jar) },
@@ -99,7 +103,9 @@ func main() {
 		}
 	}
 
-	if err := ui.New(c, lib, srv).Run(); err != nil {
+	app := ui.New(c, lib, srv)
+	jsui.Attach(app)
+	if err := app.Run(); err != nil {
 		log.Fatal(err)
 	}
 }

@@ -61,6 +61,12 @@ type manageState struct {
 	accountBusy    bool
 	accountMessage string
 
+	// A callback setting is a function inside the source: it cannot be carried
+	// across the boundary, but the source can run it, so the panel offers a
+	// button and shows what it said.
+	callbackBusy string
+	callbackMsg  string
+
 	// backupImport is an archive the user picked, waiting to be applied.
 	backupImport *archive.Backup
 	// backupCookies restores the official app's jar into source partitions.

@@ -190,6 +190,32 @@ func (a *App) loginWithCookies(key string, values []string) {
 	}()
 }
 
+// callSettingCallback asks the source to run one of its own callbacks.
+func (a *App) callSettingCallback(key, settingKey string) {
+	a.manage.callbackBusy = settingKey
+	a.manage.callbackMsg = ""
+	a.manageWin.Update(func() {})
+	go func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
+		defer cancel()
+		answer, err := a.core.CallSettingCallback(ctx, key, settingKey)
+		a.manageWin.Update(func() {
+			m := &a.manage
+			m.callbackBusy = ""
+			switch {
+			case err != nil:
+				// The source's own words: "no network", "Login expired", or
+				// whatever it chose.
+				m.callbackMsg = explain(err)
+			case answer == "":
+				m.callbackMsg = "已完成"
+			default:
+				m.callbackMsg = answer
+			}
+		})
+	}()
+}
+
 // loginAccount asks the source to log in and reports what it said.
 func (a *App) loginAccount(key, account, password string) {
 	a.manage.accountBusy = true
@@ -409,9 +435,19 @@ func (a *App) settingRow(c *ui.Context, t *ui.Theme, s core.SourceSetting) {
 				a.manageWin.Update(func() {})
 			}
 		case "callback":
-			// A callback is a function in the source; it cannot be called
-			// across the boundary, so the setting is shown but not run.
-			ui.Text(c, "（源内的操作，客户端暂不支持）").FontSize(11).TextColor(t.TextMuted)
+			// A callback is a function in the source. Nothing can be carried
+			// across by value, but the source can run it, so the panel does that
+			// and shows what came back.
+			if m.callbackBusy == s.Key {
+				ui.Spinner(c)
+				return
+			}
+			if ui.Button(c, "执行").Clicked() {
+				a.callSettingCallback(m.settingsFor, s.Key)
+			}
+			if m.callbackMsg != "" {
+				ui.Text(c, m.callbackMsg).FontSize(11).TextColor(t.TextMuted).Selectable()
+			}
 		default:
 			ui.Textf(c, "%s", rawText(current)).FontSize(11).TextColor(t.TextMuted).SingleLine()
 		}

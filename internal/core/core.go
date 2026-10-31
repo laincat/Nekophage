@@ -926,6 +926,27 @@ func (c *Core) SetFavorite(ctx context.Context, key, comicID, folder, favoriteID
 	return err
 }
 
+// CallSettingCallback runs a setting's own callback, e.g. jm's refreshDomains
+// or wnacg's domain refresh.
+//
+// Nine official sources declare one. A callback is a function in the source, so
+// nothing can be carried across the boundary by value — but the source itself can
+// run it, which is what this does. A source that changed its mind between the
+// declaration and the press answers with its own error.
+func (c *Core) CallSettingCallback(ctx context.Context, key, settingKey string) (string, error) {
+	raw, err := c.Call(ctx, key, "settings."+settingKey+".callback")
+	if err != nil {
+		return "", err
+	}
+	var out any
+	if json.Unmarshal(raw, &out) == nil {
+		if text, ok := out.(string); ok {
+			return text, nil
+		}
+	}
+	return strings.TrimSpace(string(raw)), nil
+}
+
 // Translations reads the UI strings a source declares for this client's locale.
 //
 // A source writes `title: "domain"` and supplies the readable text in its

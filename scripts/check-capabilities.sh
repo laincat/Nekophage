@@ -49,6 +49,8 @@ need "favorite folders" internal/ui/favorites.go 'func folderPicker(folders map[
 # The UI strings a source declares for this locale.
 need "translations" internal/core/core.go 'func (c *Core) Translations(ctx context.Context, key string) (map[string]string, error)'
 need "translated titles" internal/ui/settings.go 'm.translations[title]'
+need "setting callback" internal/core/core.go 'settings."+settingKey+".callback'
+need "source UI handler" internal/ui/jsui.go 'func (h *JSHandler) ShowDialog(title, content string, actions []js.DialogAction) error'
 # A declaration that is data rather than a function: favorites.multiFolder
 # decides whether a folder id is expected at all, and Call cannot reach it.
 need "data declarations" internal/core/core.go 'rt.Value(ctx, key, "favorites.multiFolder")'

@@ -74,7 +74,11 @@ func main() {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	defer cancel()
-	c, err := core.Open(core.Options{DataDir: dataDir, AppVersion: sourceapi.Level, Locale: "zh_CN"})
+	// A capture cannot press a button in a window it is photographing, so a
+	// dialog the source opens takes its first action instead of waiting.
+	jsui := ui.NewJSHandler()
+	jsui.SetAutoConfirm(true)
+	c, err := core.Open(core.Options{DataDir: dataDir, AppVersion: sourceapi.Level, Locale: "zh_CN", UI: jsui})
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -110,6 +114,7 @@ func main() {
 		log.Fatalf("scheme: %v", err)
 	}
 	app := ui.New(c, lib, srv)
+	jsui.Attach(app)
 	app.SetDevOptions(ui.DevOptions{Query: *query, OpenFirst: *openFirst, Browse: *browse,
 		ExploreIndex: *exploreIndex, ExplorePage: *explorePage, Shelf: *shelfMode, OpenChapter: *chapter, ShelfDemo: *shelfDemo, ScrollPercent: *scrollPercent,
 		AdvanceChapter: *advance, AutoNext: *autoNext, Filters: *filters, Filter: *filterPick,
