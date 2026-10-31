@@ -98,6 +98,8 @@ Core 同步到 `af4f1a0` 之后又跑了两条真实源:MangaDex(`one piece` —
 
 **重定向跳上的 Cookie 从来没被存过(2026-10-31)**:`internal/core/transport.go` 的 `CheckRedirect` 里读的是 `via[len(via)-1].Response`,而 Go 只在**新请求**的 `Response` 字段上挂那个重定向响应,`via` 里的前一个请求始终是 `nil` —— 于是「保存上一跳的 Set-Cookie、并把本分区 Cookie 发给下一跳」这段代码**静默地什么也没做**,注释还写着它做了。新加的 5 条用例里「重定向跳上的 Cookie 要被存下」直接失败,才把它暴露出来。修法是用 `req.Response` 与它的 `Request.URL`。这类问题真实站点上表现为「登录后跳转一下就要重新登录」,不容易第一时间归因。
 
+**协议相对的图片地址取不到(2026-11-01)**:一个源把章节页的图片地址写成 `//images.example.com/1.jpg` —— 这是 HTML 里的标准写法,少了 scheme。RFC 3986 说这种地址继承页面的 scheme,而我们的客户端直接报「image URL is not http(s)」。修法分两层:规则放在 Core(`host.NormalizeURL`,gomobile 导出 `Core.NormalizeURL`),客户端只负责决定「继承哪个 scheme」—— 桌面端的 `Transport` 按**分区**记住最近一次请求用的 scheme,所以一个用 http 的源不会因为另一个用 https 的源而丢图。**这不放宽安全规则**:`file://`/`javascript:`/`ftp://` 一律不改写,补全后仍要过 http(s) 校验,非协议相对的 URL 一个字都不动。`internal/core/image_url_test.go` 两条用例覆盖这两点;**反向验证**把归一化改回固定 https,测试立刻失败(`http: server gave HTTP response to HTTPS client`)。
+
 1. **版本号把真实源挡在外面**:应用原来报 0.1.0,而源要求 `minAppVersion` 1.3.4 或 1.6.0,源会直接拒绝安装。现在区分「应用版本」与「源接口版本」,后者报 1.6.0。
 2. **Core 没有搜索选项**:`search.load(keyword, options, page)` 需要每个选项组一个值,缺了会变成 `undefined` 拼进 URL。Core 新增 `search.optionList` 读取(`js.Runtime.SearchOptions`、`mobile.SearchOptions`),桌面端按默认值传参。MangaDex 因此从协议错误变成正常返回 20 部。
 3. **URL 里的空格**:MangaDex 的源把关键词直接拼进 `?title=one piece`,Go 会原样写出,服务端回 `PROTOCOL_ERROR`。现在发送前转义非法字节(Dart 的 `Uri` 也这么做)。
@@ -110,6 +112,22 @@ Core 同步到 `af4f1a0` 之后又跑了两条真实源:MangaDex(`one piece` —
 (`copy_manga.js` 里 `throw \`Invalid status code: ${res.status}\``),于是报 `js: Invalid status code: 210`。
 这不是客户端缺陷:同一天复跑,MangaDex(6.4s)、Komiic(1.7s)、Comick(56s)三条端到端全过,错误文本也是源脚本自己抛的。210 属于站点侧的非标准响应,
 可能与人机验证或限流有关;在站点恢复正常前,拷贝漫画这条 E2E 会失败。
+
+
+### 第三方源的一次巡检(2026-11-01)
+
+用 `venera-miuix`(Miuix 风格的 Venera 重写版,作者自用)自带的 **34 个漫画源**做了一次真源巡检(`NK_LIVE_DIR`,关键词「火影」):
+
+**7 个端到端通过**:`copy_manga`、`copy_manga_multi_accounts`、`goda`、`hcomic`、`hitomi`、`komiic`、`manhuagui`。
+
+其余 27 个失败,**绝大多数不是客户端缺陷**,而是源脚本与站点现状不匹配,分三类:
+- **需要登录或凭据**:`baozi`、`comick`、`komga`、`mh18`、`picacg`、`ykmh`。
+- **站点改了返回结构**(返回 HTML 而不是 JSON,或换成 Cloudflare 挑战):`ccc`、`comic_walker`、`shonen_jump_plus`、`mh18`、`ykmh`。
+- **源脚本与站点不匹配**:详情页没有章节(`nhentai`、`mxs`、`mycomic`、`manhuaren`、`lanraragi`、`gelbooru`)、章节页是懒加载所以 `src` 属性为空(`jcomic`)、封面地址返回的不是图片(`manwaba`,该站自己返回加密字节,带不带 Referer 都一样)。
+
+**巡检里唯一由客户端引起的一个,已修**:见上面「协议相对 URL」那条。
+
+这个仓库本身**不是主题插件** —— 它是完整的 Android 客户端,主题是编译进代码的(`VeneraTheme.kt`、`MiuixMotion.kt`、`VeneraLiquidGlassNavBar.kt`),随包带的是上面那 34 个标准格式的 `.js` 源,我们的 Core 能直接吃。
 
 ## 未验证
 

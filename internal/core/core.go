@@ -617,6 +617,12 @@ func (c *Core) FetchImage(ctx context.Context, key, rawURL, comicID, chapterID s
 }
 
 func (c *Core) doImage(ctx context.Context, key string, req ImageRequest) ([]byte, string, error) {
+	// A source may hand back an image address without its scheme, such as
+	// "//images.example.com/1.jpg". RFC 3986 says such an address inherits
+	// the scheme of the page, so the scheme this source last used is the one
+	// to use. The result still has to be an http(s) URL: nothing else gets
+	// through.
+	req.URL = host.NormalizeURL(req.URL, c.tr.SchemeOf(ComicPartition(key))+"://")
 	u, err := url.Parse(req.URL)
 	if err != nil || (u.Scheme != "http" && u.Scheme != "https") {
 		return nil, "", errors.New("core: image URL is not http(s)")

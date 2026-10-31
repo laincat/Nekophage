@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/laincat/nekophage/internal/cookies"
@@ -25,6 +26,11 @@ type Transport struct {
 	client *http.Client
 	jar    *cookies.Jar
 	ua     string
+	// The scheme each partition last used, so a source that serves its pages
+	// over http keeps its images over http too. A scheme-relative image
+	// address inherits this, as RFC 3986 says it inherits the page's.
+	mu      sync.Mutex
+	schemes map[string]string
 }
 
 // ErrTooLarge is returned for a response over the size limit.
@@ -35,7 +41,7 @@ func NewTransport(jar *cookies.Jar, userAgent string, timeout time.Duration) *Tr
 	if timeout <= 0 {
 		timeout = 30 * time.Second
 	}
-	t := &Transport{jar: jar, ua: userAgent}
+	t := &Transport{jar: jar, ua: userAgent, schemes: map[string]string{}}
 	t.client = &http.Client{
 		Timeout: timeout,
 		CheckRedirect: func(req *http.Request, via []*http.Request) error {
@@ -129,6 +135,14 @@ func partitionOf(ctx context.Context) string {
 	return ""
 }
 
+// SchemeOf returns the scheme a partition last used, or "" when it has not
+// asked for anything yet.
+func (t *Transport) SchemeOf(partition string) string {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	return t.schemes[partition]
+}
+
 // Do implements host.Transport.
 func (t *Transport) Do(ctx context.Context, r *host.Request) (*host.Response, error) {
 	u, err := url.Parse(r.URL)
@@ -190,6 +204,13 @@ func (t *Transport) Do(ctx context.Context, r *host.Request) (*host.Response, er
 		return nil, err
 	}
 	defer resp.Body.Close()
+	// The partition's scheme is remembered, so an image address without one
+	// can inherit it.
+	if partition != "" {
+		t.mu.Lock()
+		t.schemes[partition] = u.Scheme
+		t.mu.Unlock()
+	}
 	data, err := io.ReadAll(io.LimitReader(resp.Body, maxBody+1))
 	if err != nil {
 		return nil, err
