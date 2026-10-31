@@ -177,6 +177,18 @@ That also fixed a blind spot in `cmd/uicheck`: its `-chapter` was gated on `n < 
 
 **`modifyImage` is wired up (2026-11-01, pin `6aa9356`)**: Core adds `Runtime.ModifyImage` (decoded RGBA into a throwaway bitmap store, the source's script runs in its own runtime, the result bitmap comes back; decoding and encoding stay with the client), and the desktop client uses it on the image path: fetch → `onResponse` first if present → `modifyImage` decodes to RGBA, runs the script and re-encodes as PNG, with the content type changed to `image/png` to match. In the config `modifyImage` is a **string of JavaScript, not a function**, so it travels as `ImageConfig.ModifyImage` rather than as a callback handle — a mistake made and pinned down with a test. Deterministic check: a source returns a 4×2 red/blue picture plus a clockwise-rotate script, and what arrives is 2×4 with red on top; a script that returns no image reports the failure instead of falling back to the original. Against real sources `hitomi` and `manhuagui` pass (their images are mostly avif/webp, which need not trigger the script).
 
+**Removal was failing silently: a missing fourth argument (2026-11-01)**: six official sources' `addOrDelFavorite` takes a fourth `favoriteId` — the source's own handle on the favorite entry. `wnacg` builds its delete URL from it:
+
+```js
+Network.get(`${this.baseUrl}/users-fav_del-id-${favoriteId}.html?ajax=true...`)
+```
+
+Passing only three arguments sent the delete to `del-id-undefined`, which still answered 200 and the source still reported success — **it looked removed and was not**. That kind of "succeeds but does nothing" is harder to notice than an error.
+
+Core now parses `Comic.favoriteId` and `details.favoriteId` (either may carry it), and `SetFavorite` always passes the fourth argument: the handle when known, `null` otherwise, which the sources that do not use it ignore. A recording fake source pins both shapes: `["c1",null,false,"fav-77"]` and `["c1","f2",true,null]`.
+
+**Boundary**: a logged-out source returns no `favoriteId`, so a real `wnacg` removal cannot be verified on this machine — the unit tests are the evidence.
+
 **Favorite to the source: from read-only to add and remove (2026-11-01)**: the previous round only *listed* a source's favorites; the details page had no way in. It now carries 收藏到源 beside 收藏 (the local shelf): it shows whether the source supports them, offers a folder when there are several, and turns into 已在源收藏 — pressing again removes — when the comic is already in the chosen folder. Whatever the source throws is shown in its own words.
 
 Three deliberate choices:

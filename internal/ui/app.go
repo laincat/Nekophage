@@ -105,8 +105,11 @@ type App struct {
 	srcFavFolders map[string]string
 	srcFavFolder  string
 	srcFavHeld    []string
-	srcFavBusy    bool
-	srcFavMsg     string
+	// srcFavID is the source's own handle for this comic's favorite entry,
+	// which some sources need to remove it.
+	srcFavID   string
+	srcFavBusy bool
+	srcFavMsg  string
 
 	favSup          core.FavoritesSupport
 	favLoaded       bool

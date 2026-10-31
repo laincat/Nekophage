@@ -170,6 +170,18 @@ Core 同步到 `af4f1a0` 之后又跑了两条真实源:MangaDex(`one piece` —
 
 **`modifyImage` 已接上(2026-11-01,pin `6aa9356`)**:Core 新增 `Runtime.ModifyImage`(把解码后的 RGBA 放进一次性位图仓库、在独立运行时里跑源给的脚本、取回结果位图;解码与编码仍由客户端做),桌面端在图片路径里接上:取回 → 有 `onResponse` 先改写 → 有 `modifyImage` 就解码成 RGBA、跑脚本、编码回 PNG,内容类型随之改成 `image/png`。`modifyImage` 在配置里是**字符串脚本**而不是函数,所以它走 `ImageConfig.ModifyImage` 而不是回调句柄 —— 这一点最初写错过,补了一条用例钉住。确定性验证:源返回 4×2 的红蓝图 + 顺时针旋转脚本,取回后是 2×4 且红在上;脚本返回非图像时如实报错、不回落到原图。真实源侧 `hitomi`、`manhuagui` 实测通过(它们的图多为 avif/webp,不一定触发脚本)。
 
+**删除收藏会静默失败:少了第 4 个参数(2026-11-01)**:六个官方源的 `addOrDelFavorite` 有第四个参数 `favoriteId` —— 源**自己的**收藏条目句柄。`wnacg` 的删除直接用它拼 URL:
+
+```js
+Network.get(`${this.baseUrl}/users-fav_del-id-${favoriteId}.html?ajax=true...`)
+```
+
+我们只传三个参数,于是删除请求实际打到 `del-id-undefined`,而它仍返回 200、源也返回成功 —— **看起来删掉了,其实没有**。这类"成功但不生效"比报错更难发现。
+
+现在 Core 解析 `Comic.favoriteId` 与 `details.favoriteId`(两处都可能带),`SetFavorite` 始终传第四个参数:有句柄就传,没有就是 `null`(不传的源本来就忽略它)。假源单测钉住了两种形态:`["c1",null,false,"fav-77"]` 与 `["c1","f2",true,null]`。
+
+**边界**:未登录时源不返回 `favoriteId`,所以真实的 `wnacg` 删除无法在本机验证 —— 只有单测证据。
+
 **收藏到源:从"只能看"到"能加能删"(2026-11-01)**:上一轮只把源的收藏**列出来**,详情页没有入口。现在详情页在「收藏」(本地书架)旁边多一个「收藏到源」:显示源是否支持、多收藏夹时给文件夹选择、已在该收藏夹时按钮变成「已在源收藏」再按一次即移除。源抛的错误按原文显示。
 
 几个刻意的选择:

@@ -59,7 +59,7 @@ func TestFavoritesShapeIsRead(t *testing.T) {
 	}
 
 	// A source that refuses says so in its own words.
-	if err := c.SetFavorite(ctx, "fav", "c1", "f1", true); err == nil {
+	if err := c.SetFavorite(ctx, "fav", "c1", "f1", "", true); err == nil {
 		t.Error("adding without a token must fail")
 	} else if !strings.Contains(err.Error(), "Login expired") {
 		t.Errorf("error = %v, want the source's own text", err)

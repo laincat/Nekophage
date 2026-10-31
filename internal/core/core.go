@@ -214,6 +214,12 @@ type Comic struct {
 	Cover       string
 	Tags        []string
 	Description string
+	// FavoriteID is the source's own handle on this comic's favorite entry.
+	// Six official sources take it as the fourth argument of
+	// favorites.addOrDelFavorite, and wnacg builds its delete URL from it: with
+	// no handle the removal asks for "del-id-undefined" and quietly does
+	// nothing.
+	FavoriteID string
 }
 
 // Page is one page of search results.
@@ -600,6 +606,9 @@ type Details struct {
 	Tags        []TagGroup
 	// Chapters keep the source's order, which is reading order.
 	Chapters []Chapter
+	// FavoriteID is the source's handle on this comic's favorite entry, when
+	// loadInfo reports one. Removal needs it on some sources.
+	FavoriteID string
 }
 
 // Details runs comic.loadInfo(id).
@@ -901,14 +910,19 @@ func (c *Core) FavoriteComics(ctx context.Context, key, folder string, page int)
 }
 
 // SetFavorite adds or removes a comic on the source's side.
-func (c *Core) SetFavorite(ctx context.Context, key, comicID, folder string, adding bool) error {
-	var arg any
+func (c *Core) SetFavorite(ctx context.Context, key, comicID, folder, favoriteID string, adding bool) error {
+	folderArg := any(nil)
 	if folder != "" {
-		arg = folder
-	} else {
-		arg = nil
+		folderArg = folder
 	}
-	_, err := c.Call(ctx, key, "favorites.addOrDelFavorite", comicID, arg, adding)
+	// Sources that do not use the handle take three arguments and ignore the
+	// fourth; sources that do use it (wnacg for the delete) need it, so it is
+	// always passed rather than appended only when known.
+	favoriteArg := any(nil)
+	if favoriteID != "" {
+		favoriteArg = favoriteID
+	}
+	_, err := c.Call(ctx, key, "favorites.addOrDelFavorite", comicID, folderArg, adding, favoriteArg)
 	return err
 }
 
@@ -1257,10 +1271,12 @@ func parseComic(raw json.RawMessage) Comic {
 		Cover       flexString `json:"cover"`
 		Tags        []string   `json:"tags"`
 		Description flexString `json:"description"`
+		FavoriteID  flexString `json:"favoriteId"`
 	}
 	if err := json.Unmarshal(raw, &f); err != nil {
 		return Comic{}
 	}
+	c.FavoriteID = string(f.FavoriteID)
 	c.ID, c.Title, c.Cover, c.Description = string(f.ID), string(f.Title), string(f.Cover), string(f.Description)
 	c.Subtitle = string(f.Subtitle)
 	if c.Subtitle == "" {
@@ -1279,11 +1295,13 @@ func parseDetails(raw json.RawMessage) (Details, error) {
 		Description flexString      `json:"description"`
 		Tags        json.RawMessage `json:"tags"`
 		Chapters    json.RawMessage `json:"chapters"`
+		FavoriteID  flexString      `json:"favoriteId"`
 	}
 	if err := json.Unmarshal(raw, &f); err != nil {
 		return Details{}, fmt.Errorf("core: comic.loadInfo: %w", err)
 	}
-	d := Details{Title: string(f.Title), Cover: string(f.Cover), Description: string(f.Description)}
+	d := Details{Title: string(f.Title), Cover: string(f.Cover), Description: string(f.Description),
+		FavoriteID: string(f.FavoriteID)}
 	d.Subtitle = string(f.Subtitle)
 	if d.Subtitle == "" {
 		d.Subtitle = string(f.SubTitle)

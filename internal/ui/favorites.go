@@ -220,7 +220,15 @@ func (a *App) loadSourceFavorites(key, comicID string) {
 func (a *App) toggleSourceFavorite() {
 	a.mu.Lock()
 	key, comicID := a.currentKey(), a.detailComic.ID
-	sup, folder, held := a.srcFav, a.srcFavFolder, a.srcFavHeld
+	sup, folder, held, favoriteID := a.srcFav, a.srcFavFolder, a.srcFavHeld, a.srcFavID
+	// The page that listed the comic and the details page may each carry the
+	// handle; either one is enough.
+	if favoriteID == "" {
+		favoriteID = a.detailComic.FavoriteID
+	}
+	if favoriteID == "" {
+		favoriteID = a.detail.FavoriteID
+	}
 	if a.srcFavBusy || comicID == "" {
 		a.mu.Unlock()
 		return
@@ -241,7 +249,7 @@ func (a *App) toggleSourceFavorite() {
 		defer cancel()
 		var err error
 		if sup.Supported {
-			err = a.core.SetFavorite(ctx, key, comicID, folder, adding)
+			err = a.core.SetFavorite(ctx, key, comicID, folder, favoriteID, adding)
 		}
 		a.win.Update(func() {
 			a.mu.Lock()
