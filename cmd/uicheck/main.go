@@ -47,6 +47,11 @@ func main() {
 	setSetting := flag.String("set-setting", "", "change a declared setting as key=value")
 	autoNext := flag.Bool("auto-next", false, "turn on automatic next chapter and read to the end")
 	searchAll := flag.Bool("all-sources", false, "search every installed source at once")
+	aiShot := flag.Bool("ai", false, "open the AI window instead of searching")
+	aiTest := flag.Bool("ai-test", false, "go with -ai: press 测试连接 and 读取模型 first")
+	aiOut := flag.String("ai-out", "", "where to write the AI-window capture with -ai")
+	aiPrompt := flag.String("ai-prompt", "", "go with -ai: send this text and capture the answer")
+	aiModel := flag.String("ai-model", "", "go with -ai: fill the default model before sending")
 	openLast := flag.Bool("open-last", false, "open the last result, to check a source switch")
 	keepPage := flag.Bool("keep-page", false, "click the reader's 收藏本页 button once")
 	favourite := flag.Bool("favourite", false, "keep the first search result, to check the shelf marker")
@@ -107,7 +112,7 @@ func main() {
 		AdvanceChapter: *advance, AutoNext: *autoNext, Filters: *filters, Filter: *filterPick,
 		SearchAll: *searchAll, OpenLast: *openLast,
 		KeepPage: *keepPage, Favourite: *favourite, OpenSettings: *settingsShot, BackupCookies: *backupCookies,
-		SetSetting: *setSetting})
+		SetSetting: *setSetting, AI: *aiShot, AITest: *aiTest, AIPrompt: *aiPrompt, AIModel: *aiModel})
 
 	mygo.App.SetLanguages("zh-Hans")
 	var shotErr error
@@ -136,6 +141,20 @@ func main() {
 					} else {
 						log.Printf("sources capture: %v", err)
 					}
+				}
+			}
+			// The AI window is its own window too.
+			if *aiShot && *aiOut != "" {
+				if win := app.AIWindow(); win != nil {
+					if shot, err := win.CapturePage(); err == nil {
+						if werr := os.WriteFile(*aiOut, shot, 0o644); werr == nil {
+							log.Printf("AI capture: %s (%d bytes)", *aiOut, len(shot))
+						}
+					} else {
+						log.Printf("AI capture: %v", err)
+					}
+				} else {
+					log.Printf("AI capture: the AI window was never opened")
 				}
 			}
 			mygo.App.Quit()

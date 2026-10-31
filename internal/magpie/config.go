@@ -91,9 +91,12 @@ func (s Settings) ClientConfig() Config {
 }
 
 // ModelFor returns the model or group to send for task: the tier's own choice,
-// then the explicit choice, then "" for the gateway's default route.
+// then the explicit choice, then "".
 //
-// It never invents a model and never reorders candidates: picking among the
+// An empty result means nothing has been chosen yet, and it is not a request
+// for the gateway to pick: the Magpie installed here rejects an empty model
+// with HTTP 400, so Session.Ask refuses it instead of sending it. ModelFor
+// never invents a model and never reorders candidates — picking among the
 // members of a group is Magpie's job.
 func (s Settings) ModelFor(task Task) string {
 	if s.Tiers != nil {

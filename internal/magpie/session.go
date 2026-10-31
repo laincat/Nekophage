@@ -23,6 +23,13 @@ type Session struct {
 // OpenSession reads the stored settings. A missing file is the default state; a
 // damaged one is an error, because starting over silently would look like the
 // gateway had vanished.
+// ErrNoModel is returned when a task has no model to send.
+//
+// The Magpie installed here answers `model must be a nonempty string` with
+// HTTP 400, so an empty model is not "let the gateway route it": it is a
+// request that always fails. Guessing a model would be worse than saying so.
+var ErrNoModel = errors.New("还没有选模型：先点“读取模型”，把这次要用的模型或组填进档位或默认模型")
+
 func OpenSession(path string) (*Session, error) {
 	settings, err := LoadSettings(path)
 	if err != nil {
@@ -102,5 +109,8 @@ func (s *Session) Ask(ctx context.Context, task Task, messages []Message) (<-cha
 	s.mu.Lock()
 	model := s.settings.ModelFor(task)
 	s.mu.Unlock()
+	if model == "" {
+		return nil, ErrNoModel
+	}
 	return client.Chat(ctx, Request{Model: model, Messages: messages})
 }

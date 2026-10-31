@@ -178,6 +178,19 @@ func (a *App) tierMapping() map[string]string {
 	return out
 }
 
+// applyAIFields copies what is on screen into settings, so pressing 测试连接
+// or 发送 uses the address and model the user just typed. Reading only the
+// stored settings made the 默认模型 field decorative: the value stayed empty,
+// and the gateway answered HTTP 400 for a request with no model.
+//
+// The caller holds a.mu.
+func (a *App) applyAIFields(settings magpie.Settings) magpie.Settings {
+	settings.BaseURL = strings.TrimSpace(a.ai.addr)
+	settings.Model = strings.TrimSpace(a.ai.model)
+	settings.Tiers = a.tierMapping()
+	return settings
+}
+
 // clampTier keeps an out-of-range index from panicking; 1 is "normal", the
 // documented default.
 func clampTier(tier int) int {
@@ -208,7 +221,7 @@ func tierNote(state aiState) string {
 	if fallback := strings.TrimSpace(state.model); fallback != "" {
 		return "→ " + fallback + "(默认模型)"
 	}
-	return "→ 交给 Magpie 的默认路由"
+	return "→ 还没选模型，先读取模型目录"
 }
 
 // modelPreview lists the first few IDs: enough to show the connection works
@@ -235,6 +248,7 @@ func (a *App) aiSaveAndTest() {
 	session := a.ai.session
 	addr := strings.TrimSpace(a.ai.addr)
 	tiers := a.tierMapping()
+	model := strings.TrimSpace(a.ai.model)
 	a.ai.busy, a.ai.errText, a.ai.notice = "正在连接…", "", ""
 	a.mu.Unlock()
 	a.aiWin.Update(func() {})
@@ -254,6 +268,7 @@ func (a *App) aiSaveAndTest() {
 		settings := session.Settings()
 		settings.BaseURL = addr
 		settings.Tiers = tiers
+		settings.Model = model
 		if err := session.Update(settings); err != nil {
 			a.aiFinish("", err)
 			return
@@ -324,8 +339,7 @@ func (a *App) aiSend() {
 		return
 	}
 	task := magpie.Tasks[clampTier(a.ai.tier)]
-	settings := session.Settings()
-	settings.Tiers = a.tierMapping()
+	settings := a.applyAIFields(session.Settings())
 	if err := session.Update(settings); err != nil {
 		a.mu.Unlock()
 		a.aiFinish("", err)

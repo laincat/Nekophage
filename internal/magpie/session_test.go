@@ -133,6 +133,8 @@ func TestSessionFollowsAnAddressChange(t *testing.T) {
 	for i, g := range []*gateway{first, second} {
 		next := DefaultSettings()
 		next.BaseURL = g.server.URL
+		// A task needs a model: the gateway rejects an empty one.
+		next.Model = "model-" + g.server.URL
 		if err := session.Update(next); err != nil {
 			t.Fatal(err)
 		}
@@ -146,7 +148,10 @@ func TestSessionFollowsAnAddressChange(t *testing.T) {
 		for range events {
 		}
 	}
-	if g := first.lastModel(); g != "" {
+	if g := second.lastModel(); g != "model-"+second.server.URL {
+		t.Fatalf("the second gateway saw %q, want its own model", g)
+	}
+	if g := first.lastModel(); g != "model-"+first.server.URL {
 		t.Fatalf("the first gateway saw a later request: %q", g)
 	}
 }
@@ -222,5 +227,27 @@ func TestSessionReportsAMissingGateway(t *testing.T) {
 	defer cancel()
 	if _, err := session.Models(ctx); !errors.Is(err, ErrNotRunning) {
 		t.Fatalf("err = %v", err)
+	}
+}
+
+// The Magpie installed here answers HTTP 400 for an empty model, so a task
+// with nothing chosen must be refused where the reason is readable instead of
+// being sent and rejected.
+func TestAskRefusesAnEmptyModel(t *testing.T) {
+	g := newGateway(t)
+	session, err := OpenSession(filepath.Join(t.TempDir(), "magpie.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	settings := DefaultSettings()
+	settings.BaseURL = g.server.URL
+	if err := session.Update(settings); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := session.Ask(context.Background(), TaskNormal, []Message{{Role: "user", Content: "hi"}}); !errors.Is(err, ErrNoModel) {
+		t.Fatalf("err = %v, want ErrNoModel", err)
+	}
+	if got := g.lastModel(); got != "" {
+		t.Errorf("the gateway was asked with model %q", got)
 	}
 }

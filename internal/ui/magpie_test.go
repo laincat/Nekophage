@@ -21,7 +21,7 @@ func TestTierNoteSaysWhereTheRequestGoes(t *testing.T) {
 		t.Fatalf("unmapped tier with a default = %q", got)
 	}
 	state.model = ""
-	if got := tierNote(state); got != "→ 交给 Magpie 的默认路由" {
+	if got := tierNote(state); got != "→ 还没选模型，先读取模型目录" {
 		t.Fatalf("nothing configured = %q", got)
 	}
 }
@@ -72,5 +72,30 @@ func TestModelPreviewStaysShort(t *testing.T) {
 	}
 	if modelPreview(nil) != "" {
 		t.Fatal("an empty catalog produced a preview")
+	}
+}
+
+// The 默认模型 field is what the user typed, and pressing 发送 must use it.
+// Taking only the stored settings left Model empty, and the installed Magpie
+// answers HTTP 400 for a request with no model — which is what a real send did
+// before this was fixed.
+func TestTheTypedModelReachesTheRequest(t *testing.T) {
+	a := &App{}
+	a.ai.addr = "  127.0.0.1:3425  "
+	a.ai.model = "  group/laincat  "
+	a.ai.tierModels = [3]string{"", "group/cheap", ""}
+
+	settings := a.applyAIFields(magpie.Settings{Tiers: map[string]string{}})
+	if settings.BaseURL != "127.0.0.1:3425" {
+		t.Errorf("address = %q, want the trimmed one", settings.BaseURL)
+	}
+	if settings.Model != "group/laincat" {
+		t.Errorf("model = %q, want what was typed", settings.Model)
+	}
+	if got := settings.ModelFor(magpie.TaskNormal); got != "group/cheap" {
+		t.Errorf("tier normal = %q, want its own choice to win", got)
+	}
+	if got := settings.ModelFor(magpie.TaskSimple); got != "group/laincat" {
+		t.Errorf("tier simple = %q, want the typed default", got)
 	}
 }

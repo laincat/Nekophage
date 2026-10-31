@@ -156,6 +156,16 @@ type DevOptions struct {
 	// OpenSettings opens the sources window with the first source's settings
 	// panel, so the tools can capture it.
 	OpenSettings bool
+	// AI opens the AI window, which talks to the Magpie installed on this
+	// machine. AITest also presses 测试连接 and 读取模型, so a capture shows a
+	// real catalogue rather than the empty first frame.
+	AI     bool
+	AITest bool
+	// AIPrompt, with -ai, sends this text once the connection and the
+	// catalogue are in, so a capture shows a real streamed answer.
+	AIPrompt string
+	// AIModel fills 默认模型 before a send, since a task needs one.
+	AIModel string
 	// BackupCookies starts the sources window with the backup import's cookie
 	// checkbox ticked, so a capture shows the state the checkbox reports rather
 	// than only that it renders.
@@ -260,6 +270,41 @@ func (a *App) Run() error {
 			a.manage.backupCookies = true
 			a.mu.Unlock()
 		}
+		if a.dev.AI {
+			a.openAI()
+			// The window reads the stored connection first; connecting before
+			// that would race it for the session.
+			prompt := a.dev.AIPrompt
+			test := a.dev.AITest
+			model := a.dev.AIModel
+			if test || prompt != "" {
+				go func() {
+					time.Sleep(600 * time.Millisecond)
+					a.aiSaveAndTest()
+					if prompt == "" {
+						return
+					}
+					// 测试连接 and 读取模型 run in the background; the send needs
+					// a session, so wait for one instead of sending into a nil.
+					for i := 0; i < 100; i++ {
+						time.Sleep(100 * time.Millisecond)
+						a.mu.Lock()
+						ready := a.ai.session != nil && !a.ai.running
+						a.mu.Unlock()
+						if ready {
+							break
+						}
+					}
+					a.mu.Lock()
+					a.ai.prompt = prompt
+					if model != "" {
+						a.ai.model = model
+					}
+					a.mu.Unlock()
+					a.aiSend()
+				}()
+			}
+		}
 		if a.dev.OpenSettings {
 			a.openManage()
 			// The panel reads the declaration, which is JS work: show the
@@ -303,6 +348,9 @@ func (a *App) Window() *mygo.Window { return a.win }
 // ManageWindow is the sources window, for the development tools that capture
 // it.
 func (a *App) ManageWindow() *mygo.Window { return a.manageWin }
+
+// AIWindow is the AI window, or nil before it is opened.
+func (a *App) AIWindow() *mygo.Window { return a.aiWin }
 
 // --- data ---
 
