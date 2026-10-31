@@ -3,6 +3,7 @@ package core
 import (
 	"bytes"
 	"context"
+	"errors"
 	"image"
 	"image/color"
 	"image/jpeg"
@@ -10,6 +11,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -259,5 +261,55 @@ class Cover extends ComicSource {
 		if !thumbnail && !req.HasCallback("onLoadFailed") {
 			t.Errorf("a page request lost its mirror fallback")
 		}
+	}
+}
+
+// A tag's meaning belongs to the source: one searches "作者:<name>", another
+// maps 类型 onto a category parameter, and a third refuses outright.
+func TestClickTagReadsWhatTheSourceWants(t *testing.T) {
+	c, err := Open(Options{DataDir: filepath.Join(t.TempDir(), "data"), AppVersion: "1.6.0", Locale: "zh_CN"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer c.Close()
+
+	script := `
+class Tags extends ComicSource {
+    name = "Tags"; key = "tags"; version = "1.0.0"
+    comic = {
+        onClickTag: (namespace, tag) => {
+            if (namespace === "作者") return {action: "search", keyword: namespace + ":" + tag, param: null}
+            if (namespace === "类型") return {action: "category", keyword: tag, param: "33"}
+            throw "未支持此类Tag检索"
+        }
+    }
+}
+`
+	if _, err := c.Install(context.Background(), script, "test", ""); err != nil {
+		t.Fatalf("install: %v", err)
+	}
+	ctx := context.Background()
+	got, err := c.ClickTag(ctx, "tags", "作者", "张三")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Action != "search" || got.Keyword != "作者:张三" || got.Param != "" {
+		t.Errorf("author tag = %+v", got)
+	}
+	got, err = c.ClickTag(ctx, "tags", "类型", "长篇")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Action != "category" || got.Param != "33" || got.Keyword != "长篇" {
+		t.Errorf("category tag = %+v", got)
+	}
+	// A source that refuses the namespace says so; the message is what the
+	// interface shows.
+	if _, err := c.ClickTag(ctx, "tags", "语言", "中文"); err == nil || !strings.Contains(err.Error(), "Tag检索") {
+		t.Errorf("an unsupported tag answered %v", err)
+	}
+	// A source with no hook at all is distinguishable from one that refused.
+	if _, err := c.ClickTag(ctx, "missing", "作者", "张三"); !errors.Is(err, ErrNoTagAction) {
+		t.Errorf("a source without the hook answered %v", err)
 	}
 }

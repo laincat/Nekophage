@@ -707,6 +707,51 @@ func (c *Core) ImageRequest(ctx context.Context, key, url, comicID, chapterID st
 	return req, nil
 }
 
+// ErrNoTagAction reports a source that does not say what a tapped tag means.
+var ErrNoTagAction = errors.New("core: source does not handle tag taps")
+
+// TagAction is what a source wants done when a tag is tapped: run a search for
+// Keyword, or open the category page whose Param belongs to this source.
+type TagAction struct {
+	// Action is "search" or "category".
+	Action  string
+	Keyword string
+	// Param is only set for "category"; a source may leave it null.
+	Param string
+}
+
+// ClickTag runs comic.onClickTag(namespace, tag).
+//
+// Sources put their own meaning on a tag: `copy_manga` searches "作者:<name>",
+// `manhuagui` maps 类型 to a category parameter. A source that cannot handle
+// the tag throws, and that message is the most useful thing to show.
+func (c *Core) ClickTag(ctx context.Context, key, namespace, tag string) (TagAction, error) {
+	if !c.Has(ctx, key, "comic.onClickTag") {
+		return TagAction{}, ErrNoTagAction
+	}
+	raw, err := c.Call(ctx, key, "comic.onClickTag", namespace, tag)
+	if err != nil {
+		return TagAction{}, err
+	}
+	var out struct {
+		Action  string `json:"action"`
+		Keyword string `json:"keyword"`
+		Param   any    `json:"param"`
+	}
+	if err := json.Unmarshal(raw, &out); err != nil {
+		return TagAction{}, fmt.Errorf("core: onClickTag: %w", err)
+	}
+	action := strings.ToLower(strings.TrimSpace(out.Action))
+	if action == "" {
+		return TagAction{}, ErrNoTagAction
+	}
+	param := ""
+	if out.Param != nil {
+		param = fmt.Sprint(out.Param)
+	}
+	return TagAction{Action: action, Keyword: out.Keyword, Param: param}, nil
+}
+
 // AppVersion is what sources see and what index entries are compared with.
 func (c *Core) AppVersion() string { return c.opts.AppVersion }
 

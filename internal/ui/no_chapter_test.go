@@ -84,3 +84,24 @@ func TestSwitchChapterForAComicWithNoChapters(t *testing.T) {
 		t.Error("a switch for another comic was accepted")
 	}
 }
+
+// A tag's meaning comes from the source; what the interface does with it is
+// decided here, so the three cases can be checked without a window.
+func TestTagOutcomeFollowsTheSource(t *testing.T) {
+	query, notice := tagOutcome(core.TagAction{Action: "search", Keyword: "作者:张三"}, "张三")
+	if query != "作者:张三" || notice != "" {
+		t.Errorf("search tag = %q, %q", query, notice)
+	}
+	// A source that names no keyword gets no search.
+	if query, notice = tagOutcome(core.TagAction{Action: "search"}, "张三"); query != "" || notice == "" {
+		t.Errorf("empty search tag = %q, %q", query, notice)
+	}
+	// A category tag names a parameter this view cannot pass, and says so
+	// rather than searching for the word.
+	if query, notice = tagOutcome(core.TagAction{Action: "category", Keyword: "长篇", Param: "33"}, "长篇"); query != "" || notice == "" {
+		t.Errorf("category tag = %q, %q", query, notice)
+	}
+	if query, notice = tagOutcome(core.TagAction{Action: ""}, "长篇"); query != "" || notice == "" {
+		t.Errorf("unknown tag = %q, %q", query, notice)
+	}
+}

@@ -99,6 +99,7 @@ type App struct {
 	// looking at now.
 	searchGen  generation
 	detailGen  generation
+	tagGen     generation
 	exploreGen generation
 
 	manageWin *mygo.Window
@@ -668,6 +669,68 @@ func (a *App) openComic(c core.Comic) {
 				a.resumeChapter = -1
 				go func() { a.openReader(n) }()
 			}
+		})
+	}()
+}
+
+// tagOutcome is what a tapped tag turns into: a search to run, or a sentence
+// explaining why nothing runs.
+//
+// Opening a source's category page needs the parameter its own browse entry
+// expects, which this view cannot pass yet; saying so beats searching for a
+// word the source did not ask for.
+func tagOutcome(action core.TagAction, tag string) (query, notice string) {
+	switch action.Action {
+	case "search":
+		if q := strings.TrimSpace(action.Keyword); q != "" {
+			return q, ""
+		}
+		return "", "这个源没有给出「" + tag + "」的搜索词"
+	case "category":
+		return "", "这个源把「" + tag + "」归到分类页,当前版本还打不开分类参数"
+	}
+	return "", "这个源没有说明「" + tag + "」该做什么"
+}
+
+// tagClicked asks the source what a tapped tag means.
+//
+// The meaning belongs to the source: copy_manga turns an author into a search
+// for "作者:<name>", manhuagui turns a 类型 into a category parameter, and a
+// source that does not handle the namespace throws with its own message. That
+// message is shown as it is, because it is the only honest answer.
+func (a *App) tagClicked(namespace, tag string) {
+	key := a.currentKey()
+	a.mu.Lock()
+	ticket := a.tagGen.next()
+	a.mu.Unlock()
+	go func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+		action, err := a.core.ClickTag(ctx, key, namespace, tag)
+		a.win.Update(func() {
+			a.mu.Lock()
+			current := a.tagGen.current(ticket)
+			a.mu.Unlock()
+			if !current {
+				return
+			}
+			if err != nil {
+				a.mu.Lock()
+				a.notice = explain(err)
+				a.mu.Unlock()
+				return
+			}
+			query, notice := tagOutcome(action, tag)
+			if query != "" {
+				a.mu.Lock()
+				a.query = query
+				a.mu.Unlock()
+				a.startSearch()
+				return
+			}
+			a.mu.Lock()
+			a.notice = notice
+			a.mu.Unlock()
 		})
 	}()
 }
@@ -1384,7 +1447,16 @@ func (a *App) detailsView(c *ui.Context, t *ui.Theme, busy bool) {
 			}
 			for _, g := range d.Tags {
 				ui.Text(c, g.Name).FontSize(11).TextColor(t.TextMuted)
-				ui.Text(c, strings.Join(g.Values, "、")).FontSize(12)
+				// A tag is a way into the source's own search or category
+				// page, so each value is a button rather than joined text.
+				ui.Row(c).Gap(6).Wrap().Children(func() {
+					for _, value := range g.Values {
+						value, namespace := value, g.Name
+						if ui.Button(c, value).Clicked() {
+							a.tagClicked(namespace, value)
+						}
+					}
+				})
 			}
 		})
 		ui.Divider(c)
