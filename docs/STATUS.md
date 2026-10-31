@@ -106,6 +106,15 @@ Core 同步到 `af4f1a0` 之后又跑了两条真实源:MangaDex(`one piece` —
 4. **封面永远是灰块**:首帧渲染时封面还没下载完,解码缓存把「没有图片」记成了最终结果。现在只缓存解码成功的结果和失败的下载。
 5. **源列表陈旧**:`Library.Sources()` 原来读自己的缓存,从其他路径安装的源不显示;现在每次都向 Core 要。
 
+**桌面端真实 UI 验证(2026-11-01)**:此前只有无头测试,界面本身没有证明过能用真实源走完。这轮用 `cmd/uicheck` 与 `cmd/readercheck` 在 **Windows 本机**、真实网络下跑了两条:
+
+- `goda`:搜索「火影」→ 详情显示封面、作者「集英社」、标签「冒险/战争」、**共 162 章**;`readercheck` 打开第 1 话得到 **57 页**,阅读器渲染 57 个 `figure`/`img`,已解码 4 页(首图 623×960);截图 `ui-real-goda.png` 与 `ui-real-reader.png` 保留在证据目录。界面在打开过阅读后出现「读到」「继续阅读」。
+- `ehentai`(画廊型、无章节列表):搜索 `naruto` → 详情显示封面与标签。修之前这里写的是「共 0 章 / 没有匹配的章节」——**对一个只有单个阅读单元的作品是误导性文案**,现在改成「整部作品是一个阅读单元」,并把无效的章节筛选框一并去掉。`-chapter 0` 走 `openReader(0)`,书架 `shelf.json` 落下 `chapterIndex: 0` 的记录。
+
+顺带修了 `cmd/uicheck` 的一个盲点:它的 `-chapter` 原来被 `n < len(d.Chapters)` 挡住,画廊型作品永远进不去阅读器,这类源在 UI 上就没法验证。现在章节列表为空时允许 `n == 0`,与详情页「开始阅读」按钮走同一条路。
+
+**这条证据的边界**:截图证明界面能画、章节能列、阅读器能渲染真实图片、书架能记位置;它**不**证明沉浸式阅读的滚动体验、也不覆盖 macOS/Linux。
+
 **`kuaikan` 撞到引擎的寄存器上限(未修,属 MoeJS 编译器)**:该源把站点内联的解码函数整段交给 `Function(...)` 编译,而 MoeJS 的字节码编译器对单个函数有 **256 个寄存器**的硬上限,超了直接报 `SyntaxError: function needs more than 256 registers is not supported yet`。这个数字在 `compiler/compiler.go` 里是常量,没有开关;要放开就得给编译器加寄存器溢出(spilling),属引擎改造,不在客户端能修的范围。同一个扫描结论适用于 `manhuaren`、`one_kkk`、`webtoons_zh_hant`、`cosplaytele` —— 它们在我们第一轮用「火影」巡检时都报「搜索无结果」,换成 vensrc 巡检用的固定样本(斗破苍穹 / love / girl)后全部通过,说明那几条是**关键词不匹配**,不是缺陷。
 
 **源自己写了 `Accept-Encoding` 时，压缩响应没有被解开(2026-11-01)**:JM 系源在请求头里显式写了 `Accept-Encoding: gzip, deflate, br, zstd`。Go 的 `net/http` 只在自己**插入** gzip 时才透明解压;一旦调用方自己设了这个头,它就把响应体原样交回。于是源拿到的是 gzip 字节,`JSON.parse` 在第一个字节 `0x1f` 上报 `Unexpected token`,而源把这个异常包装成自己的「后台初始化失败: Error: HTTP 404」——**一条与真实原因毫无关系的报错**,这种错误最难查。修法是在 `Transport.Do` 里:把源声明的编码收敛到本传输层真能解的两种(`gzip`、`deflate`),再按 `Content-Encoding` 解压,解压后仍受 `maxBody` 限制(压缩炸弹不会因为解压而绕开上限),解压完成就删掉 `Content-Encoding` 与 `Content-Length`,免得调用方再按压缩后长度理解。反过来验证:把解压关掉,`jmcomic` 立刻退回同一条「HTTP 404」失败;打开就通过。

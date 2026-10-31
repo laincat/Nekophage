@@ -592,7 +592,7 @@ func (a *App) openComic(c core.Comic) {
 				return
 			}
 			a.detail = d
-			if n := a.dev.OpenChapter; n >= 0 && n < len(d.Chapters) && !a.devChapterUsed {
+			if n := a.dev.OpenChapter; n >= 0 && !a.devChapterUsed && (n < len(d.Chapters) || len(d.Chapters) == 0 && n == 0) {
 				a.devChapterUsed = true
 				go func() { a.openReader(n) }()
 			} else if n := a.resumeChapter; n >= 0 && n < len(d.Chapters) {
@@ -1379,6 +1379,13 @@ func (a *App) detailsView(c *ui.Context, t *ui.Theme, busy bool) {
 			ui.Divider(c)
 			shown, matches := filterChapters(chapters, a.chapterQuery)
 			ui.Row(c).Padding(6, 12).Gap(10).AlignItems(ui.Center).Children(func() {
+				if len(chapters) == 0 {
+					// A gallery source declares no chapter list: the work is
+					// the single reading unit, so a chapter count and a
+					// chapter filter would both describe nothing.
+					ui.Text(c, "整部作品是一个阅读单元").FontSize(12).TextColor(t.TextMuted)
+					return
+				}
 				ui.Textf(c, "共 %d 章", len(chapters)).FontSize(12).TextColor(t.TextMuted)
 				if a.chapterQuery != "" {
 					ui.Textf(c, "· 找到 %d 章", len(matches)).FontSize(12).TextColor(t.TextMuted)
@@ -1399,6 +1406,11 @@ func (a *App) detailsView(c *ui.Context, t *ui.Theme, busy bool) {
 				}
 				ui.SearchField(c, &a.chapterQuery).Placeholder("筛选章节标题").Label("筛选章节").Grow(1)
 			})
+			if len(chapters) == 0 {
+				// The work is one unit and the reader already has a way into
+				// it above, so there is no chapter list to draw.
+				return
+			}
 			if len(matches) == 0 {
 				ui.Text(c, "没有匹配的章节").Padding(12, 16).TextColor(t.TextMuted)
 				return
