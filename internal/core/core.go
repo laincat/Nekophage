@@ -108,10 +108,17 @@ func (c *Core) Close() error { return c.rt.Close() }
 func (c *Core) DataDir() string { return c.opts.DataDir }
 
 // Store, Jar and Transport are the app's own handles to the same services.
-func (c *Core) Store() *store.Store   { return c.store }
-func (c *Core) Jar() *cookies.Jar     { return c.jar }
-func (c *Core) Transport() *Transport { return c.tr }
-func (c *Core) Runtime() *js.Runtime  { return c.rt }
+func (c *Core) Store() *store.Store { return c.store }
+func (c *Core) Jar() *cookies.Jar   { return c.jar }
+
+// ComicPartition is the cookie partition a comic source uses.
+//
+// Every request and every challenge names it, so anything else that writes
+// cookies — a backup restore, a test — has to name it the same way. A restore
+// that used the bare key stored cookies nothing would ever send.
+func ComicPartition(key string) string { return "comic:" + key }
+func (c *Core) Transport() *Transport  { return c.tr }
+func (c *Core) Runtime() *js.Runtime   { return c.rt }
 
 // logLine writes script and Core log lines to stderr, prefixed so they are
 // easy to filter in a terminal.
@@ -156,7 +163,7 @@ func (c *Core) Remove(ctx context.Context, key string) error {
 	if err := c.reg.Remove(ctx, key); err != nil {
 		return err
 	}
-	c.jar.Clear("comic:" + key)
+	c.jar.Clear(ComicPartition(key))
 	return c.store.RemoveSource(key)
 }
 
@@ -619,7 +626,7 @@ func (c *Core) doImage(ctx context.Context, key string, req ImageRequest) ([]byt
 		header.Set(k, v)
 	}
 	resp, err := c.tr.Do(ctx, &host.Request{Method: req.Method, URL: req.URL, Header: header, Body: req.Body,
-		Cookies: true, Partition: "comic:" + key})
+		Cookies: true, Partition: ComicPartition(key)})
 	if err != nil {
 		return nil, "", err
 	}

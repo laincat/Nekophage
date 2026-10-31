@@ -524,11 +524,13 @@ func restoreCookies(plan *backup.Plan, jar *cookies.Jar, installed []string, now
 		return 0
 	}
 	written := 0
-	for _, partition := range plan.CookieTargets {
-		if !present[partition] {
+	for _, target := range plan.CookieTargets {
+		if !present[target] {
 			continue
 		}
-		jar.Import(partition, rows)
+		// The plan names sources; the jar is keyed by partition. Writing to the
+		// bare key would store cookies no request ever reads.
+		jar.Import(core.ComicPartition(target), rows)
 		written += len(rows)
 	}
 	return written

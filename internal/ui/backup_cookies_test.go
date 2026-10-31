@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/laincat/nekophage/internal/cookies"
+	"github.com/laincat/nekophage/internal/core"
 	"github.com/laincat/veneracat-core/backup"
 )
 
@@ -62,10 +63,10 @@ func TestRestoreCookiesOnlyWritesInstalledPartitions(t *testing.T) {
 	if written != 1 {
 		t.Fatalf("written = %d, want 1", written)
 	}
-	if got := jar.Get("copy_manga", "https://wnacg.com/"); len(got) != 1 || got[0].Value != "v" {
+	if got := jar.Get(core.ComicPartition("copy_manga"), "https://wnacg.com/"); len(got) != 1 || got[0].Value != "v" {
 		t.Errorf("copy_manga cookies = %+v", got)
 	}
-	if got := jar.Get("mangadex", "https://wnacg.com/"); len(got) != 0 {
+	if got := jar.Get(core.ComicPartition("mangadex"), "https://wnacg.com/"); len(got) != 0 {
 		t.Errorf("mangadex got cookies for a source that is not installed: %+v", got)
 	}
 }
@@ -82,7 +83,30 @@ func TestRestoreCookiesWithoutTargetsWritesNothing(t *testing.T) {
 	if written := restoreCookies(plan, jar, []string{"copy_manga"}, now); written != 0 {
 		t.Fatalf("written = %d, want 0", written)
 	}
-	if got := jar.Get("copy_manga", "https://wnacg.com/"); len(got) != 0 {
+	if got := jar.Get(core.ComicPartition("copy_manga"), "https://wnacg.com/"); len(got) != 0 {
 		t.Errorf("cookies = %+v, want none", got)
+	}
+}
+
+// Restored cookies have to land in the partition requests use. The transport and
+// the challenge flow name "comic:<key>"; a restore that wrote the bare key stored
+// cookies nothing would ever send, and a test making the same assumption passed.
+func TestRestoreCookiesUsesTheRequestPartition(t *testing.T) {
+	now := time.Now()
+	plan := &backup.Plan{
+		Cookies:       []backup.Cookie{{Name: "sid", Value: "v", Domain: ".wnacg.com"}},
+		CookieTargets: []string{"copy_manga"},
+	}
+	jar, err := cookies.Open(filepath.Join(t.TempDir(), "cookies.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	restoreCookies(plan, jar, []string{"copy_manga"}, now)
+
+	if got := jar.Get(core.ComicPartition("copy_manga"), "https://wnacg.com/"); len(got) != 1 {
+		t.Errorf("the source's partition has %d cookies, want 1", len(got))
+	}
+	if got := jar.Get("copy_manga", "https://wnacg.com/"); len(got) != 0 {
+		t.Errorf("the bare key was written too: %+v", got)
 	}
 }
