@@ -192,6 +192,22 @@ Network.get(`${this.baseUrl}/users-fav_del-id-${favoriteId}.html?ajax=true...`)
 
 单测覆盖参数形态:单收藏夹源必须收到 `null` 而不是空串;改名/移除的收尾都验证过。截图确认按钮与文件夹选择渲染正常。
 
+**桌面端现在真的能给源一个 UI 了(2026-11-01)**:`Core` 一直有 `UIHandler`(消息、对话框、输入框、选择框、加载),但**桌面端从未提供实现**,于是任何调用 `UI.showDialog` / `UI.showMessage` 的源都会拿到 `No JavaScript UI handler provided`。这不是装饰性问题:有些源**把活干在对话框回调里**。
+
+`internal/ui/jsui.go` 现在提供它:`ShowDialog` 按源给的按钮建窗口,按下后执行**源自己的回调**,关窗则让 promise 以 null 结束(不会把脚本挂着);输入框/选择框接上源自己的校验,不通过就把源的话显示在输入框下面;消息落到主窗口提示,链接交给系统浏览器。抓图工具显式开 `SetAutoConfirm(true)` —— 它没法按自己正在拍的那个窗口里的按钮。正常运行时不会打开这个开关。
+
+**真实源验证**(带一个"按第一个按钮"的测试处理器):
+
+| 源 | 回调 | 之前 | 现在 |
+| --- | --- | --- | --- |
+| `wnacg` | `refreshDomains` | `No JavaScript UI handler provided` | 完成,返回 null |
+| `happy` | `wipeCache` | 同上 | 完成,返回 null |
+| `ccc` | 账号登录 | 同上 | **跨过 UI 阻塞**,进到真实请求,改成站点回 HTML |
+
+`ccc` 那一行说明改动确实解开了客户端侧阻塞:剩下的失败已经不是"客户端没给 UI"。
+
+同时 `callback` 类型的设置项(9 个源声明)从"客户端暂不支持"变成真正的「执行」按钮:Core 在源上下文里调 `settings.<key>.callback`,结果或源的报错按原文显示。
+
 **全量巡检基线(2026-11-01)**:34 个官方源跑 `TestLiveSource`(搜索 → 详情 → 章节 → 取图),**18 通过 / 16 失败**。失败的 16 个**全部复跑过一次**,其中 `hcomic`、`ykmh` 复跑即通过 —— 单轮结果确实不能当结论。
 
 其余 14 个逐个归因,**没有一个是客户端回归**:

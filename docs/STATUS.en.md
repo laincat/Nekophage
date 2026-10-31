@@ -199,6 +199,22 @@ Three deliberate choices:
 
 The unit test pins the argument shape: a single-folder source must receive `null`, not an empty string; add and remove are both covered. The capture confirms the button and the folder picker render.
 
+**The desktop can finally give a source a UI (2026-11-01)**: Core has always defined a `UIHandler` (message, dialog, input, select, loading), but **the desktop never provided one**, so any source calling `UI.showDialog` or `UI.showMessage` got `No JavaScript UI handler provided`. That is not cosmetic: several sources do their work from inside a dialog callback.
+
+`internal/ui/jsui.go` supplies it now. `ShowDialog` builds a window from the source's own buttons, pressing one runs **the source's callback**, and closing the window settles the promise with null instead of leaving the script hanging. Input and select dialogs wire the source's own validator and show its message under the field. Messages land in the main window's notice and links go to the system browser. The capture tool turns on `SetAutoConfirm(true)` explicitly, since it cannot press a button in the window it is photographing; nothing in a normal run sets it.
+
+**Measured on live sources**, with a test handler that presses the first button:
+
+| Source | Callback | Before | Now |
+| --- | --- | --- | --- |
+| `wnacg` | `refreshDomains` | `No JavaScript UI handler provided` | completes, returns null |
+| `happy` | `wipeCache` | same | completes, returns null |
+| `ccc` | account login | same | **gets past the UI block** into a real request, where the site now answers HTML |
+
+That last row is the point: the client-side blockage is gone, and what fails now is the site's response.
+
+`callback` settings (nine sources declare one) also stopped saying "not supported by the client": Core runs `settings.<key>.callback` in the source's own context, and the panel shows the answer or the source's error.
+
 **Patrol baseline (2026-11-01)**: `TestLiveSource` (search, details, chapters, images) ran over 34 official sources: **18 pass, 16 fail**. Every failure was run a second time, and `hcomic` and `ykmh` passed on the retry — a single round really is not a conclusion.
 
 The remaining 14 were each attributed, and **none is a client regression**:
