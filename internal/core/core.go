@@ -690,9 +690,18 @@ func (c *Core) ImageRequest(ctx context.Context, key, url, comicID, chapterID st
 	}
 	req.Handle = cfg.Handle
 	req.Callbacks = cfg.Callbacks
-	if !thumbnail {
-		// The official client ignores modifyImage for a cover, and a thumbnail
-		// is small enough that a pixel pass would cost more than it is worth.
+	if thumbnail {
+		// The official client documents modifyImage and onLoadFailed as ignored
+		// for a cover. onResponse stays: a scrambled cover still has to be made
+		// readable.
+		kept := req.Callbacks[:0]
+		for _, name := range req.Callbacks {
+			if name != "onLoadFailed" {
+				kept = append(kept, name)
+			}
+		}
+		req.Callbacks = kept
+	} else {
 		req.ModifyImage = cfg.ModifyImage
 	}
 	return req, nil

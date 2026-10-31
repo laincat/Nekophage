@@ -225,8 +225,10 @@ func TestModifyImageIsIgnoredForCovers(t *testing.T) {
 class Cover extends ComicSource {
     name = "Cover"; key = "cover"; version = "1.0.0"
     comic = {
-        onImageLoad: (url) => ({ url: url, modifyImage: "let modifyImage = (i) => i" }),
-        onThumbnailLoad: (url) => ({ url: url, modifyImage: "let modifyImage = (i) => i" }),
+        onImageLoad: (url) => ({ url: url, modifyImage: "let modifyImage = (i) => i",
+                                 onResponse: (d) => d, onLoadFailed: () => ({url: url}) }),
+        onThumbnailLoad: (url) => ({ url: url, modifyImage: "let modifyImage = (i) => i",
+                                     onResponse: (d) => d, onLoadFailed: () => ({url: url}) }),
     }
 }
 `
@@ -239,11 +241,23 @@ class Cover extends ComicSource {
 		if err != nil {
 			t.Fatalf("request (thumbnail=%v): %v", thumbnail, err)
 		}
-		if thumbnail && req.ModifyImage != "" {
-			t.Errorf("a cover request carries a pixel script")
+		if thumbnail {
+			if req.ModifyImage != "" {
+				t.Errorf("a cover request carries a pixel script")
+			}
+			if req.HasCallback("onLoadFailed") {
+				t.Errorf("a cover request carries a mirror fallback")
+			}
+			// onResponse must survive: a scrambled cover is still readable.
+			if !req.HasCallback("onResponse") {
+				t.Errorf("a cover request lost onResponse")
+			}
 		}
 		if !thumbnail && req.ModifyImage == "" {
 			t.Errorf("a page request lost its pixel script")
+		}
+		if !thumbnail && !req.HasCallback("onLoadFailed") {
+			t.Errorf("a page request lost its mirror fallback")
 		}
 	}
 }
