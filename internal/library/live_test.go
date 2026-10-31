@@ -190,8 +190,15 @@ func TestLiveSource(t *testing.T) {
 			t.Errorf("shelf progress: %v", err)
 		}
 	})
+	// A chapter shorter than the page we ask for is clamped, and that is right: a
+	// real source returned a one-image chapter, so asking for page 3 must not store
+	// page 3 as if it existed.
+	wantPage := 3
+	if len(images) < wantPage {
+		wantPage = len(images)
+	}
 	progressURL := readerURL("/progress", "source", rec.Key, "comic", pick.ID,
-		"chapter", chapterID, "page", "3", "pages", itoa(len(images)), "percent", "42")
+		"chapter", chapterID, "page", itoa(wantPage), "pages", itoa(len(images)), "percent", "42")
 	if rec := httptest.NewRecorder(); true {
 		srv.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, progressURL, nil))
 		if rec.Code != http.StatusOK {
@@ -200,7 +207,7 @@ func TestLiveSource(t *testing.T) {
 	}
 	entry := sh.History(1)[0]
 	t.Logf("shelf after progress: page %d, %d%%", entry.Page, entry.Percent)
-	if entry.Page != 3 || entry.Percent != 42 {
+	if entry.Page != wantPage || entry.Percent != 42 {
 		t.Errorf("progress not stored: %+v", entry)
 	}
 

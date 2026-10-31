@@ -25,6 +25,8 @@ Updated 2026-10-30. Every result below comes from **Windows** on this machine, w
 
 ## Verified with real sources and the real network
 
+**Four sources re-run on 2026-10-31**: with Core at `4f31b8a`, `TestLiveSource` passes for MangaDex, Komiic, Comick and Copy Manga. Comick exposed an assumption in the test: its chapter had a single image while the case asked for `page=3`, the reader clamped it to 1 as it should, and the assertion failed — the test was wrong, not the code; it now asserts `min(3, len(images))`. The HTTP 210 that Copy Manga used to return no longer reproduces: that was temporary site behaviour, not a client regression.
+
 | Source | Result |
 |---|---|
 | Copy Manga `copy_manga` v1.4.3 | searched 海贼王: 21 comics over 2 pages; details: 401 chapters, 4 tag groups; chapter: 209 images; image: 339,596 bytes of `image/webp`; cover: 108,565 bytes of `image/jpeg` |
