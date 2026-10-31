@@ -199,6 +199,27 @@ Three deliberate choices:
 
 The unit test pins the argument shape: a single-folder source must receive `null`, not an empty string; add and remove are both covered. The capture confirms the button and the folder picker render.
 
+**Live source round N: one BOM took a whole source down (2026-11-01, pin `947dc63`)**
+
+Re-ran all 34 official sources: **20 passed**, 11 failed, 3 need a server the user runs (counted separately as SKIP). Reading each log turned up one real problem:
+
+`jm`'s init fetches a base64 blob from its domain-list endpoint. That response now begins with a **UTF-8 BOM**, so decoding failed at **byte 0** → `Convert` logged and returned null, as the official client does → the source received null, `JSON.parse(null)` produced null, and it died on `null.length`. The error the user saw was "Cannot read properties of null (reading 'length')", and the source's own **fallback domain list never ran**.
+
+The fix drops only what no base64 alphabet contains: a BOM and ASCII whitespace. Valid input is unaffected and garbage still fails. Afterwards `jm`: install ✓, browse ✓, details with 62 chapters ✓, chapter 1 with 118 images ✓, first image really fetched at 10,098 bytes of webp ✓; only the paging endpoint still answers 500 from the site.
+
+The rest are classified by dimension, and none of them points at the client:
+
+| Source | Category |
+| --- | --- |
+| `picacg` | needs a login |
+| `mh18` `mycomic` | Cloudflare challenge |
+| `baozi` | 403 |
+| `comic_walker` `shonen_jump_plus` | HTML instead of JSON |
+| `happy` | the search endpoint answers EOF |
+| `jcomic` | **site change**: page has `src=""` and the real address moved into `data-locked`, which needs JS to decrypt (confirmed by fetching the page) |
+| `mh1234` | connection times out here, and the source assumes `#total-page` always exists |
+| `jm` | paging endpoint 500 (the init crash is fixed) |
+
 **The export could write a file it cannot itself read (2026-11-01, pin `9013ca5`)**: the reader caps every file under `comic_source/` at 16 MiB; the writer checked the script and **never the `.data`**. So a source holding a lot of data exported successfully into a file Core's own reader refuses to open — the worst kind of failure, because the user believes the backup is good until the day they need it.
 
 - `MaxWriteDataBytes` matches the reader's `MaxSourceBytes`; going over is an error that **names the source**.

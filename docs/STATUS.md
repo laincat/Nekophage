@@ -192,6 +192,27 @@ Network.get(`${this.baseUrl}/users-fav_del-id-${favoriteId}.html?ajax=true...`)
 
 单测覆盖参数形态:单收藏夹源必须收到 `null` 而不是空串;改名/移除的收尾都验证过。截图确认按钮与文件夹选择渲染正常。
 
+**真实源第 N 轮巡检:一个 BOM 让整条源失效(2026-11-01,pin `947dc63`)**
+
+34 个官方源重跑:**20 通过**、11 失败、3 个需要自建服务(单列 SKIP)。逐个看日志归类,发现一个真问题:
+
+`jm` 的 init 从域名列表接口取一段 base64。这个响应现在**开头多了一个 UTF-8 BOM**,`base64` 在**第 0 字节**就失败 → `Convert` 按官方行为记日志并返回 null → 源拿到的数据是 null,`JSON.parse(null)` 之后在 `null.length` 上崩掉,错误信息于是变成「Cannot read properties of null (reading 'length')」,而它自己的**兜底域名列表根本没机会执行**。
+
+修法是只去掉不可能属于 base64 字母表的东西:BOM 与 ASCII 空白。合法输入不受影响,垃圾输入照样报错。修完后 `jm`:安装 ✓、浏览 ✓、详情 62 话 ✓、第 1 话 118 张图 ✓、首图实取 10,098 字节 webp ✓;只剩分页端点站点返回 500。
+
+其余失败按维度归类,没有一条指向客户端:
+
+| 源 | 归类 |
+| --- | --- |
+| `picacg` | 需要登录 |
+| `mh18` `mycomic` | Cloudflare 挑战 |
+| `baozi` | 403 |
+| `comic_walker` `shonen_jump_plus` | 返回 HTML 而非 JSON |
+| `happy` | 搜索接口 EOF |
+| `jcomic` | **站点改动**:页面 `src=""`,真实地址进了需 JS 解密的 `data-locked`(已抓页面确认) |
+| `mh1234` | 本机连接超时,且源假定 `#total-page` 一定存在 |
+| `jm` | 分页端点 500(原 init 崩溃已修) |
+
 **导出可能写出自己都读不开的文件(2026-11-01,pin `9013ca5`)**:读端对 `comic_source/` 下每个文件都有 16 MiB 上限;写端只校验脚本,**没校验 `.data`**。所以一个存了很多数据的源,导出会成功,但生成的文件用 Core 自己的读取器打不开 —— 这种失败最糟:用户以为备份好了,等要恢复时才发现是坏的。
 
 - 新增 `MaxWriteDataBytes`,与读端 `MaxSourceBytes` 同值;超限直接报错并**点名是哪个源**。
