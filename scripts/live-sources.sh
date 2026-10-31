@@ -16,6 +16,9 @@ cd "$root"
 
 dir=${NK_LIVE_DIR:-}
 query=${NK_LIVE_QUERY:-test}
+# A site that answers once and fails the next time is the common case, and one run
+# cannot tell that apart from a working site. NK_LIVE_REPEAT=2 or 3 makes it visible.
+repeat=${NK_LIVE_REPEAT:-1}
 if [ -z "$dir" ] || [ ! -d "$dir" ]; then
 	printf 'live-sources: set NK_LIVE_DIR to a directory of source scripts\n' >&2
 	exit 2
@@ -26,19 +29,34 @@ mkdir -p "$out"
 
 passed=''
 failed=''
+flaky=''
 count=0
 for script in "$dir"/*.js; do
 	[ -f "$script" ] || continue
 	name=$(basename "$script" .js)
 	count=$((count + 1))
+	ok=0
+	bad=0
+	round=1
+	while [ "$round" -le "$repeat" ]; do
+		if NK_LIVE_JS="$script" NK_LIVE_QUERY="$query" \
+			go test -run TestLiveSource -count=1 ./internal/library >"$out/$name.log" 2>&1; then
+			ok=$((ok + 1))
+		else
+			bad=$((bad + 1))
+		fi
+		round=$((round + 1))
+	done
 	printf '%-24s ' "$name"
-	if NK_LIVE_JS="$script" NK_LIVE_QUERY="$query" \
-		go test -run TestLiveSource -count=1 ./internal/library >"$out/$name.log" 2>&1; then
+	if [ "$bad" -eq 0 ]; then
 		printf 'PASS\n'
 		passed="$passed $name"
-	else
+	elif [ "$ok" -eq 0 ]; then
 		printf 'FAIL  (see %s)\n' "$out/$name.log"
 		failed="$failed $name"
+	else
+		printf 'FLAKY %d/%d passed  (see %s)\n' "$ok" "$repeat" "$out/$name.log"
+		flaky="$flaky $name"
 	fi
 done
 
@@ -48,7 +66,13 @@ if [ "$count" -eq 0 ]; then
 fi
 
 printf 'live-sources: %d source(s); passed:%s\n' "$count" "${passed:- none}"
+if [ -n "$flaky" ]; then
+	printf 'live-sources: flaky (passed some runs, failed others):%s\n' "$flaky"
+fi
 if [ -n "$failed" ]; then
 	printf 'live-sources: failed:%s\n' "$failed"
+	exit 1
+fi
+if [ -n "$flaky" ]; then
 	exit 1
 fi
