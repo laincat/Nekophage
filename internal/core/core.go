@@ -15,6 +15,7 @@ import (
 	"runtime"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/laincat/nekophage/internal/cookies"
@@ -53,6 +54,11 @@ type Core struct {
 	jar   *cookies.Jar
 	tr    *Transport
 	opts  Options
+
+	// cursors holds the paging cursor that led to each page of a source's
+	// search, for a source that pages by cursor rather than by page number.
+	mu      sync.Mutex
+	cursors map[string]map[int]string
 }
 
 // Open assembles Core. Close it when the app quits.
@@ -98,7 +104,8 @@ func Open(opts Options) (*Core, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Core{rt: rt, reg: plugin.New(rt, tr), store: st, jar: jar, tr: tr, opts: opts}, nil
+	return &Core{rt: rt, reg: plugin.New(rt, tr), store: st, jar: jar, tr: tr, opts: opts,
+		cursors: map[string]map[int]string{}}, nil
 }
 
 // Close releases the runtime.
@@ -394,7 +401,13 @@ type SearchOptionGroup struct {
 	Values  []string `json:"values"`
 	Labels  []string `json:"labels"`
 	Default string   `json:"default"`
+	// DefaultValues is what a multi-select group starts with; the source
+	// receives it as a JSON array string.
+	DefaultValues []string `json:"defaultValues"`
 }
+
+// IsMultiSelect reports whether the group takes several values at once.
+func (g SearchOptionGroup) IsMultiSelect() bool { return g.Type == "multi-select" }
 
 // SourceSetting is one entry of a source's settings declaration: what the
 // source wants drawn in its settings panel.
@@ -452,7 +465,8 @@ func (c *Core) SearchOptions(ctx context.Context, key string) ([]SearchOptionGro
 	}
 	out := make([]SearchOptionGroup, 0, len(groups))
 	for _, g := range groups {
-		out = append(out, SearchOptionGroup{Label: g.Label, Type: g.Type, Values: g.Values, Labels: g.Labels, Default: g.Default})
+		out = append(out, SearchOptionGroup{Label: g.Label, Type: g.Type, Values: g.Values,
+			Labels: g.Labels, Default: g.Default, DefaultValues: g.DefaultValues})
 	}
 	return out, nil
 }
@@ -466,22 +480,95 @@ func (c *Core) DefaultOptions(ctx context.Context, key string) ([]string, error)
 	}
 	out := make([]string, 0, len(groups))
 	for _, g := range groups {
+		if g.IsMultiSelect() {
+			// A multi-select group's value is a JSON array of the chosen keys,
+			// which is what the source parses out of options[i].
+			chosen := g.DefaultValues
+			if len(chosen) == 0 {
+				chosen = g.Values
+			}
+			encoded, err := json.Marshal(chosen)
+			if err != nil {
+				return nil, err
+			}
+			out = append(out, string(encoded))
+			continue
+		}
 		out = append(out, g.Default)
 	}
 	return out, nil
 }
 
-// Search runs search.load(keyword, options, page). options holds one chosen
-// value per group of SearchOptions, usually DefaultOptions.
+// Search cursors, per source and page. A source that pages by cursor hands one
+// back with each page; the interface asks for a page number, so the cursor that
+// led to each page is kept and replayed. A cursor belongs to one search, so a
+// new search (page 1) clears what the previous one left.
+func (c *Core) searchCursor(key string, page int) any {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if page <= 1 {
+		delete(c.cursors, key)
+		return nil
+	}
+	if v, ok := c.cursors[key][page]; ok {
+		return v
+	}
+	return nil
+}
+
+func (c *Core) rememberSearchCursor(key string, page int, next string) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if page <= 1 || c.cursors[key] == nil {
+		c.cursors[key] = map[int]string{}
+	}
+	c.cursors[key][page+1] = next
+}
+
+// Search runs a search against one source.
+//
+// A source pages its results in one of two ways, and the official client
+// supports both:
+//
+//   - search.load(keyword, options, page) takes a page number;
+//   - search.loadNext(keyword, options, next) takes whatever cursor the
+//     previous page returned in `next`.
+//
+// A source that declares both is asked for search.load, because a page number
+// is what the interface offers. A source that declares only search.loadNext is
+// asked for that instead: calling search.load there would report "source does
+// not define this function" for a source that works in the official client.
+// options holds one chosen value per group of SearchOptions, usually
+// DefaultOptions.
 func (c *Core) Search(ctx context.Context, key, keyword string, options []string, page int) (Page, error) {
 	if options == nil {
 		options = []string{}
 	}
-	raw, err := c.Call(ctx, key, "search.load", keyword, options, page)
-	if err != nil {
-		return Page{}, err
+	if c.Has(ctx, key, "search.load") {
+		raw, err := c.Call(ctx, key, "search.load", keyword, options, page)
+		if err != nil {
+			return Page{}, err
+		}
+		return parsePage(raw)
 	}
-	return parsePage(raw)
+	if c.Has(ctx, key, "search.loadNext") {
+		// The cursor is the source's own; the first page is when it has none.
+		var cursor any
+		if page > 1 {
+			cursor = c.searchCursor(key, page)
+		}
+		raw, err := c.Call(ctx, key, "search.loadNext", keyword, options, cursor)
+		if err != nil {
+			return Page{}, err
+		}
+		out, err := parsePage(raw)
+		if err != nil {
+			return Page{}, err
+		}
+		c.rememberSearchCursor(key, page, out.Next)
+		return out, nil
+	}
+	return Page{}, fmt.Errorf("core: %s offers no search entry point", key)
 }
 
 // Chapter is one chapter of a comic.
@@ -613,6 +700,14 @@ func (c *Core) FetchImage(ctx context.Context, key, rawURL, comicID, chapterID s
 	if err != nil {
 		return nil, "", err
 	}
+	return c.doImage(ctx, key, req)
+}
+
+// DoImageRequest fetches an image a source has already described, the way
+// FetchImage would after asking the source. A caller that needs to inspect the
+// resolved address first — the reader page, which must not fetch anything but
+// http(s) — resolves with ImageRequest and then calls this.
+func (c *Core) DoImageRequest(ctx context.Context, key string, req ImageRequest) ([]byte, string, error) {
 	return c.doImage(ctx, key, req)
 }
 

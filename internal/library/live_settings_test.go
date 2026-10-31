@@ -23,7 +23,7 @@ func TestLiveSourceSettingsTakeEffect(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	c, err := core.Open(core.Options{DataDir: filepath.Join(t.TempDir(), "data"), AppVersion: "1.6.0", Locale: "zh_CN"})
+	c, err := core.Open(core.Options{DataDir: filepath.Join(t.TempDir(), "data"), AppVersion: "1.6.3", Locale: "zh_CN"})
 	if err != nil {
 		t.Fatal(err)
 	}

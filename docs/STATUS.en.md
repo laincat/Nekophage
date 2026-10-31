@@ -113,6 +113,32 @@ Browsing works on all three sources: MangaDex showed its Popular part as a list 
 4. **Covers stayed grey**: the first frame ran before a cover arrived, and the decode cache remembered "no image" for good. Only decoded bitmaps and failed downloads are remembered now.
 5. **A stale source list**: `Library.Sources()` read its own cache, so a source installed another way never showed. It asks Core every time now.
 
+**A source is asked for the search entry point it declares (2026-11-01)**: the official client has two. `search.load(keyword, options, page)` takes a page number and `search.loadNext(keyword, options, next)` takes whatever cursor the previous page returned. This client only knew the first, so a source that declares only `loadNext` — `ehentai` does — answered "source does not define this function" on every search, while working in the official client. The client now asks for `load` when the source has it and otherwise drives `loadNext`, remembering the cursor per source and page and clearing it when a new search starts. The video path already handled both; the comic path never did.
+
+**A multi-select filter group is a JSON array (2026-11-01)**: the value of a `multi-select` group is a JSON array of the chosen keys as a string — that is what a source's `JSON.parse(options[i])` reads. We sent a single key, so `ehentai` failed in `JSON.parse("0")` with `Unexpected token ,`. `SearchOptionGroup` now carries `DefaultValues` (the array a source declares), the desktop app encodes a multi-select group as a JSON array, and a single-select group still sends one key. The two shapes are never mixed.
+
+**An option with an empty value was read as a literal (2026-11-01)**: the option format is "`value-text`" and the left side may be empty, so `-<none>` means an empty value with the text `<none>`. Reading any leading `-` as part of the value turned "no filter chosen" into the string `-<none>`; a source that checks `if (stars)` sees a truthy value and sends a filter that does not exist. The parse now splits at the first `-` and allows an empty left side.
+
+**A source with no chapter list could not be read (2026-11-01)**: gallery sources — `ehentai`, `hitomi`, `nhentai`, `wnacg` — return no `chapters` from `comic.loadInfo`. The gallery is the single reading unit and their `loadEp` takes an empty chapter id. Three places assumed a chapter list: the detail view's 开始阅读 emptied the list and `readerURLFor` then returned nothing, so the button did nothing; the reader's `/img` took the page reference (a gallery source gives `"0"`, `"1"`) for an address and answered 502; `/switch` and `switchChapter` required a non-empty chapter id and answered 404. All three now treat an empty chapter id as a legitimate reading unit: the reader address carries an empty `chapter=`, `/img` asks the source's `onImageLoad` for the real address **and then** checks http(s) (the safety rule is unchanged, it now checks the address actually fetched), and `/switch` leaves the decision to the window. **This is not a patch for one source**: four of the 34 official sources have this shape and all four were being reported as failures.
+
+**The source API version moved from 1.6.0 to 1.6.3 (2026-11-01)**: the official client's current release is v1.6.3 and only `cxc` and `mangabz` ask for `minAppVersion` 1.6.3; every other source asks for 1.6.0 or less. Both sources were run end to end — search, details, chapters, images — before the number was raised, so it is backed by a test rather than copied from the official release. A source that needs an interface this client lacks still fails at the call that needs it, instead of being turned away by a version gate.
+
+### Two real patrols of both source sets (2026-11-01, two rounds)
+
+The official set (`venera-app/venera-configs`, 34 sources) passed 5 in the first round and **10 after the fixes above**: `copy_manga`, `copy_manga_multi_accounts`, `ehentai`, `goda`, `hcomic`, `hitomi`, `komiic`, `manhuagui`, `nhentai`, `wnacg`. The third-party set (`laincat/vensrc`, 24 in `index.json` plus 47 in `extended.json`, 71 after de-duplication) went from 31 to **34**.
+
+Every remaining failure was read, and none is this client's parsing:
+
+| Failure | Count (examples) | Verdict |
+| --- | --- | --- |
+| Site redesign / API change | `manga_dex`, `hot_manga`, `jm`, `jmcomic`, `recode-jm`, `damotu` | source or site |
+| Login or account required | `baihehui`, `cxc`, `hanabimanga`, `kanman`, `kiutaku`, `kuaikan`, `xiutaku`, `myhl` | source or site |
+| Anti-bot / Cloudflare | `ykmh`, `311`, `haokan`, `zymk` | site, unstable between rounds |
+| Search found nothing | `baihehui`, `dongman`, `one_kkk`, `mojoin` | keyword mismatch, not a defect |
+| A bug in the source script | `copy_manga_multi_accounts` (`res is not defined`), `hot_manga` (replaces only `.jpg.hNNNx.jpg` while the site now answers `.webp`) | source side |
+
+Three deserve their own note. **`manga_dex`**: the `at-home` endpoint returns an empty `data` array and an empty `hash` for every chapter of a comic — five chapters tried, all empty — so this is the site. **`hot_manga`**: the setting does reach the source (a separate case proves `SaveSetting` → `loadSetting` works); the source's own replace pattern does not match `.webp`. **`cxc`**: its images live under `/private/`, and without an account the 191,184 bytes returned are not any image format even though `Content-Type` says `image/jpeg`.
+
 ## A source changing, not a regression
 
 Re-running the live sources on 2026-10-31, Copy Manga began answering **HTTP 210** for details, and

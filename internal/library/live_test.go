@@ -43,7 +43,7 @@ func TestLiveSource(t *testing.T) {
 
 	c, err := core.Open(core.Options{
 		DataDir:    filepath.Join(t.TempDir(), "data"),
-		AppVersion: "1.6.0",
+		AppVersion: "1.6.3",
 		Locale:     "zh_CN",
 	})
 	if err != nil {
@@ -92,6 +92,18 @@ func TestLiveSource(t *testing.T) {
 	// a taken-down chapter), so try a few as a reader would.
 	chapterID := ""
 	var images []string
+	if len(d.Chapters) == 0 {
+		// A gallery source has no chapter list at all: the comic is the one
+		// reading unit and its loadEp takes an empty chapter id. Reading it
+		// is a real path — e-hentai, jm and wnacg are all shaped this way —
+		// so the patrol has to cover it rather than call the source broken.
+		got, err := c.ChapterImages(ctx, rec.Key, pick.ID, "")
+		if err != nil {
+			t.Fatalf("the comic has no chapters and no pages: %v", err)
+		}
+		t.Logf("the comic has no chapter list; it is one unit with %d images", len(got))
+		chapterID, images = "", got
+	}
 	for i, ch := range d.Chapters {
 		if i >= 10 {
 			break

@@ -111,4 +111,10 @@ const version = "0.1.0"
 // client implements, not the app's own version: a source that asks for
 // minAppVersion 1.3.4 is asking for that API, and reporting 0.1.0 would make
 // every such source refuse to install.
-const sourceVersion = "1.6.0"
+//
+// It tracks the official client's current release, 1.6.3. Sources gated on
+// 1.6.3 (cxc, mangabz) were run end to end at this level — search, details,
+// chapters and images — before it was raised, so the claim is tested rather
+// than assumed. A source that needs an API this client lacks still fails at
+// the call that needs it, which is what its own error says.
+const sourceVersion = "1.6.3"

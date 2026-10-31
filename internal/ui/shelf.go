@@ -94,8 +94,17 @@ func (a *App) switchChapter(sw reader.Switch) (string, bool) {
 	a.mu.Lock()
 	comic, list := a.readerComic, a.readerList
 	a.mu.Unlock()
-	if sw.Comic != comic || len(list) == 0 {
+	if sw.Comic != comic {
 		return "", false
+	}
+	if len(list) == 0 {
+		// A gallery source has one reading unit and names it with an empty
+		// chapter id, so there is nothing to look up: reopening the same
+		// unit is the only switch there is.
+		if sw.Chapter != "" {
+			return "", false
+		}
+		return a.readerURLFor(0), true
 	}
 	for i, ch := range list {
 		if ch.ID != sw.Chapter {

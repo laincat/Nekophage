@@ -147,7 +147,10 @@ func (s *Server) openChapter(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query()
 	sw := Switch{Source: q.Get("source"), Comic: q.Get("comic"), Chapter: q.Get("chapter")}
 	url, ok := "", false
-	if s.onSwitch != nil && sw.Source != "" && sw.Comic != "" && sw.Chapter != "" {
+	// A chapter id may legitimately be empty: a gallery source has no chapter
+	// list and names its single reading unit with an empty id, so requiring
+	// one here would make that comic impossible to reopen.
+	if s.onSwitch != nil && sw.Source != "" && sw.Comic != "" {
 		url, ok = s.onSwitch(sw)
 	}
 	w.Header().Set("Content-Type", "application/json")
@@ -227,20 +230,27 @@ func (s *Server) image(w http.ResponseWriter, r *http.Request) {
 		writeError(w, errors.New("reader: bad image reference"))
 		return
 	}
-	// The page hands back what /chapter gave it, but nothing stops a page
-	// from asking for another scheme, so only http(s) is ever fetched.
-	target := string(raw)
-	if u, err := url.Parse(target); err != nil || (u.Scheme != "http" && u.Scheme != "https") {
-		writeError(w, errors.New("reader: image URL is not http(s)"))
-		return
-	}
 	if s.core == nil {
 		writeError(w, errors.New("reader: no source is loaded"))
 		return
 	}
 	ctx, cancel := context.WithTimeout(r.Context(), s.Timeout)
 	defer cancel()
-	data, ctype, err := s.core.FetchImage(ctx, source, target, comic, chapter)
+	// The page hands back what /chapter gave it, but nothing stops a page
+	// from asking for another scheme, so only http(s) is ever fetched. The
+	// page reference is not always an address: a gallery source names its
+	// pages by index and turns them into addresses in onImageLoad, so the
+	// source has to be asked first and the answer is what gets checked.
+	req, err := s.core.ImageRequest(ctx, source, string(raw), comic, chapter, false)
+	if err != nil {
+		writeError(w, err)
+		return
+	}
+	if u, err := url.Parse(req.URL); err != nil || (u.Scheme != "http" && u.Scheme != "https") {
+		writeError(w, errors.New("reader: image URL is not http(s)"))
+		return
+	}
+	data, ctype, err := s.core.DoImageRequest(ctx, source, req)
 	if err != nil {
 		writeError(w, err)
 		return

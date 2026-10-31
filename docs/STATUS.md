@@ -106,6 +106,32 @@ Core 同步到 `af4f1a0` 之后又跑了两条真实源:MangaDex(`one piece` —
 4. **封面永远是灰块**:首帧渲染时封面还没下载完,解码缓存把「没有图片」记成了最终结果。现在只缓存解码成功的结果和失败的下载。
 5. **源列表陈旧**:`Library.Sources()` 原来读自己的缓存,从其他路径安装的源不显示;现在每次都向 Core 要。
 
+**源写了哪种搜索入口就调哪种(2026-11-01)**:官方的搜索有两个入口 —— `search.load(keyword, options, page)` 收页码,`search.loadNext(keyword, options, next)` 收上一页返回的游标。客户端只认前者,于是 `ehentai` 这种只声明 `loadNext` 的源在搜索时直接报「source does not define this function」,而它在官方客户端里是能用的。现在先看源声明了哪个;声明了 `loadNext` 就按游标翻页,游标按源和页码记住,新搜索(第 1 页)清掉上一轮。之前 `search` 的 `load` 与 `loadNext` 混在两个文件里的判断也统一了 —— 视频那条路早就有,漫画这条一直缺。
+
+**多选筛选组必须传 JSON 数组(2026-11-01)**:`multi-select` 组的值是「选中键的 JSON 数组字符串」,源的 `JSON.parse(options[i])` 就是按这个读的。我们给的是单个键,`ehentai` 因此在 `JSON.parse("0")` 上报 `Unexpected token ,`。Core 的 `SearchOptionGroup` 现在有 `DefaultValues`(来源声明的数组默认值),桌面端把多选组编码成 JSON 数组再传,单选组仍然只传一个键 —— 两种形状不混用。
+
+**`-<none>` 这种空值选项被读成了字面量(2026-11-01)**:选项格式是「`值-文字`」,左边可以是空的,`-<none>` 的意思是「值为空、文字是 `<none>`」。原来只要 `-` 出现在第 0 位就把整串当值,于是「没选任何筛选」被传成字符串 `-<none>` —— 源用 `if (stars)` 判断有没有选,`-<none>` 是真值,于是往请求里塞进一个不存在的筛选。现在按「第一个 `-` 分隔、左边可以为空」解析。
+
+**没有章节列表的源打不开阅读(2026-11-01)**:`ehentai`、`hitomi`、`nhentai`、`wnacg` 这类画廊源在 `comic.loadInfo` 里根本不返回 `chapters`,整个画廊就是一个阅读单元,它的 `loadEp` 收空章节 id。客户端三处都按「有章节」写死:详情页的「开始阅读」把章节列表置空后 `readerURLFor` 直接返回空串(按钮是死的)、阅读页的 `/img` 拿页面引用(画廊源给的是 `"0"`、`"1"` 这样的页码)当地址校验于是回 502、`/switch` 与 `switchChapter` 要求章节 id 非空于是回 404。三处都改成「空章节 id 是一个合法的阅读单元」:阅读地址里 `chapter=` 为空,`/img` 先问源的 `onImageLoad` 拿到真实地址**再**校验 http(s)(安全检查没有放宽,只是校验的是真正要抓的那个地址),`/switch` 把空 id 交给窗口判断。**这不是为某一个源打补丁**:官方 34 个源里有 4 个是这种形状,修之前它们全被判成「失败」。
+
+**源接口版本从 1.6.0 提到 1.6.3(2026-11-01)**:官方客户端当前发布版是 v1.6.3,只有 `cxc` 与 `mangabz` 两个源把 `minAppVersion` 写在 1.6.3,其余源都 ≤ 1.6.0。抬高之前先在这两个源上把搜索、详情、章节、取图整条线跑通,所以这个数字是有实测撑着的,不是照着官方版本填的;真要遇到本客户端没实现的接口,源会在调用处报自己的错,而不是被一个版本门槛挡住。
+
+### 两批源的真实巡检(2026-11-01,两轮)
+
+官方源(`venera-app/venera-configs`,34 个)第一轮 5 个通过,修完上面几处后 **10 个通过**:`copy_manga`、`copy_manga_multi_accounts`、`ehentai`、`goda`、`hcomic`、`hitomi`、`komiic`、`manhuagui`、`nhentai`、`wnacg`。第三方源(`laincat/vensrc`,`index.json` 24 个 + `extended.json` 47 个,去重后 71 个)从 31 个提升到 **34 个**。
+
+剩下的失败逐条看过,没有一条是本客户端的解析错:
+
+| 失败 | 数量(示例) | 判定 |
+| --- | --- | --- |
+| 站点改版/接口变更 | `manga_dex`、`hot_manga`、`jm`、`jmcomic`、`recode-jm`、`damotu` | 源或站点侧 |
+| 需要登录/账号 | `baihehui`、`cxc`、`hanabimanga`、`kanman`、`kiutaku`、`kuaikan`、`xiutaku`、`myhl` | 源或站点侧 |
+| 反爬/Cloudflare | `ykmh`、`311`、`haokan`、`zymk` | 站点侧,单轮结果不稳定 |
+| 搜索无结果 | `baihehui`、`dongman`、`one_kkk`、`mojoin` | 关键词不匹配,不是缺陷 |
+| 源脚本自身 bug | `copy_manga_multi_accounts`(`res is not defined`)、`hot_manga`(只替换 `.jpg.hNNNx.jpg`,站点已返回 `.webp`) | 源侧 |
+
+其中三条值得单独记:**`manga_dex`** 的 `at-home` 接口对任意章节都返回空 `data` 数组(`hash` 也是空),同一部漫画换 5 个章节结果一样,是站点侧;**`hot_manga`** 的设置确实到达了源(另写用例证明 `SaveSetting` → `loadSetting` 生效),坏在源自己的替换正则不匹配 `.webp`;**`cxc`** 的图片在 `/private/` 路径下,未登录返回的 191,184 字节不是任何图片格式,`Content-Type` 却写 `image/jpeg` —— 需要账号。
+
 ## 源本身的变动(记录,不是回归)
 
 2026-10-31 复跑真实源时,拷贝漫画的详情请求开始返回 **HTTP 210**,而该源的脚本自己只接受 200

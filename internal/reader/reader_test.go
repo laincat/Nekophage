@@ -207,13 +207,24 @@ func TestSwitchChapterReachesTheWindow(t *testing.T) {
 	if code := call("source=s&comic=c&chapter=absent"); code != http.StatusNotFound {
 		t.Errorf("unknown chapter: status = %d, want 404", code)
 	}
-	// A request without a chapter is refused before reaching the window.
+	// A chapter id may be empty: a gallery source has no chapter list and
+	// names its one reading unit with an empty id. The window decides, so the
+	// request reaches it.
 	before := len(got)
 	if code := call("source=s&comic=c"); code != http.StatusNotFound {
-		t.Errorf("empty chapter: status = %d, want 404", code)
+		t.Errorf("empty chapter: status = %d, want 404 from the window", code)
+	}
+	if len(got) != before+1 {
+		t.Errorf("empty chapter did not reach the window: %+v", got[before:])
+	}
+	// Without a comic there is nothing to look up, so the window is not
+	// asked at all.
+	before = len(got)
+	if code := call("source=s"); code != http.StatusNotFound {
+		t.Errorf("no comic: status = %d, want 404", code)
 	}
 	if len(got) != before {
-		t.Errorf("empty chapter reached the window: %+v", got[before:])
+		t.Errorf("a request without a comic reached the window: %+v", got[before:])
 	}
 	// Without a handler the page is told so, not left waiting.
 	bare := New(nil)

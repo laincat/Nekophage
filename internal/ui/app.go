@@ -705,7 +705,18 @@ func (a *App) readerURLFor(index int) string {
 	a.mu.Lock()
 	list, comic, base := a.readerList, a.readerComic, a.readerTitle
 	a.mu.Unlock()
-	if len(list) == 0 || index < 0 || index >= len(list) {
+	if len(list) == 0 {
+		// A source may describe a comic with no chapter list at all: the
+		// gallery is the single reading unit and its loadEp takes an empty
+		// chapter id. Without this the detail view offers 开始阅读 and the
+		// reader then loads nothing, so such a source can never be read.
+		if index != 0 {
+			return ""
+		}
+		return reader.ReaderURLNear(a.currentKey(), comic, "", base,
+			reader.Neighbour{}, reader.Neighbour{})
+	}
+	if index < 0 || index >= len(list) {
 		return ""
 	}
 	var prev, next reader.Neighbour
