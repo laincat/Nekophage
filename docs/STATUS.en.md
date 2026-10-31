@@ -199,6 +199,10 @@ Three deliberate choices:
 
 The unit test pins the argument shape: a single-folder source must receive `null`, not an empty string; add and remove are both covered. The capture confirms the button and the folder picker render.
 
+**The dialog window's layout has been looked at too (2026-11-01)**: the section above only showed that a callback completes, not **what the window looks like** — those windows in `jsui.go` were written from scratch with no picture behind them.
+
+The capture tool gained `-dialog`: it opens a real dialog through the same handler (two buttons), with auto-confirm off, photographs it and closes it. The first capture had the buttons jammed into the bottom-left corner with the content area unused; they now sit at the trailing edge, the way a desktop dialog does, and the second capture confirms the layout. The dialog is synthetic rather than one a source opened, but the window, the buttons and the callback path are the same code.
+
 **A panic in a dialog callback no longer hangs the script (2026-11-01)**: the buttons in a dialog run **the source's own code**. If `Invoke` panicked, the goroutine that owed a result was gone while the caller stayed blocked inside `ShowDialog` — the source was wedged, and the window just sat there. `invokeSafely` now turns a panic into an error handed back to the source, the same path as the source's own `throw`; four tests cover a panic, the source's own error, a missing callback, and a panicking validator.
 
 `ShowLoading` also became visible: it only kept a count before, with nothing in the window. While a source holds a loading id the main window shows 源正在处理… with a spinner, and it disappears on cancel (cancelling twice cannot drive the count negative — also tested). The handler also guards `app == nil`: it can exist before the window and outlive it, and a source's call should not crash because of that.

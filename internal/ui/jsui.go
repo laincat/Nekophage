@@ -29,6 +29,9 @@ type JSHandler struct {
 	mu      sync.Mutex
 	loading map[int]func()
 	nextID  int
+	// last is the most recent dialog window, so a capture tool can photograph
+	// what a source put on screen.
+	last *mygo.Window
 }
 
 // NewJSHandler builds the handler before the App exists, because Core needs it
@@ -42,6 +45,14 @@ func NewJSHandler() *JSHandler {
 func (h *JSHandler) Attach(app *App) {
 	h.app = app
 	app.SetJSUI(h)
+}
+
+// LastWindow is the most recent dialog window, for the capture tools: a source's
+// dialog is otherwise invisible to a test.
+func (h *JSHandler) LastWindow() *mygo.Window {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	return h.last
 }
 
 // LoadingCount is how many spinners the source is waiting on; the window shows
@@ -116,6 +127,9 @@ func (h *JSHandler) ShowDialog(title, content string, actions []js.DialogAction)
 				})
 			}
 			ui.Row(c).Gap(8).Children(func() {
+				// Buttons sit at the trailing edge, the way a desktop dialog
+				// does, so the eye finds the confirmation where it expects it.
+				ui.Spacer(c)
 				for _, action := range actions {
 					action := action
 					label := action.Text
@@ -267,6 +281,9 @@ func (h *JSHandler) openWindow(title string, width, height int, draw func(c *ui.
 		Height:  height,
 		Content: ui.View(func(c *ui.Context) { draw(c, closeFn) }),
 	})
+	h.mu.Lock()
+	h.last = win
+	h.mu.Unlock()
 	win.OnClosed(func() {
 		if !closed.Swap(true) {
 			onClosed()

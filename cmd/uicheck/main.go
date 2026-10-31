@@ -21,6 +21,7 @@ import (
 	"github.com/laincat/nekophage/internal/reader"
 	"github.com/laincat/nekophage/internal/sourceapi"
 	"github.com/laincat/nekophage/internal/ui"
+	"github.com/laincat/veneracat-core/comic/js"
 
 	_ "github.com/egoist/mygo/locales/zh-Hans"
 )
@@ -37,6 +38,8 @@ func main() {
 	rank := flag.String("rank", "", "pick a ranking option after the category page opens")
 	favorites := flag.Bool("favorites", false, "capture the source's own favorites")
 	callback := flag.String("callback", "", "run one of the source's setting callbacks")
+	dialogShot := flag.Bool("dialog", false, "open a source dialog window and capture it")
+	dialogOut := flag.String("dialog-out", "", "where to write the dialog capture")
 	exploreIndex := flag.Int("explore", 0, "which browse to open (0-based)")
 	explorePage := flag.Int("explore-page", 1, "which page of that browse")
 	shelfMode := flag.Bool("shelf", false, "capture the shelf instead of searching")
@@ -78,7 +81,7 @@ func main() {
 	// A capture cannot press a button in a window it is photographing, so a
 	// dialog the source opens takes its first action instead of waiting.
 	jsui := ui.NewJSHandler()
-	jsui.SetAutoConfirm(true)
+	jsui.SetAutoConfirm(!*dialogShot)
 	c, err := core.Open(core.Options{DataDir: dataDir, AppVersion: sourceapi.Level, Locale: "zh_CN", UI: jsui})
 	if err != nil {
 		log.Fatal(err)
@@ -164,6 +167,31 @@ func main() {
 					}
 				} else {
 					log.Printf("AI capture: the AI window was never opened")
+				}
+			}
+			// A dialog is a window of its own too. Without auto-confirm the
+			// handler waits for a press, so the tool opens one and photographs
+			// it before quitting.
+			if *dialogShot {
+				go func() {
+					_ = jsui.ShowDialog("来自源的确认", "源要执行一个操作,是否继续?",
+						[]js.DialogAction{
+							{Text: "确定", Style: "filled", Invoke: func() error { return nil }},
+							{Text: "取消", Invoke: func() error { return nil }},
+						})
+				}()
+				time.Sleep(1500 * time.Millisecond)
+				if win := jsui.LastWindow(); win != nil {
+					if shot, err := win.CapturePage(); err == nil && *dialogOut != "" {
+						if werr := os.WriteFile(*dialogOut, shot, 0o644); werr == nil {
+							log.Printf("dialog capture: %s (%d bytes)", *dialogOut, len(shot))
+						}
+					} else if err != nil {
+						log.Printf("dialog capture: %v", err)
+					}
+					win.Close()
+				} else {
+					log.Printf("dialog capture: no dialog window was opened")
 				}
 			}
 			mygo.App.Quit()
