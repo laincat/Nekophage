@@ -97,6 +97,17 @@ type App struct {
 	// A source's own favorites, the ones it keeps on the site. The client has a
 	// local shelf too; this is a different list, and eleven official sources
 	// declare one.
+	// The details view keeps the source's own favorites in reach: whether the
+	// source supports them, which folders it has, and which of them hold this
+	// comic.
+	srcFav        core.FavoritesSupport
+	srcFavLoaded  bool
+	srcFavFolders map[string]string
+	srcFavFolder  string
+	srcFavHeld    []string
+	srcFavBusy    bool
+	srcFavMsg     string
+
 	favSup          core.FavoritesSupport
 	favLoaded       bool
 	favFolders      map[string]string
@@ -699,8 +710,10 @@ func (a *App) openComic(c core.Comic) {
 	a.mu.Lock()
 	a.open, a.detailComic, a.busy, a.errText, a.notice = true, c, "details", "", ""
 	a.detail = core.Details{}
+	a.srcFavLoaded, a.srcFavFolders, a.srcFavHeld, a.srcFavMsg = false, nil, nil, ""
 	ticket := a.detailGen.next()
 	a.mu.Unlock()
+	a.loadSourceFavorites(key, c.ID)
 	go func() {
 		ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
 		defer cancel()
@@ -1788,6 +1801,8 @@ func (a *App) detailsView(c *ui.Context, t *ui.Theme, busy bool) {
 	d, comic, chapters := a.detail, a.detailComic, a.detail.Chapters
 	key := a.currentKey()
 	sh := a.shelf
+	srcFav, srcFavFolders, srcFavHeld := a.srcFav, a.srcFavFolders, a.srcFavHeld
+	srcFavFolder, srcFavMsg, srcFavBusy := a.srcFavFolder, a.srcFavMsg, a.srcFavBusy
 	a.mu.Unlock()
 
 	// The chapter read last, so the list shows where reading stopped even
@@ -1880,12 +1895,44 @@ func (a *App) detailsView(c *ui.Context, t *ui.Theme, busy bool) {
 							a.keepComic()
 						}
 					}
+					// The source's own favorites are a different list from the
+					// local shelf, so they get their own control rather than
+					// sharing the 收藏 button.
+					// The source's own favorites are a different list from the
+					// local shelf, so they get their own control rather than
+					// sharing the 收藏 button.
+					if srcFav.Supported {
+						if srcFav.MultiFolder && len(srcFavFolders) > 1 {
+							labels, byLabel, labelOf := folderPicker(srcFavFolders)
+							pick := labelOf[srcFavFolder]
+							if pick == "" && len(labels) > 0 {
+								pick = labels[0]
+							}
+							if ui.Select(c, &pick, labels).Width(120).Changed() {
+								a.mu.Lock()
+								a.srcFavFolder = byLabel[pick]
+								a.mu.Unlock()
+							}
+						}
+						label := "收藏到源"
+						if len(srcFavHeld) > 0 {
+							label = "已在源收藏"
+						}
+						if srcFavBusy {
+							ui.Spinner(c)
+						} else if ui.Button(c, label).Clicked() {
+							a.toggleSourceFavorite()
+						}
+					}
 					if ui.Button(c, "返回").Clicked() {
 						a.mu.Lock()
 						a.open = false
 						a.mu.Unlock()
 					}
 				})
+				if srcFavMsg != "" {
+					ui.Text(c, srcFavMsg).FontSize(11).Selectable()
+				}
 				if sub := firstNonEmpty(d.Subtitle, comic.Subtitle); sub != "" {
 					ui.Text(c, sub).TextColor(t.TextMuted)
 				}

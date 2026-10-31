@@ -177,6 +177,16 @@ That also fixed a blind spot in `cmd/uicheck`: its `-chapter` was gated on `n < 
 
 **`modifyImage` is wired up (2026-11-01, pin `6aa9356`)**: Core adds `Runtime.ModifyImage` (decoded RGBA into a throwaway bitmap store, the source's script runs in its own runtime, the result bitmap comes back; decoding and encoding stay with the client), and the desktop client uses it on the image path: fetch → `onResponse` first if present → `modifyImage` decodes to RGBA, runs the script and re-encodes as PNG, with the content type changed to `image/png` to match. In the config `modifyImage` is a **string of JavaScript, not a function**, so it travels as `ImageConfig.ModifyImage` rather than as a callback handle — a mistake made and pinned down with a test. Deterministic check: a source returns a 4×2 red/blue picture plus a clockwise-rotate script, and what arrives is 2×4 with red on top; a script that returns no image reports the failure instead of falling back to the original. Against real sources `hitomi` and `manhuagui` pass (their images are mostly avif/webp, which need not trigger the script).
 
+**Favorite to the source: from read-only to add and remove (2026-11-01)**: the previous round only *listed* a source's favorites; the details page had no way in. It now carries 收藏到源 beside 收藏 (the local shelf): it shows whether the source supports them, offers a folder when there are several, and turns into 已在源收藏 — pressing again removes — when the comic is already in the chosen folder. Whatever the source throws is shown in its own words.
+
+Three deliberate choices:
+
+- **Two lists, two controls**: the local shelf and the source's favorites are different data, so they keep separate buttons instead of one merged 收藏 key.
+- **A single-folder source gets no folder**: measured on the live sources, `wnacg` answers success for both add and remove without a session (the source accepts it), while `nhentai` answers `Authentication required. Please login again or provide API Key in source settings.` — the client repeats what it is told rather than deciding which is "right".
+- **A source with only a folder toggle** (`ehentai`) gets no add control on the details page, because it has no list to read and nothing would show the comic afterwards.
+
+The unit test pins the argument shape: a single-folder source must receive `null`, not an empty string; add and remove are both covered. The capture confirms the button and the folder picker render.
+
 **Patrol baseline (2026-11-01)**: `TestLiveSource` (search, details, chapters, images) ran over 34 official sources: **18 pass, 16 fail**. Every failure was run a second time, and `hcomic` and `ykmh` passed on the retry — a single round really is not a conclusion.
 
 The remaining 14 were each attributed, and **none is a client regression**:
