@@ -84,7 +84,11 @@ func (h *JSHandler) ShowDialog(title, content string, actions []js.DialogAction)
 	}
 	if h.autoConfirm {
 		// The capture tools take the first action, which is the confirmation.
-		return actions[0].Invoke()
+		// It runs off this goroutine: Invoke calls back into the script, and the
+		// script is the caller sitting in this very call.
+		done := make(chan error, 1)
+		go func() { done <- actions[0].Invoke() }()
+		return <-done
 	}
 	done := make(chan error, 1)
 	var once sync.Once

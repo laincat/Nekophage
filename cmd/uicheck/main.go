@@ -36,6 +36,7 @@ func main() {
 	categoryShot := flag.Bool("category", false, "capture the source's category page")
 	rank := flag.String("rank", "", "pick a ranking option after the category page opens")
 	favorites := flag.Bool("favorites", false, "capture the source's own favorites")
+	callback := flag.String("callback", "", "run one of the source's setting callbacks")
 	exploreIndex := flag.Int("explore", 0, "which browse to open (0-based)")
 	explorePage := flag.Int("explore-page", 1, "which page of that browse")
 	shelfMode := flag.Bool("shelf", false, "capture the shelf instead of searching")
@@ -118,7 +119,7 @@ func main() {
 	app.SetDevOptions(ui.DevOptions{Query: *query, OpenFirst: *openFirst, Browse: *browse,
 		ExploreIndex: *exploreIndex, ExplorePage: *explorePage, Shelf: *shelfMode, OpenChapter: *chapter, ShelfDemo: *shelfDemo, ScrollPercent: *scrollPercent,
 		AdvanceChapter: *advance, AutoNext: *autoNext, Filters: *filters, Filter: *filterPick,
-		SearchAll: *searchAll, OpenLast: *openLast, Category: *categoryShot, Rank: *rank, Favorites: *favorites,
+		SearchAll: *searchAll, OpenLast: *openLast, Category: *categoryShot, Rank: *rank, Favorites: *favorites, Callback: *callback,
 		KeepPage: *keepPage, Favourite: *favourite, OpenSettings: *settingsShot, BackupCookies: *backupCookies,
 		SetSetting: *setSetting, AI: *aiShot, AITest: *aiTest, AIPrompt: *aiPrompt, AIModel: *aiModel})
 

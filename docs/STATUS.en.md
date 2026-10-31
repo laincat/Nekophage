@@ -199,6 +199,17 @@ Three deliberate choices:
 
 The unit test pins the argument shape: a single-folder source must receive `null`, not an empty string; add and remove are both covered. The capture confirms the button and the folder picker render.
 
+**Re-checked inside the real process, and one potential deadlock fixed (2026-11-01)**: the table above used a test handler, which does not prove `jsui.go` itself works. The capture tool grew `-callback <key>`: it runs `settings.<key>.callback` against the same Core **inside the real App process**, with the real windows, threads and handler.
+
+```
+$ go run ./cmd/uicheck -script wnacg.js -callback refreshDomains
+nekophage: callback refreshDomains -> "null" err=<nil>
+$ go run ./cmd/uicheck -script happy.js  -callback wipeCache
+nekophage: callback wipeCache -> "null" err=<nil>
+```
+
+Writing that found a **potential deadlock in my own code**: the auto-confirm path called `actions[0].Invoke()` on the JS thread, which is the caller already blocked inside `ShowDialog` — the callback would re-enter the engine from inside itself. It now runs on another goroutine and waits, the same shape as a real button press.
+
 **The desktop can finally give a source a UI (2026-11-01)**: Core has always defined a `UIHandler` (message, dialog, input, select, loading), but **the desktop never provided one**, so any source calling `UI.showDialog` or `UI.showMessage` got `No JavaScript UI handler provided`. That is not cosmetic: several sources do their work from inside a dialog callback.
 
 `internal/ui/jsui.go` supplies it now. `ShowDialog` builds a window from the source's own buttons, pressing one runs **the source's callback**, and closing the window settles the promise with null instead of leaving the script hanging. Input and select dialogs wire the source's own validator and show its message under the field. Messages land in the main window's notice and links go to the system browser. The capture tool turns on `SetAutoConfirm(true)` explicitly, since it cannot press a button in the window it is photographing; nothing in a normal run sets it.

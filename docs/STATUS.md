@@ -192,6 +192,17 @@ Network.get(`${this.baseUrl}/users-fav_del-id-${favoriteId}.html?ajax=true...`)
 
 单测覆盖参数形态:单收藏夹源必须收到 `null` 而不是空串;改名/移除的收尾都验证过。截图确认按钮与文件夹选择渲染正常。
 
+**在真实进程里又验了一遍,并修掉一处潜在死锁(2026-11-01)**:上面那张表用的是测试处理器,不等于 `jsui.go` 本身跑得通。给抓图工具加了 `-callback <键>`:它在**真实 App 进程**里对这同一个 Core 调 `settings.<键>.callback`,窗口、线程和处理器都是生产路径。
+
+```
+$ go run ./cmd/uicheck -script wnacg.js -callback refreshDomains
+nekophage: callback refreshDomains -> "null" err=<nil>
+$ go run ./cmd/uicheck -script happy.js  -callback wipeCache
+nekophage: callback wipeCache -> "null" err=<nil>
+```
+
+写这一段时发现自己代码里的一处**潜在死锁**:自动确认路径原本在 JS 线程上直接 `actions[0].Invoke()`,而那个线程正是阻塞在 `ShowDialog` 里的调用方 —— 回调一进来就又调回引擎。改成在另一个 goroutine 里执行并等它,和手动按按钮的路径一致。
+
 **桌面端现在真的能给源一个 UI 了(2026-11-01)**:`Core` 一直有 `UIHandler`(消息、对话框、输入框、选择框、加载),但**桌面端从未提供实现**,于是任何调用 `UI.showDialog` / `UI.showMessage` 的源都会拿到 `No JavaScript UI handler provided`。这不是装饰性问题:有些源**把活干在对话框回调里**。
 
 `internal/ui/jsui.go` 现在提供它:`ShowDialog` 按源给的按钮建窗口,按下后执行**源自己的回调**,关窗则让 promise 以 null 结束(不会把脚本挂着);输入框/选择框接上源自己的校验,不通过就把源的话显示在输入框下面;消息落到主窗口提示,链接交给系统浏览器。抓图工具显式开 `SetAutoConfirm(true)` —— 它没法按自己正在拍的那个窗口里的按钮。正常运行时不会打开这个开关。

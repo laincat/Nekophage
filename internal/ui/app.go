@@ -227,6 +227,9 @@ type DevOptions struct {
 	// Favorites opens the source's own favorites, so a capture shows what the
 	// source answers without a human clicking 源收藏.
 	Favorites bool
+	// Callback runs one of the source's own setting callbacks, so a tool can
+	// check that the source's UI reaches it at all.
+	Callback string
 	// Filters opens the source's search filters before capturing.
 	Filters bool
 	// SearchAll starts with every source selected.
@@ -381,6 +384,16 @@ func (a *App) Run() error {
 		}
 		if a.dev.Favorites {
 			a.setMode(4)
+		}
+		if cb := a.dev.Callback; cb != "" {
+			go func() {
+				// The source must be installed and its declaration read first.
+				time.Sleep(3 * time.Second)
+				ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+				defer cancel()
+				answer, err := a.core.CallSettingCallback(ctx, a.currentKey(), cb)
+				log.Printf("nekophage: callback %s -> %q err=%v", cb, answer, err)
+			}()
 		}
 		if rank := a.dev.Rank; rank != "" {
 			// The declaration loads as JS work, so give it a moment first.
