@@ -5,6 +5,8 @@ English | [简体中文](STATUS.md)
 Updated 2026-10-31. Every result below comes from **Windows** on this machine, with real comic sources and the real network. That day's additions are three: a real bug in redirect cookies on the transport (it read the wrong field), Chinese error text under the same rule the iOS client uses, and `live-sources.sh` gaining repeat runs and a `FLAKY` class.
 
 
+The four CI jobs of Core's `6e07429` are green (three Go platforms plus Apple's xcframework with two Swift smoke tests), checked on 2026-11-01.
+
 **Pin moved to `6e07429` (2026-11-01)**: Core gained the three standard AI entry points and the optional chunked transport (`HostStream`), and it fixed a deadlock in the package bridge — the package pushed to `__magpieChatPush` from inside its own hook while the reader stopped at the end marker, so the writer waited for a reader that had gone. The desktop client **does not implement `HostStream` yet**, so replies still arrive whole; `scripts/fetch-core.sh` has aligned `build/core` to that commit and `scripts/check-core-pin.sh` passes.
 
 ## Implemented

@@ -30,6 +30,8 @@
 
 **2026-10-31 复跑四源**:Core 同步到 `519623d` 后,MangaDex、Komiic、Comick、拷贝漫画的 `TestLiveSource` 全部 PASS。但**同一天稍后又复跑一次,拷贝漫画回到 HTTP 210 而其余四源仍 PASS** —— 所以它的状态是「时好时坏」,不是「已恢复」;`live-sources.sh` 会把两类结果分开打印,正是为了这种情形。Comick 这次暴露了测试里的一个假设:它取到的章节只有 1 张图,而用例固定要求 `page=3`,被阅读器正确地钳到 1,于是断言失败 —— 错的是用例不是代码,现在按 `min(3, len(images))` 断言。拷贝漫画此前报的 HTTP 210 已不复现,那是站点侧的临时行为,不是客户端回归。
 
+Core 的 `6e07429` 那一版 CI 四个 job 全绿(Go 三个平台 + Apple 的 xcframework 与两份 Swift 冒烟测试),2026-11-01 实测。
+
 **换 pin 到 `6e07429`(2026-11-01)**:Core 新增了标准 AI 的三个入口与可选的分段传输(`HostStream`),并修掉包桥的一处死锁 —— 包在自己的 hook 里往 `__magpieChatPush` 写,而读取侧读到结束标记就停了,写方永远等不到读者。桌面端目前**没有实现 `HostStream`**,所以回复仍整包到达;`scripts/fetch-core.sh` 已把 `build/core` 对齐到该提交,`scripts/check-core-pin.sh` 通过。
 
 **换 pin 后重跑阅读器**:Core 同步到 `c1db2c3` 之后,`readercheck` 重跑 Komiic 一章(53 页):`page title=TEMPEST figures=53 images=53 decoded=4` —— DOM 里 53 张图都在,当前视口解码了 4 张。截图本身不含 WebView 内容,所以结论取自 DOM 与解码状态,不取自截图。
