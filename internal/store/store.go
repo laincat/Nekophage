@@ -133,6 +133,30 @@ func (s *Store) load(key, field string, setting bool) (json.RawMessage, bool, er
 	return v, ok, nil
 }
 
+// AllData returns every stored data key of one source, as one object. It is what
+// a .venera export writes: the archive keeps a source's data as a single
+// comic_source/<key>.data file, so a restore can hand back the whole thing.
+func (s *Store) AllData(key string) (map[string]json.RawMessage, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	f, err := s.file(key)
+	if err != nil {
+		return nil, err
+	}
+	return parseObject(f.Data), nil
+}
+
+// AllSettings is AllData for the settings side.
+func (s *Store) AllSettings(key string) (map[string]json.RawMessage, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	f, err := s.file(key)
+	if err != nil {
+		return nil, err
+	}
+	return parseObject(f.Settings), nil
+}
+
 func (s *Store) save(key, field string, data json.RawMessage, setting bool) error {
 	if len(data) == 0 || !json.Valid(data) {
 		return errors.New("store: value must be JSON")

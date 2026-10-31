@@ -2,11 +2,14 @@ package ui
 
 import (
 	"context"
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"testing"
 
+	"github.com/laincat/nekophage/internal/archive"
 	"github.com/laincat/nekophage/internal/core"
+	"github.com/laincat/nekophage/internal/library"
 	"github.com/laincat/veneracat-core/backup"
 )
 
@@ -69,4 +72,133 @@ func TestWriteBackupRoundTrips(t *testing.T) {
 	if archive.Has(backup.MemberCookies) {
 		t.Error("the export contains cookies")
 	}
+}
+
+// The export is only worth the button if the import can restore it. This writes
+// one from a client that has a source, then imports it into a second, empty
+// client through the same steps applyBackup takes.
+func TestExportRestoresIntoAClientWithoutIt(t *testing.T) {
+	source := `class Cycle extends ComicSource {
+  name = 'Cycle'; key = 'cycle'; version = '1'
+  search = {load: async () => ({comics: [], maxPage: 1})}
+}`
+	from, err := core.Open(core.Options{DataDir: filepath.Join(t.TempDir(), "a"), AppVersion: "1.6.3", Locale: "zh_CN"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { from.Close() })
+	if _, err := from.Install(context.Background(), source, "file", ""); err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(t.TempDir(), "cycle.venera")
+	if err := New(from, library.New(from), nil).writeBackup(path); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+
+	// A second client, with nothing installed.
+	into, err := core.Open(core.Options{DataDir: filepath.Join(t.TempDir(), "b"), AppVersion: "1.6.3", Locale: "zh_CN"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { into.Close() })
+	lib := library.New(into)
+	if len(lib.Sources()) != 0 {
+		t.Fatalf("the second client starts with %d sources", len(lib.Sources()))
+	}
+
+	ctx := context.Background()
+	known := []string{}
+	backupFile, err := archive.Read(ctx, path, known, archive.Options{})
+	if err != nil {
+		t.Fatalf("read: %v", err)
+	}
+	installed := 0
+	for _, src := range backupFile.Plan.Sources {
+		if src.Script == "" {
+			continue
+		}
+		if _, err := lib.InstallText(ctx, src.Script, "backup:"+src.Key); err != nil {
+			t.Fatalf("install %s: %v", src.Key, err)
+		}
+		installed++
+	}
+	if installed != 1 {
+		t.Fatalf("installed %d sources", installed)
+	}
+	keys := []string{}
+	for _, s := range lib.Sources() {
+		keys = append(keys, s.Key)
+	}
+	if len(keys) != 1 || keys[0] != "cycle" {
+		t.Errorf("after import: %v", keys)
+	}
+}
+
+// A source that stored something must come back with it: a restore that only
+// brings back code leaves the source logged out.
+func TestExportCarriesSourceData(t *testing.T) {
+	source := `class Cycle extends ComicSource {
+  name = 'Cycle'; key = 'cycle'; version = '1'
+  search = {load: async () => ({comics: [], maxPage: 1})}
+}`
+	from, err := core.Open(core.Options{DataDir: filepath.Join(t.TempDir(), "a"), AppVersion: "1.6.3", Locale: "zh_CN"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { from.Close() })
+	ctx := context.Background()
+	if _, err := from.Install(ctx, source, "file", ""); err != nil {
+		t.Fatal(err)
+	}
+	if err := from.Store().SaveData("cycle", "token", json.RawMessage(`"abc"`)); err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(t.TempDir(), "cycle.venera")
+	if err := New(from, library.New(from), nil).writeBackup(path); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+
+	into, err := core.Open(core.Options{DataDir: filepath.Join(t.TempDir(), "b"), AppVersion: "1.6.3", Locale: "zh_CN"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { into.Close() })
+	lib := library.New(into)
+	backupFile, err := archive.Read(ctx, path, nil, archive.Options{})
+	if err != nil {
+		t.Fatalf("read: %v", err)
+	}
+	for _, src := range backupFile.Plan.Sources {
+		if src.Script == "" {
+			continue
+		}
+		if _, err := lib.InstallText(ctx, src.Script, "backup:"+src.Key); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for _, d := range mustSourceData(t, backupFile) {
+		values := map[string]json.RawMessage{}
+		for _, f := range d.Fields {
+			values[f.Name] = f.Value
+		}
+		if _, err := lib.ImportSourceData(d.Key, values); err != nil {
+			t.Fatalf("import data: %v", err)
+		}
+	}
+	got, ok, err := into.Store().LoadData("cycle", "token")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !ok || string(got) != `"abc"` {
+		t.Errorf("token = %s (present %v)", got, ok)
+	}
+}
+
+func mustSourceData(t *testing.T, b *archive.Backup) []archive.Data {
+	t.Helper()
+	data, err := b.SourceData()
+	if err != nil {
+		t.Fatal(err)
+	}
+	return data
 }

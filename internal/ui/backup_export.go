@@ -67,7 +67,17 @@ func (a *App) writeBackup(path string) error {
 		if record.Type != plugin.TypeComic || len(record.Body) == 0 {
 			continue
 		}
-		sources = append(sources, backup.WriteSource{Name: record.Key + ".js", Body: []byte(record.Body)})
+		// The source's own stored object travels beside its script: without it a
+		// restore brings back code that has lost its tokens and its chosen domain.
+		data, err := a.core.Store().AllData(record.Key)
+		if err != nil {
+			return err
+		}
+		sources = append(sources, backup.WriteSource{
+			Name: record.Key + ".js",
+			Body: []byte(record.Body),
+			Data: data,
+		})
 	}
 
 	// The store keeps the newest first; the archive lists them oldest first.
@@ -103,7 +113,7 @@ func (a *App) exportRow(c *ui.Context, t *ui.Theme) {
 		if ui.Button(c, "导出 .venera 备份").Disabled(m.backupBusy).Clicked() {
 			a.exportBackup()
 		}
-		ui.Text(c, "导出源与搜索历史;不含 Cookie").FontSize(11).TextColor(t.TextMuted)
+		ui.Text(c, "导出源、源数据与搜索历史;不含 Cookie").FontSize(11).TextColor(t.TextMuted)
 		if m.backupBusy {
 			ui.Spinner(c)
 			ui.Text(c, "正在写入…").FontSize(12).TextColor(t.TextMuted)

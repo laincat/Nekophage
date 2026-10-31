@@ -199,6 +199,16 @@ Three deliberate choices:
 
 The unit test pins the argument shape: a single-folder source must receive `null`, not an empty string; add and remove are both covered. The capture confirms the button and the folder picker render.
 
+**The export carried the code but not the source's state (2026-11-01, pin `e46c8f9`)**: the previous export wrote only `comic_source/<key>.js`, while the format also holds `comic_source/<key>.data` — what a source keeps between runs (tokens, the domain it settled on). The reader always parsed it and the import always wrote it back; **only the writer never produced it**. The result was "the restore worked, and the source woke up logged out".
+
+- Core's `WriteSource` gains `Data`, written as `<key>.data` so the reader's pairing by key still holds.
+- The desktop takes each source's whole data object from the store.
+- On iOS Core cannot enumerate the host's store, so `ExportBackup` receives `{"<key>": {"<name>": <value>}}` from the client, and the kit collects it through `SourceStore.allData(key:)`.
+
+The verification is **two closed loops**: a client that has a source exports, an empty client imports, and the source is there; and a source that stored `token` exports, is imported elsewhere, and `LoadData` returns the original value.
+
+**Still not carried**: each source's **settings** (a different bucket from its data in this client). Merging them into `.data` would make the importer write settings back as data — that is not a fix, it is the same mistake in a new place — so it stays open for its own round.
+
 **A backup could come in but not go out; now it can (2026-11-01, pin `ffdfbe7`)**: Core could always **read** a `.venera` backup and never write one, so a user could move into this client and not out of it.
 
 - **Core** gains `backup.Write`, which follows the format the reader already defines: `comic_source/<key>.js` plus `appdata.json`, with a fixed key order so two exports of the same data are **byte-identical** — which is what makes "did anything change" answerable.
