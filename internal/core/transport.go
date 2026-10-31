@@ -2,6 +2,8 @@ package core
 
 import (
 	"bytes"
+	"compress/gzip"
+	"compress/zlib"
 	"context"
 	"errors"
 	"fmt"
@@ -181,6 +183,11 @@ func (t *Transport) Do(ctx context.Context, r *host.Request) (*host.Response, er
 	if req.Header.Get("User-Agent") == "" {
 		req.Header.Set("User-Agent", t.ua)
 	}
+	// Advertise only encodings this transport can decode, even when a source
+	// requests additional encodings that Go's HTTP client cannot handle.
+	if req.Header.Get("Accept-Encoding") != "" {
+		req.Header.Set("Accept-Encoding", "gzip, deflate")
+	}
 	var cookie string
 	for k, vs := range r.Header {
 		if strings.EqualFold(k, "Cookie") {
@@ -211,12 +218,36 @@ func (t *Transport) Do(ctx context.Context, r *host.Request) (*host.Response, er
 		t.schemes[partition] = u.Scheme
 		t.mu.Unlock()
 	}
-	data, err := io.ReadAll(io.LimitReader(resp.Body, maxBody+1))
+	var bodyReader io.Reader = resp.Body
+	switch strings.ToLower(strings.TrimSpace(resp.Header.Get("Content-Encoding"))) {
+	case "", "identity":
+	case "gzip":
+		decoded, err := gzip.NewReader(resp.Body)
+		if err != nil {
+			return nil, err
+		}
+		defer decoded.Close()
+		bodyReader = decoded
+	case "deflate":
+		decoded, err := zlib.NewReader(resp.Body)
+		if err != nil {
+			return nil, err
+		}
+		defer decoded.Close()
+		bodyReader = decoded
+	default:
+		return nil, fmt.Errorf("core: unsupported content encoding: %s", resp.Header.Get("Content-Encoding"))
+	}
+	data, err := io.ReadAll(io.LimitReader(bodyReader, maxBody+1))
 	if err != nil {
 		return nil, err
 	}
 	if len(data) > maxBody {
 		return nil, ErrTooLarge
+	}
+	if resp.Header.Get("Content-Encoding") != "" {
+		resp.Header.Del("Content-Encoding")
+		resp.Header.Del("Content-Length")
 	}
 	if r.Cookies {
 		// The last hop's cookies; earlier hops were stored on redirect.

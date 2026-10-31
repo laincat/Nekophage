@@ -106,6 +106,10 @@ Core 同步到 `af4f1a0` 之后又跑了两条真实源:MangaDex(`one piece` —
 4. **封面永远是灰块**:首帧渲染时封面还没下载完,解码缓存把「没有图片」记成了最终结果。现在只缓存解码成功的结果和失败的下载。
 5. **源列表陈旧**:`Library.Sources()` 原来读自己的缓存,从其他路径安装的源不显示;现在每次都向 Core 要。
 
+**源自己写了 `Accept-Encoding` 时，压缩响应没有被解开(2026-11-01)**:JM 系源在请求头里显式写了 `Accept-Encoding: gzip, deflate, br, zstd`。Go 的 `net/http` 只在自己**插入** gzip 时才透明解压;一旦调用方自己设了这个头,它就把响应体原样交回。于是源拿到的是 gzip 字节,`JSON.parse` 在第一个字节 `0x1f` 上报 `Unexpected token`,而源把这个异常包装成自己的「后台初始化失败: Error: HTTP 404」——**一条与真实原因毫无关系的报错**,这种错误最难查。修法是在 `Transport.Do` 里:把源声明的编码收敛到本传输层真能解的两种(`gzip`、`deflate`),再按 `Content-Encoding` 解压,解压后仍受 `maxBody` 限制(压缩炸弹不会因为解压而绕开上限),解压完成就删掉 `Content-Encoding` 与 `Content-Length`,免得调用方再按压缩后长度理解。反过来验证:把解压关掉,`jmcomic` 立刻退回同一条「HTTP 404」失败;打开就通过。
+
+**`rumanhua2` 的 `atob` 改不动(引擎与规范不一致,未修)**:该源在解码器里用 `Function("return this")()` 取全局对象,发现没有 `atob` 就自己补一个,并在 `finally` 里把原值写回。浏览器规范里 `globalThis.atob` 是**可写且可配置**的,而 MoeJS 为了共享冻结的内置模板把它设成只读且不可重定义,于是那次「写回」抛 `TypeError: Cannot assign to read only property 'atob'`。已验证:把该源的写回改成「只在真的补过时才还原」,搜索、详情、546 章、取图、阅读页全部通过,说明源本身没问题。修引擎有两条路 —— 全局打开 `MutableIntrinsics`(实测每个 runtime 构造 3.03ms 对 2.60ms,且失去进程级共享冻结模板),或让 MoeJS 按 HTML 规范把 `atob`/`btoa` 设为可写可配置。全部 105 个源里只有这 1 个会写冻结的内置全局(另一个 `cxc` 写的是 `URL`,不在失败路径上),**代价与收益不成比例,所以这一处没有动引擎**,记录在此作为已知限制。
+
 **源写了哪种搜索入口就调哪种(2026-11-01)**:官方的搜索有两个入口 —— `search.load(keyword, options, page)` 收页码,`search.loadNext(keyword, options, next)` 收上一页返回的游标。客户端只认前者,于是 `ehentai` 这种只声明 `loadNext` 的源在搜索时直接报「source does not define this function」,而它在官方客户端里是能用的。现在先看源声明了哪个;声明了 `loadNext` 就按游标翻页,游标按源和页码记住,新搜索(第 1 页)清掉上一轮。之前 `search` 的 `load` 与 `loadNext` 混在两个文件里的判断也统一了 —— 视频那条路早就有,漫画这条一直缺。
 
 **多选筛选组必须传 JSON 数组(2026-11-01)**:`multi-select` 组的值是「选中键的 JSON 数组字符串」,源的 `JSON.parse(options[i])` 就是按这个读的。我们给的是单个键,`ehentai` 因此在 `JSON.parse("0")` 上报 `Unexpected token ,`。Core 的 `SearchOptionGroup` 现在有 `DefaultValues`(来源声明的数组默认值),桌面端把多选组编码成 JSON 数组再传,单选组仍然只传一个键 —— 两种形状不混用。
