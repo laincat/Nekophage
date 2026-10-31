@@ -340,109 +340,36 @@ type ExploreResult struct {
 	Next string
 }
 
-// Explore loads one browse. page is the page number for
-// "multiPageComicList" browses and the index for "mixed" ones; cursor is the
-// token a browse that pages by token handed back last time.
+// Explore loads one browse. page is the page number for numbered browses;
+// cursor is the token a cursor browse handed back last time.
 //
-// A browse may declare load(page) or loadNext(next). ehentai declares only the
-// second kind, and calling load there is "source does not define this function":
-// the browse exists, the client asked for the wrong function.
+// The shapes and the load/loadNext choice live in Core (comic/js), so both
+// clients read a browse the same way; this only maps each comic into the shape
+// the interface draws.
 func (c *Core) Explore(ctx context.Context, key string, index, page int, cursor string) (ExploreResult, error) {
-	if page < 1 {
-		page = 1
-	}
-	path := fmt.Sprintf("explore[%d].load", index)
-	if !c.Has(ctx, key, path) {
-		return c.exploreNext(ctx, key, index, cursor)
-	}
-	switch c.exploreType(ctx, key, index) {
-	case "multiPageComicList":
-		raw, err := c.Call(ctx, key, path, page)
-		if err != nil {
-			return ExploreResult{}, err
-		}
-		p, err := parsePage(raw)
-		if err != nil {
-			return ExploreResult{}, err
-		}
-		return ExploreResult{Sections: []ExploreSection{{Comics: p.Comics}}, MaxPage: p.MaxPage, Next: p.Next}, nil
-	case "multiPartPage":
-		raw, err := c.Call(ctx, key, path)
-		if err != nil {
-			return ExploreResult{}, err
-		}
-		return parseParts(raw)
-	case "mixed":
-		raw, err := c.Call(ctx, key, path, page)
-		if err != nil {
-			return ExploreResult{}, err
-		}
-		res, err := parseParts(raw, "data")
-		if err != nil {
-			return ExploreResult{}, err
-		}
-		var env struct {
-			MaxPage json.Number `json:"maxPage"`
-		}
-		if json.Unmarshal(raw, &env) == nil {
-			if n, err := env.MaxPage.Int64(); err == nil {
-				res.MaxPage = int(n)
-			}
-		}
-		return res, nil
-	default: // singlePageWithMultiPart: {partTitle: [comic, ...]}
-		raw, err := c.Call(ctx, key, path)
-		if err != nil {
-			return ExploreResult{}, err
-		}
-		return parseOrderedParts(raw), nil
-	}
-}
-
-// parseOrderedParts reads {partTitle: [comic, ...]}, the shape of a
-// singlePageWithMultiPart browse, keeping the source's part order.
-func parseOrderedParts(raw json.RawMessage) ExploreResult {
-	var out ExploreResult
-	for _, f := range objectFields(raw) {
-		var items []json.RawMessage
-		if json.Unmarshal(f.raw, &items) != nil {
-			continue
-		}
-		// The part's title is the field's name: its value is the comics.
-		section := ExploreSection{Title: f.name}
-		for _, item := range items {
-			if comic := parseComic(item); comic.ID != "" {
-				section.Comics = append(section.Comics, comic)
-			}
-		}
-		if len(section.Comics) > 0 {
-			out.Sections = append(out.Sections, section)
-		}
-	}
-	return out
-}
-
-// exploreNext loads a browse that pages by cursor, and reports the cursor it
-// handed back. The source receives null on the first page, which is what its own
-// `next ?? default` expects.
-func (c *Core) exploreNext(ctx context.Context, key string, index int, cursor string) (ExploreResult, error) {
-	path := fmt.Sprintf("explore[%d].loadNext", index)
-	if !c.Has(ctx, key, path) {
-		return ExploreResult{}, fmt.Errorf("core: %s defines neither load nor loadNext", path)
-	}
-	var arg any
-	if cursor != "" {
-		arg = cursor
-	}
-	raw, err := c.Call(ctx, key, path, arg)
+	rt, err := c.reg.Comic(key)
 	if err != nil {
+		c.appendLog(key, "error", "Core", "explore: "+err.Error())
 		return ExploreResult{}, err
 	}
-	page, err := parsePage(raw)
+	res, err := rt.Explore(ctx, key, index, page, cursor)
 	if err != nil {
+		c.appendLog(key, "error", "Core", fmt.Sprintf("explore[%d]: %s", index, err))
 		return ExploreResult{}, err
 	}
-	return ExploreResult{Sections: []ExploreSection{{Comics: page.Comics}}, Next: page.Next}, nil
+	out := ExploreResult{MaxPage: res.MaxPage, Next: res.Next}
+	for _, section := range res.Sections {
+		sec := ExploreSection{Title: section.Title}
+		for _, raw := range section.Comics {
+			if comic := parseComic(raw); comic.ID != "" {
+				sec.Comics = append(sec.Comics, comic)
+			}
+		}
+		if len(sec.Comics) > 0 {
+			out.Sections = append(out.Sections, sec)
+		}
+	}
+	return out, nil
 }
 
 // exploreType is the declared type of browse index.

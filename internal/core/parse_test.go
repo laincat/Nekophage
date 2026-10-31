@@ -95,22 +95,3 @@ func TestObjectFieldsHandlesBadInput(t *testing.T) {
 		}
 	}
 }
-
-// A singlePageWithMultiPart browse returns {partTitle: [comic, ...]}: the
-// field's name is the part title, its value the comics.
-func TestParseOrderedParts(t *testing.T) {
-	res := parseOrderedParts(json.RawMessage(`{
-		"本週更新": [{"id":"a","title":"甲"},{"id":"b","title":"乙"}],
-		"熱門": [{"id":"c","title":"丙"}],
-		"空的分区": []
-	}`))
-	if len(res.Sections) != 2 {
-		t.Fatalf("sections = %+v", res.Sections)
-	}
-	if res.Sections[0].Title != "本週更新" || len(res.Sections[0].Comics) != 2 {
-		t.Errorf("section 0 = %+v", res.Sections[0])
-	}
-	if res.Sections[1].Title != "熱門" || res.Sections[1].Comics[0].ID != "c" {
-		t.Errorf("section 1 = %+v", res.Sections[1])
-	}
-}

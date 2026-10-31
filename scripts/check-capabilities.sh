@@ -48,7 +48,7 @@ need "favorites toggle" internal/ui/favorites.go 'func (a *App) toggleSourceFavo
 need "backup export" internal/ui/backup_export.go 'func (a *App) writeBackup(path string) error'
 need "source log panel" internal/ui/sourcelogs.go 'func (a *App) OpenSourceLogs()'
 need "source log buffer" internal/core/core.go 'func (c *Core) LogLines() []LogLine'
-need "browse cursor" internal/core/core.go 'func (c *Core) exploreNext('
+need "browse cursor" internal/core/core.go 'rt.Explore(ctx, key, index, page, cursor)'
 need "browse cursor paging" internal/ui/app.go 'a.loadExploreAt(key, index, page+1, res.Next)'
 need "favorite folders" internal/ui/favorites.go 'func folderPicker(folders map[string]string)'
 # The UI strings a source declares for this locale.
