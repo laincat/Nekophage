@@ -147,6 +147,21 @@ Core 同步到 `af4f1a0` 之后又跑了两条真实源:MangaDex(`one piece` —
 
 **`rumanhua2` 的 `atob` 改不动(引擎与规范不一致,未修)**:该源在解码器里用 `Function("return this")()` 取全局对象,发现没有 `atob` 就自己补一个,并在 `finally` 里把原值写回。浏览器规范里 `globalThis.atob` 是**可写且可配置**的,而 MoeJS 为了共享冻结的内置模板把它设成只读且不可重定义,于是那次「写回」抛 `TypeError: Cannot assign to read only property 'atob'`。已验证:把该源的写回改成「只在真的补过时才还原」,搜索、详情、546 章、取图、阅读页全部通过,说明源本身没问题。修引擎有两条路 —— 全局打开 `MutableIntrinsics`(实测每个 runtime 构造 3.03ms 对 2.60ms,且失去进程级共享冻结模板),或让 MoeJS 按 HTML 规范把 `atob`/`btoa` 设为可写可配置。全部 105 个源里只有这 1 个会写冻结的内置全局(另一个 `cxc` 写的是 `URL`,不在失败路径上),**代价与收益不成比例,所以这一处没有动引擎**,记录在此作为已知限制。
 
+**第三方源全量巡检的分类结果(2026-11-01)**:71 个 vensrc 脚本跑完，**50 个通过、21 个失败**。这个数字和以前的「34 个通过」不能直接比 —— 老判定把「样本词在站点里就是没结果」当成客户端失败(`cxc` 查 `海贼` 是 0 条、查 `魔氣` 是 4 条,因为该站作品叫《航海王》),改用「搜索为空就先看源自己的首页」之后,原先 35 个失败里有 **14 个立刻通过**。剩下 21 个失败逐项归类,一条客户端 bug 都不在这个名单里被含糊过去:
+
+| 类别 | 数量 | 源 | 结论 |
+| --- | --- | --- | --- |
+| 加密/乱序图片,客户端丢了 `onResponse` | 6 | `cxc`、`ccc`、`mojoin`、`mojoin_fixed_v107`、`manwaba_fixed`、`manwaba_fixed_v113` | 客户端缺口,见上一节 |
+| 运行时把 JS 内建锁成只读 | 1 | `rumanhua2` | 依赖问题,见下 |
+| 图片地址本身报错 | 6 | `baozi`、`baozi_fixed`、`mh1234_fixed`、`manga51`(仅封面 404)、`haokan`(525)、`311`(EOF) | 站点/CDN,不是客户端 |
+| 图片地址返回 HTML | 2 | `4khd_cosplay`、`mh03` | 站点改版或防抓 |
+| 需要账号 | 1 | `hanabimanga`(`请先在插件登录界面登录`) | 未登录,预期行为 |
+| 站点搜索 404 或首页也空 | 3 | `isamanhua`、`sunday_webry`、`guazi` | 站点改了路径或不可用 |
+| 版本门槛 | 1 | `recode-jm`(`minAppVersion 1.16.0`) | 源要求的版本高于参照版本,拒绝安装是对的 |
+| 页数与源不一致 | 1 | `drmh3`(阅读器 351 页、源声明 350) | 待查,唯一「结果不对」的一类 |
+
+**`rumanhua2` 暴露了运行时的一处保真度问题**:它在 `finally` 里把 `root.atob` 还原回去,而 **moejs 把 `atob`/`btoa`/`TextDecoder` 等内建都定义成不可写且不可配置**,于是类方法(严格模式)里的赋值直接抛 `TypeError: Cannot assign to read only property 'atob'`。探针实测(`Object.getOwnPropertyDescriptor(globalThis,'atob')`)返回 `writable=false, configurable=false`,并且列表里 `atob`、`btoa`、`TextEncoder`、`TextDecoder`、`structuredClone`、`Intl` 全部同样锁死;真实浏览器与 Node 里这些是可写可配置的普通属性。因为不可配置,Core 的 JS 层**改不动**它,只能在运行时侧修或换实现 —— 先记录,不擅自改依赖版本。
+
 **加密图片的源在客户端显示不出图(2026-11-01,已确认,未修)**:`cxc` 这类源给的不是图片地址,而是「地址 + `#cxc-v1=密钥:IV`」,再由 `comic.onImageLoad` 返回一个 `ImageLoadingConfig`,里面用 `onResponse` 回调把响应体做 AES-CBC 解密、转成真正的图片。**客户端的 `ImageRequest` 只取了 `url`/`method`/`headers`/`data`,把 `onResponse` 与 `modifyImage` 直接丢掉了**,于是 `/img` 把密文当图片返回:`cxc` 实测 659,568 字节、`Content-Type: image/png`,但文件头不是任何已知图片格式,阅读器只能显示破图。`comic/js/init.js` 里 `ImageLoadingConfig` 是有这两个字段的,所以这不是源写错,是宿主没实现。修它要让宿主把响应体交回 JS 回调、再把返回的字节拿回来 —— 需要 Core 提供「按配置 id 应用 onResponse」的入口,属于 Core 接口变更(会动 pin 与两个客户端),因此先记录、不擅自扩大。
 
 **源写了哪种搜索入口就调哪种(2026-11-01)**:官方的搜索有两个入口 —— `search.load(keyword, options, page)` 收页码,`search.loadNext(keyword, options, next)` 收上一页返回的游标。客户端只认前者,于是 `ehentai` 这种只声明 `loadNext` 的源在搜索时直接报「source does not define this function」,而它在官方客户端里是能用的。现在先看源声明了哪个;声明了 `loadNext` 就按游标翻页,游标按源和页码记住,新搜索(第 1 页)清掉上一轮。之前 `search` 的 `load` 与 `loadNext` 混在两个文件里的判断也统一了 —— 视频那条路早就有,漫画这条一直缺。
