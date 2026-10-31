@@ -170,6 +170,10 @@ Core 同步到 `af4f1a0` 之后又跑了两条真实源:MangaDex(`one piece` —
 
 **`modifyImage` 已接上(2026-11-01,pin `6aa9356`)**:Core 新增 `Runtime.ModifyImage`(把解码后的 RGBA 放进一次性位图仓库、在独立运行时里跑源给的脚本、取回结果位图;解码与编码仍由客户端做),桌面端在图片路径里接上:取回 → 有 `onResponse` 先改写 → 有 `modifyImage` 就解码成 RGBA、跑脚本、编码回 PNG,内容类型随之改成 `image/png`。`modifyImage` 在配置里是**字符串脚本**而不是函数,所以它走 `ImageConfig.ModifyImage` 而不是回调句柄 —— 这一点最初写错过,补了一条用例钉住。确定性验证:源返回 4×2 的红蓝图 + 顺时针旋转脚本,取回后是 2×4 且红在上;脚本返回非图像时如实报错、不回落到原图。真实源侧 `hitomi`、`manhuagui` 实测通过(它们的图多为 avif/webp,不一定触发脚本)。
 
+**排行榜页:9 个官方源声明了它,之前一直没用(2026-11-01,pin `c22a944`)**:`enableRankingPage: true` 配 `categoryComics.ranking = {options: ["date-Recent", …], load: (option, page) => …}` 是源声明的**另一个独立入口**,不是分类维度。Core 的 `Category` 现在把它一起带出来(`ranking.options`,值/标签按同样的 `-` 拆分),并新增 `RankingComics` 调用 `categoryComics.ranking.load`;桌面端分类页多一行「排行」,选中后走同一套列表与分页(`catRank` 决定分页走排行还是走维度)。
+
+真实源验证:`nhentai` 五个选项**全部**返回 25 部 —— `date` 26307 页、`today/week/month` 各 20 页、`popular` 26307 页;界面截图里 `Popular Week` 选中后列表换成了真实周榜。活体测试 `TestLiveCategoryRanking` 覆盖这一条。
+
 **随机维度不是"拼 20 个标签"(2026-11-01)**:上一轮把 `randomNumber` 当成"要拼几个标签",这是错的。源里的注释写得很清楚 —— `randomNumber` 是**同时显示多少部**,不是拼关键词的数量。实测也说明拼不动:`nhentai` 把 8 个标签拼起来还能返回 20 部,10 个就是 0 部,12 个和 20 个直接被站点拒绝(429;用错的参数时是 400)。原因是漫画搜索把多个标签当**同时满足**,没有作品同时带 20 个标签。现在随机维度只取**一个**取值去搜索(点一次换一个),`nhentai` 的 `maid` 返回 25 部 / 845 页。
 
 另外记一笔容易踩的坑:**搜索要用搜索自己的选项,不是分类页的选项**。`nhentai` 分类页声明的是 `/-Recent`(加载器会把 `/` 去掉),搜索要的是 `date` —— 拿前者去搜索会得到 400。

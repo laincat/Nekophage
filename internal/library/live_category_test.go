@@ -173,3 +173,47 @@ func TestLiveCategoryRandomSearch(t *testing.T) {
 		t.Fatalf("%q returned nothing, so the random part cannot be searched", keyword)
 	}
 }
+
+// A ranking page is its own surface: a flat option list and pages. Nine
+// official sources declare one, and the client ignored it until now.
+func TestLiveCategoryRanking(t *testing.T) {
+	script := os.Getenv("NK_LIVE_JS")
+	if script == "" {
+		t.Skip("set NK_LIVE_JS to a source file")
+	}
+	body, err := os.ReadFile(script)
+	if err != nil {
+		t.Fatal(err)
+	}
+	c, err := core.Open(core.Options{DataDir: t.TempDir(), AppVersion: "1.6.3", Locale: "zh_CN"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer c.Close()
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
+	defer cancel()
+	rec, err := c.Install(ctx, string(body), script, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	cat, err := c.CategoryPage(ctx, rec.Key)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cat.Ranking == nil || len(cat.Ranking.Options) == 0 {
+		t.Skip("SKIP: source declares no ranking page")
+	}
+	t.Logf("  ranking options: %d", len(cat.Ranking.Options))
+	for _, o := range cat.Ranking.Options {
+		page, err := c.RankingComics(ctx, rec.Key, o.Value, 1)
+		if err != nil {
+			t.Errorf("%s: %v", o.Value, err)
+			continue
+		}
+		t.Logf("  %-8s %q: %d comics, maxPage %d", o.Value, o.Label, len(page.Comics), page.MaxPage)
+		if len(page.Comics) == 0 {
+			t.Errorf("%s returned nothing", o.Value)
+		}
+		time.Sleep(time.Second)
+	}
+}

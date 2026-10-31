@@ -723,12 +723,25 @@ type CategoryPart struct {
 	RandomNumber int
 }
 
-// Category is a source's category page: a title, what to choose and the options
-// its loader takes.
+// RankingOption is one entry of a source's ranking page.
+type RankingOption struct {
+	Value string
+	Label string
+}
+
+// Ranking is a source's ranking page: a flat option list and a loader that
+// takes one option plus a page number. Nine official sources declare one.
+type Ranking struct {
+	Options []RankingOption
+}
+
+// Category is a source's category page: a title, what to choose, the options
+// its loader takes and, when the source declares one, its ranking page.
 type Category struct {
 	Title   string
 	Parts   []CategoryPart
 	Options []SearchOptionGroup
+	Ranking *Ranking
 }
 
 // CategoryPage reads a source's category declaration. A source without one
@@ -754,7 +767,27 @@ func (c *Core) CategoryPage(ctx context.Context, key string) (Category, error) {
 			RandomNumber: p.RandomNumber,
 		})
 	}
+	if decl.Ranking != nil && len(decl.Ranking.Options) > 0 {
+		r := &Ranking{}
+		for _, o := range decl.Ranking.Options {
+			r.Options = append(r.Options, RankingOption{Value: o.Value, Label: o.Label})
+		}
+		out.Ranking = r
+	}
 	return out, nil
+}
+
+// RankingComics loads one page of a source's ranking page. A source without one
+// fails here rather than answering an empty list, so the interface can say so.
+func (c *Core) RankingComics(ctx context.Context, key, option string, page int) (Page, error) {
+	if page < 1 {
+		page = 1
+	}
+	raw, err := c.Call(ctx, key, "categoryComics.ranking.load", option, page)
+	if err != nil {
+		return Page{}, err
+	}
+	return parsePage(raw)
 }
 
 // CategoryComics loads one page of a source's category page.

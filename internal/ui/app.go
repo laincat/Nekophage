@@ -83,16 +83,20 @@ type App struct {
 	// category: a source's own category page. Each value of each part is its
 	// own entry, because that is what the loader takes — a name and the
 	// parameter it maps to — not one combination of every part.
-	category   core.Category
-	catLoaded  bool
-	catPart    int
-	catValue   int
-	catPage    int
-	catMax     int
-	catComics  []core.Comic
-	catOptions []string
-	catBusy    bool
-	catGen     generation
+	category  core.Category
+	catLoaded bool
+	catPart   int
+	catValue  int
+	catPage   int
+	catMax    int
+	// A ranking page is a second way into a source's comics: one flat option
+	// plus paging, loaded by categoryComics.ranking.load.
+	catRank       bool
+	catRankOption string
+	catComics     []core.Comic
+	catOptions    []string
+	catBusy       bool
+	catGen        generation
 
 	// chapterQuery filters the chapter list of the open comic.
 	chapterQuery string
@@ -189,6 +193,9 @@ type DevOptions struct {
 	// Category opens the source's category page before capturing, so the
 	// tools can show it without a human clicking 分类.
 	Category bool
+	// Rank picks a ranking option after the category page opens, so a capture
+	// shows the ranking list rather than only its buttons.
+	Rank string
 	// Filters opens the source's search filters before capturing.
 	Filters bool
 	// SearchAll starts with every source selected.
@@ -340,6 +347,13 @@ func (a *App) Run() error {
 		}
 		if a.dev.Category {
 			a.setMode(3)
+		}
+		if rank := a.dev.Rank; rank != "" {
+			// The declaration loads as JS work, so give it a moment first.
+			go func() {
+				time.Sleep(2500 * time.Millisecond)
+				a.loadRankingPage(a.currentKey(), rank, 1)
+			}()
 		}
 		if a.dev.Filters {
 			a.mu.Lock()
@@ -1291,6 +1305,7 @@ func (a *App) loadCategoryPage(key string, part, value, page int) {
 	}
 	options := a.catOptions
 	a.catBusy, a.errText = true, ""
+	a.catRank = false
 	a.catPart, a.catValue, a.catPage = part, value, page
 	ticket := a.catGen.next()
 	a.mu.Unlock()
@@ -1298,6 +1313,37 @@ func (a *App) loadCategoryPage(key string, part, value, page int) {
 		ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
 		defer cancel()
 		res, err := a.core.CategoryComics(ctx, key, name, param, options, page)
+		a.win.Update(func() {
+			a.mu.Lock()
+			defer a.mu.Unlock()
+			if !a.catGen.current(ticket) {
+				return
+			}
+			a.catBusy = false
+			if err != nil {
+				a.errText = explain(err)
+				return
+			}
+			a.catComics, a.catMax = res.Comics, res.MaxPage
+		})
+	}()
+}
+
+// loadRankingPage reads one page of the source's ranking page, which is a flat
+// option list rather than dimensions.
+func (a *App) loadRankingPage(key, option string, page int) {
+	if key == "" || option == "" {
+		return
+	}
+	a.mu.Lock()
+	a.catBusy, a.errText = true, ""
+	a.catRank, a.catRankOption, a.catPage, a.catMax = true, option, page, 0
+	ticket := a.catGen.next()
+	a.mu.Unlock()
+	go func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
+		defer cancel()
+		res, err := a.core.RankingComics(ctx, key, option, page)
 		a.win.Update(func() {
 			a.mu.Lock()
 			defer a.mu.Unlock()
@@ -1346,11 +1392,6 @@ func (a *App) chooseCatOption(group int, key string, multi bool) {
 	a.loadCategoryPage(a.currentKey(), part, value, page)
 }
 
-// randomCategory picks some values of a random part and searches for them.
-//
-// The part lists values but is not loaded through categoryComics: the official
-// client takes randomNumber of them and searches for the words together, which
-// is what nhentai's Tags part does.
 // randomCategory searches for one value of a random part.
 //
 // The declared randomNumber is not the number of values to join: the source's
@@ -1379,6 +1420,7 @@ func (a *App) categoryView(c *ui.Context, t *ui.Theme) {
 	a.mu.Lock()
 	cat, loaded, busy := a.category, a.catLoaded, a.catBusy
 	part, value, page, maxPage := a.catPart, a.catValue, a.catPage, a.catMax
+	rank, rankOption := a.catRank, a.catRankOption
 	comics := a.catComics
 	key := a.currentKey()
 	a.mu.Unlock()
@@ -1427,6 +1469,25 @@ func (a *App) categoryView(c *ui.Context, t *ui.Theme) {
 			}
 		})
 	}
+	// The ranking page, when the source declares one: one flat option, and the
+	// same list and pager as a dimension.
+	if cat.Ranking != nil && len(cat.Ranking.Options) > 0 {
+		ui.Row(c).Padding(6, 16).Gap(6).Wrap().AlignItems(ui.Center).Children(func() {
+			ui.Text(c, "排行").FontSize(12).TextColor(t.TextMuted).Width(64)
+			for _, o := range cat.Ranking.Options {
+				o := o
+				if rank && rankOption == o.Value {
+					if ui.PrimaryButton(c, o.Label).Clicked() {
+						a.loadRankingPage(key, o.Value, 1)
+					}
+					continue
+				}
+				if ui.Button(c, o.Label).Clicked() {
+					a.loadRankingPage(key, o.Value, 1)
+				}
+			}
+		})
+	}
 	// The loader's own options, drawn the way a search's filters are.
 	a.mu.Lock()
 	groups := append([]core.SearchOptionGroup(nil), cat.Options...)
@@ -1460,12 +1521,20 @@ func (a *App) categoryView(c *ui.Context, t *ui.Theme) {
 				ui.Spacer(c)
 				if page > 1 {
 					if ui.Button(c, "上一页").Clicked() {
-						a.loadCategoryPage(key, part, value, page-1)
+						if rank {
+							a.loadRankingPage(key, rankOption, page-1)
+						} else {
+							a.loadCategoryPage(key, part, value, page-1)
+						}
 					}
 				}
 				if page < maxPage {
 					if ui.Button(c, "下一页").Clicked() {
-						a.loadCategoryPage(key, part, value, page+1)
+						if rank {
+							a.loadRankingPage(key, rankOption, page+1)
+						} else {
+							a.loadCategoryPage(key, part, value, page+1)
+						}
 					}
 				}
 			})
