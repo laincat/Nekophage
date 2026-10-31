@@ -45,6 +45,7 @@ need "favorites list" internal/core/core.go '"favorites.loadComics"'
 need "favorites folders" internal/core/core.go '"favorites.loadFolders"'
 need "favorites view" internal/ui/favorites.go 'func (a *App) favoritesView(c *ui.Context, t *ui.Theme)'
 need "favorites toggle" internal/ui/favorites.go 'func (a *App) toggleSourceFavorite()'
+need "backup export" internal/ui/backup_export.go 'func (a *App) writeBackup(path string) error'
 need "favorite folders" internal/ui/favorites.go 'func folderPicker(folders map[string]string)'
 # The UI strings a source declares for this locale.
 need "translations" internal/core/core.go 'func (c *Core) Translations(ctx context.Context, key string) (map[string]string, error)'

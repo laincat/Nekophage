@@ -74,6 +74,9 @@ type manageState struct {
 	backupCookies bool
 	backupSum     archive.Summary
 	backupBusy    bool
+	// The export half: where the file went, or why it did not.
+	backupErr    string
+	backupNotice string
 }
 
 // openManage shows the window, creating it the first time.
@@ -322,6 +325,8 @@ func (m *manageState) done(err error, notice string) {
 func (a *App) backupSection(c *ui.Context, t *ui.Theme) {
 	m := &a.manage
 	if m.backupImport == nil {
+		// Export sits beside import: what a backup is for, in both directions.
+		a.exportRow(c, t)
 		ui.Row(c).Gap(8).AlignItems(ui.Center).Children(func() {
 			if ui.Button(c, "导入 .venera 备份").Disabled(m.backupBusy || m.busy != "").Clicked() {
 				a.pickBackup()

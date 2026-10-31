@@ -199,6 +199,16 @@ Three deliberate choices:
 
 The unit test pins the argument shape: a single-folder source must receive `null`, not an empty string; add and remove are both covered. The capture confirms the button and the folder picker render.
 
+**A backup could come in but not go out; now it can (2026-11-01, pin `ffdfbe7`)**: Core could always **read** a `.venera` backup and never write one, so a user could move into this client and not out of it.
+
+- **Core** gains `backup.Write`, which follows the format the reader already defines: `comic_source/<key>.js` plus `appdata.json`, with a fixed key order so two exports of the same data are **byte-identical** — which is what makes "did anything change" answerable.
+- **Deliberately absent**: `cookie.db` (per-source credentials, and an export is a file people mail to themselves) and `history.db` / `local_favorite.db` (the official app's SQLite schemas; this client's shelf is a different format, and half a database of someone else's schema reads as corruption).
+- **The desktop** puts 导出 .venera 备份 beside the import button, writing sources and search history, with "不含 Cookie" stated on the button's own row.
+
+The verification is a **round trip**: the file is written, then read back through Core's own reader, checking sources, script text, settings and history — and that the archive contains **no** `cookie.db`; another test pins that two exports are byte-identical.
+
+**Boundary**: a Venera-compatible client can read the sources and settings out of this file, but it is **not a clone** of the official app's data (shelf and image favorites do not travel), and whether the official app reads our export **has not been tested**, because it is not on this machine.
+
 **The image a source hands over (a captcha, a QR code) was dropped (2026-11-01)**: the second argument of `UI.showInputDialog(title, image, validate)` is a **picture** — a source uses it to show a captcha or a QR code. The desktop ignored it, so the field was missing something the source needed.
 
 The picture is fetched through the **source's own cover rules** (`onThumbnailLoad`), so the source's headers and any image rewriting apply here too. The bytes are kept and decoded by the dialog itself rather than in the main window's image cache: that cache is read by the main window's thread and written here, so sharing it would be a race.
