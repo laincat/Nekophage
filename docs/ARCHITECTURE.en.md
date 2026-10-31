@@ -4,6 +4,8 @@ English | [简体中文](ARCHITECTURE.md)
 
 Date: 2026-10-30. This records the framework choice and the layers. Wails is gone: the old version used it to wrap a web page in a desktop window, and now the whole desktop app is one Go program.
 
+See the [code audit](CODE-AUDIT.en.md) for fixes and remaining work, and the [interactive HTML report](analysis/architecture-audit.html) for the three-project architecture/dependency map.
+
 ## Choices
 
 | Choice | Why |

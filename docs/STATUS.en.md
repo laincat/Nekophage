@@ -4,6 +4,9 @@ English | [简体中文](STATUS.md)
 
 Updated 2026-10-31. Every result below comes from **Windows** on this machine, with real comic sources and the real network. That day's additions are three: a real bug in redirect cookies on the transport (it read the wrong field), Chinese error text under the same rule the iOS client uses, and `live-sources.sh` gaining repeat runs and a `FLAKY` class.
 
+
+**Pin moved to `6e07429` (2026-11-01)**: Core gained the three standard AI entry points and the optional chunked transport (`HostStream`), and it fixed a deadlock in the package bridge — the package pushed to `__magpieChatPush` from inside its own hook while the reader stopped at the end marker, so the writer waited for a reader that had gone. The desktop client **does not implement `HostStream` yet**, so replies still arrive whole; `scripts/fetch-core.sh` has aligned `build/core` to that commit and `scripts/check-core-pin.sh` passes.
+
 ## Implemented
 
 | Part | Contents |
@@ -21,6 +24,7 @@ Updated 2026-10-31. Every result below comes from **Windows** on this machine, w
 | Search filters | reads the source's `search.optionList` and shows each group as a scrolling row of chips; single-choice groups swap their value, multi-choice groups send a JSON array as one string, which is what the official client does, and changing source resets to that source's defaults |
 | Main window | MyGo native UI: source picker, search, a results grid whose covers are downloaded and decoded asynchronously and whose cards say 「已在书架」 when the comic is already kept, browsing (a source's `explore`, all four kinds), details (cover, tag groups, a Markdown description, grouped chapters with a filter, and a 「读到」 marker on the chapter the shelf remembers, and a 「上次读到 第 N 页 · P%」 line with a 「继续阅读」 button), paging; it remembers the last source, query and chosen favourite folder in `ui.json` |
 | Reader | A self-contained page in a WebView: vertical scroll, lazy images, progress, width control, keyboard scrolling, per-page retry, and the place in a chapter remembered; Go fetches each image through the source's rules and streams it |
+| Magpie gateway | `internal/magpie` has the connection layer and an AI window (address, connection test, catalog, send, cancel; redraws throttled to 80ms; a tier picker maps simple/normal/complex to models or groups and shows where this request goes): `/v1/models` catalog with model/group IDs preserved, native bodies for three protocols, SSE streaming, `ctx` cancellation and Chinese diagnostics; ten fake-gateway contract tests pass under `-race`. **Not wired into the interface, and no request has been sent to a real installation yet** |
 | Verification | A window of its own loads the challenge, checks Core's done rule, and hands back cookies and the User-Agent before the app retries |
 
 ## Verified with real sources and the real network

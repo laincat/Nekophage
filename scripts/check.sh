@@ -14,11 +14,12 @@ status=0
 run() {
 	name=$1
 	shift
-	if "$@" >"build/check.log" 2>&1; then
+	log="build/check-$(printf '%s' "$name" | tr ' ' '-').log"
+	if "$@" >"$log" 2>&1; then
 		printf 'PASS  %s\n' "$name"
 	else
-		printf 'FAIL  %s (see build/check.log)\n' "$name"
-		sed -n '1,20p' build/check.log | sed 's/^/      /'
+		printf 'FAIL  %s (see %s)\n' "$name" "$log"
+		sed -n '1,20p' "$log" | sed 's/^/      /'
 		status=1
 	fi
 }
@@ -26,14 +27,18 @@ run() {
 mkdir -p build
 
 # gofmt prints offenders rather than failing, so its output decides.
-if [ -n "$(gofmt -l . 2>/dev/null | grep -v '^build/' || true)" ]; then
-	printf 'FAIL  gofmt\n'
-	gofmt -l . | grep -v '^build/' | sed 's/^/      /'
+if ! gofmt -l . >build/check-gofmt.log 2>&1; then
+	printf 'FAIL  gofmt (see build/check-gofmt.log)\n'
+	status=1
+elif grep -v '^build/' build/check-gofmt.log >build/check-gofmt-files.log; then
+	printf 'FAIL  gofmt (see build/check-gofmt-files.log)\n'
+	sed 's/^/      /' build/check-gofmt-files.log
 	status=1
 else
 	printf 'PASS  gofmt\n'
 fi
 
+run 'core pin' sh scripts/check-core-pin.sh
 run 'go vet' go vet ./...
 run 'go test' go test -count=1 ./...
 run 'docs' sh scripts/check-docs.sh

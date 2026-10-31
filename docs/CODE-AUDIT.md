@@ -1,0 +1,49 @@
+# 三项目代码体检
+
+[English](CODE-AUDIT.en.md) | 简体中文
+
+[打开交互式架构分析](analysis/architecture-audit.html)。单文件 HTML,不依赖 CDN、外部字体或网络,支持 320px 手机、桌面、深浅色和打印;可筛选项目并切换架构、依赖、修复、性能与证据页。
+
+## 范围与基线
+
+基线:Core `469edfc`、Nekularity `b294f04`、Nekophage `2e5b32f`。图中行数是本轮开始时 git tracked 文件的静态统计,排除 Vendor/build;测试行数占比不是覆盖率。Lead 负责 Core/桌面/修复/报告,Orca Worker 负责 iOS 审查与 Mac 验证。不存在的第二位 worker 未执行任何审查。
+
+## 桌面本轮修复
+
+| 级别 | 问题 | 处理 |
+|---|---|---|
+| P1 | `Cookies=false` 但重定向仍用分区 jar | 只有启用 Cookie 才传分区到 redirect callback;负向用例已复现后转绿 |
+| P1 | `/private` 的 Cookie 被旧头带到 `/public` | 每跳先清旧 Cookie 再为目标 URL 选择;不存在匹配项就保持空头 |
+| P1 | 自定义 `X-Api-Key` 等在跨 origin 跳转泄露 | 相对初始 origin 检查每跳,清 Authorization、X-Api-Key、Proxy-Authorization 与 Cookie;连续两跳回归 |
+| P1 | `data:null` 写入 panic;损坏文件静默覆盖 | null 初始化为空 map;坏根/字段/读取错误不作为空数据;保留原件 |
+| P2 | 写入/删除失败后缓存先行改变 | 副本写盘成功后提交缓存;真实阻塞 tmp 路径模拟写盘失败 |
+| P2 | Cookie 文件正文为 null 时后续写入 panic | Open 后保证 jar map 非 nil |
+| P2 | NKDEBUG 输出 jar 的真实 Cookie 值 | 移除该输出;不把秘密用于诊断 |
+| P2 | gate 后续步骤覆盖失败日志,gofmt 进程失败被忽略 | 每项独立日志并检查退出码;外部坏 gofmt/vet harness 反向测试 |
+| P1 | pin 写着 `469edfc`,实际链接 `build/core` 还是 `7662e7b` | 已 fetch 对齐;新增门禁读取 Go 实际模块目录并检查 HEAD、干净树与生成戳记,错误 pin 的反向用例通过 |
+| P3 | 图片压缩原件和解码位图永久双份保留 | 解码成功后释放压缩原件 |
+| P2 | 图片缓存无容量上限,浏览越久占用越多 | 抽出 `imageCache`:下载 400 条、位图 160 条上限,最旧优先淘汰;失败与损坏项也计入,不再每帧重试;5 条用例覆盖去重、解码复用、损坏记忆与两个上限 |
+| P2 | 过期搜索结果覆盖新页面 | `generation` 票据:新搜索/详情/浏览递增,回包票据不是最新就丢弃;翻页沿用当前票据而不递增,避免把仍在前一页的请求判成过期;3 条用例含并发,错误实现的反向验证通过 |
+| P3 | 请求 body 从 bytes 转 string 再变 reader | 改 bytes.NewReader,避免该次完整转换 |
+
+## 三项目框架结论
+
+共享 Go Core + 原生客户端的边界应保留。核心业务与兼容逻辑一份,系统 UI/网络/登录/存储归各平台。桌面已使用 MyGo,不是 Wails;主窗口原生绘制,阅读器与验证才使用 WebView。iOS 是 SwiftUI + Swift 6 + gomobile binaryTarget,没有额外 Swift package 依赖。
+
+Core 的 MoeJS 提供每源独立运行时,cascadia 负责 CSS selector,htmlquery/xpath 负责 XPath,modernc SQLite 负责官方备份数据库兼容。SQLite 是运行依赖,不能因为桌面业务状态主要写 JSON 就删除。桌面直接引入 MyGo 0.7.3,间接依赖 purego、字体排版与 x/image;版本逐项见 HTML。
+
+## 待优化顺序
+
+1. **取消而非只丢弃**:过期回包已被票据丢弃,但底层请求仍在跑完。下一步把被替代的请求真正取消(`context` 随票据失效),并让封面下载有独立并发阀。
+2. **图片容量**:桌面已按条数设上限;条目大小差异很大(长条页远大于封面),按字节计的预算更准确。iOS 已有 NSCache 成本上限与降采样,但共享 inFlight 取消策略仍需明确。
+3. **真流式**:Core/mobile 与 iOS 当前等待完整正文。要以请求结束前首块到达及底层取消证据验收。
+4. **职责收敛**:`internal/ui/app.go` 基线 1530 行,`internal/core/core.go` 834 行;后续按搜索、浏览、阅读器生命周期拆分。不要仅为降低行数搬文件。
+5. **版本真实性**:桌面已增加真实模块 HEAD/干净树/戳记检查;iOS 后续仍需补 framework 产物级版本证据。生成版本字符串不能替代产物证据。
+
+## 验证与局限
+
+本轮未声称吞吐量或内存提升百分比,未调用真实 AI 账号,未执行依赖漏洞数据库扫描。Go race/vet/tests 通过不表示没有其他缺陷。已对 Cookie/存储/AI/取消先做坏输入复现,再运行回归。全量日志位于 `E:/Temp/tri-audit`。发现并纠正实际依赖落后后,桌面门禁、race 与 Windows build 必须重新通过;先前旧 Core 上的绿结果不作为新 pin 证据。
+
+HTML 脚本渲染、5 标签、4 筛选与离线资源检查通过。独立临时 Chrome 配置的无头 CDP 验证在 1440/390/320px 检查全部页面无横向溢出,不使用用户登录资料;截图保存在同日志目录。宿主浏览器的登录拷贝因 `APP_BOUND_ENCRYPTION_UNSUPPORTED` 启动失败,未改全局浏览器模式。
+
+Mac 修复验证必须使用修复文件 md5 与整树 shape,不能把旧 173 条路由原型视为当前主线。最终报告将单列 Swift 6 测试与 App 构建状态。

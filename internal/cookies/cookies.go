@@ -59,6 +59,9 @@ func Open(file string) (*Jar, error) {
 			j.jars = map[string][]Cookie{}
 		}
 	}
+	if j.jars == nil {
+		j.jars = map[string][]Cookie{}
+	}
 	return j, nil
 }
 

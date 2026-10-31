@@ -154,12 +154,17 @@ func (s *Store) save(key, field string, data json.RawMessage, setting bool) erro
 	if err != nil {
 		return err
 	}
+	next := *f
 	if setting {
-		f.Settings = raw
+		next.Settings = raw
 	} else {
-		f.Data = raw
+		next.Data = raw
 	}
-	return s.write(key, f)
+	if err := s.write(key, &next); err != nil {
+		return err
+	}
+	*f = next
+	return nil
 }
 
 func (s *Store) delete(key, field string, setting bool) error {
@@ -181,12 +186,17 @@ func (s *Store) delete(key, field string, setting bool) error {
 	if err != nil {
 		return err
 	}
+	next := *f
 	if setting {
-		f.Settings = raw
+		next.Settings = raw
 	} else {
-		f.Data = raw
+		next.Data = raw
 	}
-	return s.write(key, f)
+	if err := s.write(key, &next); err != nil {
+		return err
+	}
+	*f = next
+	return nil
 }
 
 // file returns the cached source file, reading it once.
@@ -199,15 +209,26 @@ func (s *Store) file(key string) (*sourceFile, error) {
 		return nil, err
 	}
 	f := &sourceFile{Data: json.RawMessage("{}"), Settings: json.RawMessage("{}")}
-	if data, err := os.ReadFile(path); err == nil && len(data) > 0 {
+	data, err := os.ReadFile(path)
+	if err != nil && !os.IsNotExist(err) {
+		return nil, fmt.Errorf("store: read source: %w", err)
+	}
+	if len(data) > 0 {
+		if !strings.HasPrefix(strings.TrimSpace(string(data)), "{") {
+			return nil, errors.New("store: source file must be an object")
+		}
 		var parsed sourceFile
-		if json.Unmarshal(data, &parsed) == nil {
-			f = &parsed
-			if len(f.Data) == 0 {
-				f.Data = json.RawMessage("{}")
+		if err := json.Unmarshal(data, &parsed); err != nil {
+			return nil, fmt.Errorf("store: invalid source file: %w", err)
+		}
+		f = &parsed
+		for _, raw := range []json.RawMessage{f.Data, f.Settings} {
+			if len(raw) == 0 || strings.TrimSpace(string(raw)) == "null" {
+				continue
 			}
-			if len(f.Settings) == 0 {
-				f.Settings = json.RawMessage("{}")
+			var object map[string]json.RawMessage
+			if err := json.Unmarshal(raw, &object); err != nil {
+				return nil, errors.New("store: source data and settings must be objects")
 			}
 		}
 	}
@@ -247,6 +268,9 @@ func parseObject(raw json.RawMessage) map[string]json.RawMessage {
 		if err := json.Unmarshal(raw, &obj); err != nil {
 			return map[string]json.RawMessage{}
 		}
+	}
+	if obj == nil {
+		obj = map[string]json.RawMessage{}
 	}
 	return obj
 }

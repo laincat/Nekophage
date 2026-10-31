@@ -26,13 +26,14 @@ For people and AI assistants working on the code. Read before changing it.
 In the repository root:
 
 ```sh
-sh scripts/check.sh   # gofmt, go vet, go test, docs, partitions — one line per step
+sh scripts/check.sh   # gofmt, actual Core pin, go vet, go test, docs, partitions — one line per step
 ```
 
 The steps individually:
 
 ```sh
 gofmt -l .          # no output expected
+sh scripts/check-core-pin.sh  # actual module checkout, clean tree and generated stamp must match the pin
 go vet ./...
 go test ./...       # includes end-to-end tests; no network, httptest
 sh scripts/check-docs.sh

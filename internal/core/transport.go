@@ -1,13 +1,13 @@
 package core
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"net/url"
-	"os"
 	"strings"
 	"time"
 
@@ -42,6 +42,16 @@ func NewTransport(jar *cookies.Jar, userAgent string, timeout time.Duration) *Tr
 			if len(via) >= 10 {
 				return errors.New("core: too many redirects")
 			}
+			// Provider keys are not all recognised by net/http's default
+			// sensitive-header policy. A change of origin must drop them.
+			if len(via) > 0 {
+				previous := via[0].URL
+				if !strings.EqualFold(previous.Scheme, req.URL.Scheme) || !strings.EqualFold(previous.Host, req.URL.Host) {
+					for _, name := range []string{"Authorization", "X-Api-Key", "Proxy-Authorization", "Cookie"} {
+						req.Header.Del(name)
+					}
+				}
+			}
 			// Store what the previous hop set, then send this partition's
 			// cookies to the next URL, which may be another host.
 			//
@@ -54,6 +64,9 @@ func NewTransport(jar *cookies.Jar, userAgent string, timeout time.Duration) *Tr
 				if prev := req.Response; prev != nil && prev.Request != nil && prev.Request.URL != nil {
 					t.jar.SetURL(part, prev.Request.URL, prev.Cookies())
 				}
+				// Drop cookies copied by net/http before selecting for the next
+				// host/path; absence in this jar must clear the previous header.
+				req.Header.Del("Cookie")
 				if h := t.jar.Header(part, req.URL.String()); h != "" {
 					req.Header.Set("Cookie", h)
 				}
@@ -132,9 +145,14 @@ func (t *Transport) Do(ctx context.Context, r *host.Request) (*host.Response, er
 	}
 	var body io.Reader
 	if len(r.Body) > 0 {
-		body = strings.NewReader(string(r.Body))
+		body = bytes.NewReader(r.Body)
 	}
-	req, err := http.NewRequestWithContext(context.WithValue(ctx, partitionKey{}, r.Partition), method, u.String(), body)
+	// Only cookie-enabled requests carry a jar partition into redirect hops.
+	partition := ""
+	if r.Cookies {
+		partition = r.Partition
+	}
+	req, err := http.NewRequestWithContext(context.WithValue(ctx, partitionKey{}, partition), method, u.String(), body)
 	if err != nil {
 		return nil, err
 	}
@@ -154,9 +172,6 @@ func (t *Transport) Do(ctx context.Context, r *host.Request) (*host.Response, er
 		if strings.EqualFold(k, "Cookie") {
 			cookie = strings.Join(vs, "; ")
 		}
-	}
-	if os.Getenv("NKDEBUG") != "" {
-		fmt.Fprintln(os.Stderr, "transport:", u.Redacted(), "cookies=", r.Cookies, "partition=", r.Partition, "jar=", t.jar.Header(r.Partition, u.String()))
 	}
 	if r.Cookies {
 		if stored := t.jar.Header(r.Partition, u.String()); stored != "" {

@@ -2,7 +2,7 @@
 
 English | [简体中文](MAGPIE-DESKTOP.md)
 
-This is an evaluation, with no implementation changes. The user has chosen to use the locally installed Magpie initially. Windows/macOS are the primary platforms; Linux/Web retain interfaces only. The goal remains provider and other plugin reuse and routing across providers/models by requirements, difficulty, subscription expiry and allowance.
+This records the evaluation and the first client implementation. The user has chosen to use the locally installed Magpie initially. Windows/macOS are the primary platforms; Linux/Web retain interfaces only. The goal remains provider and other plugin reuse and routing across providers/models by requirements, difficulty, subscription expiry and allowance.
 
 ## Initial architecture and responsibilities
 
@@ -46,21 +46,20 @@ Nekophage sends tasks to the configured model or group; Magpie performs its supp
 
 For example, map complex tasks to a strong-model group whose ordering is configured in Magpie. If consuming usable allowance from expiring subscriptions first is required but absent in the installation, scope a later strategy plugin/upstream extension instead of silently building another router in the initial adapter. Nekophage must not switch models after output and splice answers. Cancellation closes the current request and must be verified to stop upstream work through Magpie.
 
-## Proposed files
+## Implemented: the client connection layer
 
-These are planned paths, not implementations created this turn.
+`internal/magpie` can reach a gateway and has contract tests against a fake one. It is **not wired into the interface and has not been run against a real installation**.
 
-| File | Action | Content |
+| File | Status | Content |
 |---|---|---|
-| `internal/magpie/client.go` | New | Connection interface, address/version/capability info, replaceable by future platform implementations |
-| `internal/magpie/config.go` | New | Local address, protocol, model/group and task-tier mappings, without provider accounts |
-| `internal/magpie/models.go` | New | `/v1/models` parsing/refresh, preserving model/group IDs |
-| `internal/magpie/request.go`, `stream.go` | New | Requests, SSE, cancellation, timeouts, pre/post-output errors and field fidelity |
-| `internal/magpie/errors.go` | New | Chinese diagnostics for unavailable service, wrong address, denied access, missing model and interrupted streams |
-| `internal/magpie/secret*.go` | Conditional | DPAPI/Keychain only when a gateway key needs storage |
-| `internal/ui/magpie.go` | New | Connection settings/tests, model/group selection, task mappings and management entry |
-| `internal/ui/app.go`, `main.go` | Modify | Client wiring, AI feature entry points and request cleanup on exit |
-| Related `_test.go`, bilingual README/STATUS | New/modify | Fake-gateway contract tests, actual Windows/macOS installations and usage instructions |
+| `internal/magpie/client.go` | Implemented | Address normalization (a bare `host:port` gains a scheme), protocol selection, local identity header, status-to-Chinese diagnostics, SSE event decoding for the three dialects |
+| `internal/magpie/models.go` | Implemented | `GET /v1/models` parsing that keeps model and routing-group IDs; an empty catalog is not an error |
+| `internal/magpie/chat.go` | Implemented | Native bodies per protocol, streamed replies, `ctx` cancellation, interrupted streams and mid-stream errors reported as such |
+| `internal/magpie/config.go` | Implemented | Reads and writes the connection settings (address, protocol, local identity) and the tier mapping: atomic write, a damaged file errors instead of resetting, a misspelled tier is refused, a blank tier falls back to the explicit model |
+| `internal/magpie/*_test.go` | Implemented | Twenty-four fake-gateway, settings and session tests, plus five window-logic tests (tier destination note, out-of-range guard, empty tier not stored, Chinese labels, preview length) passing under `-race`: catalog, three dialects, `[DONE]`, missing terminator, in-stream error, cancellation, 401/404/not-running diagnostics, address validation, plus settings round-trip, missing file, damaged file, wrong tier and blank-tier fallback |
+| `internal/ui/magpie.go` | Implemented | An "AI" window: type the address and test the connection, read the catalog, name a model, send one task and see it arrive, cancel it. Redraws are throttled to 80ms rather than one per token. The tier is selectable (simple/normal/complex); each tier names a model or group, an empty tier falls back to the default model and then to Magpie's own route, and the window shows where this request will go before it is sent |
+| `internal/ui/app.go` | Implemented | An "AI" button in the toolbar; one window, settings in `magpie.json` |
+| Real-installation probe | Not done | No request has been sent to a Magpie on the user's machine yet |
 
 Initially no new Core routing package, Bun IPC, plugin installer, provider login or full routing editor is needed. The previous 28–55-day self-hosted runtime/router estimate no longer applies to this delivery. Such a design remains a separate future evaluation if independence from an external Magpie installation becomes necessary.
 

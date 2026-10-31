@@ -65,10 +65,9 @@ type App struct {
 	detail      core.Details
 	detailComic core.Comic
 
-	// covers, loaded once each: "source/id" → data or failure
-	covers  map[string][]byte
-	coverIn map[string]bool
-	bitmaps map[string]*ui.Bitmap
+	// covers and bitmaps: downloaded bytes and the decoded images the grid
+	// draws, bounded by imageCache so a long session does not keep every cover.
+	images imageCache
 
 	grid ui.GridState
 
@@ -94,8 +93,19 @@ type App struct {
 	readerList    []core.Chapter
 	readerComic   string
 
+	// reqSeq guards against a slow reply replacing a newer screen. Each new
+	// search, detail or browse takes a ticket; a reply whose ticket is no
+	// longer current is dropped instead of overwriting what the user is
+	// looking at now.
+	searchGen  generation
+	detailGen  generation
+	exploreGen generation
+
 	manageWin *mygo.Window
-	manage    manageState
+	// aiWin is the connection to the Magpie installed on this machine.
+	aiWin  *mygo.Window
+	ai     aiState
+	manage manageState
 	// defaultIndex is the index URL tried first in the manager.
 	defaultIndex string
 
@@ -195,7 +205,7 @@ type DevOptions struct {
 // New builds the app.
 func New(c *core.Core, lib *library.Library, srv *reader.Server) *App {
 	a := &App{core: c, lib: lib, scheme: srv,
-		covers: map[string][]byte{}, coverIn: map[string]bool{}, bitmaps: map[string]*ui.Bitmap{},
+		images:   newImageCache(),
 		movePick: map[string]string{}, favFolder: shelf.DefaultFolder,
 		// Both mean "no chapter asked for"; zero would open the first one.
 		resumeChapter: -1}
@@ -363,21 +373,22 @@ func (a *App) startSearch() {
 	a.mu.Lock()
 	a.busy, a.errText, a.page, a.maxPage, a.notice = "search", "", 0, 0, ""
 	a.open = false
+	ticket := a.searchGen.next()
 	a.mu.Unlock()
 	a.saveSettings(key, q)
 	if a.searches != nil {
 		go func() { _ = a.searches.Add(q) }()
 	}
 	if a.searchAll {
-		a.searchEverySource(q)
+		a.searchEverySource(q, ticket)
 		return
 	}
-	a.searchPage(key, q, 1)
+	a.searchPage(key, q, 1, ticket)
 }
 
 // searchEverySource searches every enabled source at once and shows the
 // results in one grid, each card knowing where it came from.
-func (a *App) searchEverySource(query string) {
+func (a *App) searchEverySource(query string, ticket int) {
 	a.mu.Lock()
 	sources := append([]plugin.Record(nil), a.sources...)
 	a.busy, a.errText, a.notice, a.page, a.maxPage = "search", "", "", 1, 0
@@ -423,6 +434,9 @@ func (a *App) searchEverySource(query string) {
 		a.win.Update(func() {
 			a.mu.Lock()
 			defer a.mu.Unlock()
+			if !a.searchGen.current(ticket) {
+				return
+			}
 			a.busy = ""
 			a.results, a.resultSources = nil, nil
 			empty := 0
@@ -465,8 +479,18 @@ func (a *App) sourceOf(index int) string {
 	return a.currentKey()
 }
 
-// searchPage fetches one page of results off the window's thread.
-func (a *App) searchPage(key, query string, page int) {
+// searchTicket is the ticket a pagination request belongs to. A new search has
+// already replaced the results, so an old page must not be appended to a list
+// it was never part of.
+func (a *App) searchTicket() int {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	return a.searchGen.peek()
+}
+
+// searchPage fetches one page of results off the window's thread. ticket names
+// the search it belongs to; a reply for an older search is history.
+func (a *App) searchPage(key, query string, page, ticket int) {
 	go func() {
 		ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
 		defer cancel()
@@ -484,6 +508,10 @@ func (a *App) searchPage(key, query string, page int) {
 		a.win.Update(func() {
 			a.mu.Lock()
 			defer a.mu.Unlock()
+			if !a.searchGen.current(ticket) {
+				// A newer search owns the screen; this reply is history.
+				return
+			}
 			a.busy = ""
 			if err != nil {
 				a.errText = explain(err)
@@ -546,6 +574,7 @@ func (a *App) openComic(c core.Comic) {
 	a.mu.Lock()
 	a.open, a.detailComic, a.busy, a.errText, a.notice = true, c, "details", "", ""
 	a.detail = core.Details{}
+	ticket := a.detailGen.next()
 	a.mu.Unlock()
 	go func() {
 		ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
@@ -554,6 +583,9 @@ func (a *App) openComic(c core.Comic) {
 		a.win.Update(func() {
 			a.mu.Lock()
 			defer a.mu.Unlock()
+			if !a.detailGen.current(ticket) {
+				return
+			}
 			a.busy = ""
 			if err != nil {
 				a.errText = explain(err)
@@ -719,12 +751,11 @@ func pageName(source, url string) string {
 func (a *App) pageImage(source, comicID, chapterID, url string) {
 	name := pageName(source, url)
 	a.mu.Lock()
-	if _, ok := a.covers[name]; ok || a.coverIn[name] || url == "" {
-		a.mu.Unlock()
+	start := a.images.want(name, url)
+	a.mu.Unlock()
+	if !start {
 		return
 	}
-	a.coverIn[name] = true
-	a.mu.Unlock()
 	go func() {
 		ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 		defer cancel()
@@ -732,11 +763,10 @@ func (a *App) pageImage(source, comicID, chapterID, url string) {
 		a.win.Update(func() {
 			a.mu.Lock()
 			defer a.mu.Unlock()
-			delete(a.coverIn, name)
 			if err == nil && len(data) > 0 {
-				a.covers[name] = data
+				a.images.finishCover(name, data)
 			} else {
-				a.covers[name] = nil
+				a.images.finishCover(name, nil)
 			}
 		})
 	}()
@@ -746,12 +776,11 @@ func (a *App) pageImage(source, comicID, chapterID, url string) {
 func (a *App) cover(key, id, url string) {
 	name := key + "/" + id
 	a.mu.Lock()
-	if _, ok := a.covers[name]; ok || a.coverIn[name] || url == "" {
-		a.mu.Unlock()
+	start := a.images.want(name, url)
+	a.mu.Unlock()
+	if !start {
 		return
 	}
-	a.coverIn[name] = true
-	a.mu.Unlock()
 	go func() {
 		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 		defer cancel()
@@ -760,11 +789,11 @@ func (a *App) cover(key, id, url string) {
 		a.win.Update(func() {
 			a.mu.Lock()
 			defer a.mu.Unlock()
-			delete(a.coverIn, name)
 			if err == nil {
-				a.covers[name] = data
+				a.images.finishCover(name, data)
 			} else {
-				a.covers[name] = nil // failed: do not try again this session
+				// Failed: remembered so it is not retried this session.
+				a.images.finishCover(name, nil)
 			}
 		})
 	}()
@@ -775,23 +804,7 @@ func (a *App) cover(key, id, url string) {
 // a card runs before the download finishes, so only decoded bitmaps and
 // failed downloads are remembered.
 func (a *App) bitmap(name string) ui.ImageSource {
-	if b, ok := a.bitmaps[name]; ok {
-		return b
-	}
-	data, ok := a.covers[name]
-	if !ok || data == nil {
-		return nil
-	}
-	b, err := ui.DecodeBitmap(data)
-	if err != nil {
-		debugLog("decode %s: %v", name, err)
-		a.covers[name] = nil // a corrupt image is not decoded again
-		return nil
-	}
-	w, h := b.Size()
-	debugLog("decoded %s: %dx%d", name, w, h)
-	a.bitmaps[name] = b
-	return b
+	return a.images.decoded(name)
 }
 
 // --- view ---
@@ -894,6 +907,9 @@ func (a *App) header(c *ui.Context, t *ui.Theme, sources []plugin.Record, option
 		}
 		if ui.Button(c, "漫画源").Clicked() {
 			a.openManage()
+		}
+		if ui.Button(c, "AI").Clicked() {
+			a.openAI()
 		}
 	})
 	ui.Divider(c)
@@ -1018,7 +1034,7 @@ func (a *App) resultsView(c *ui.Context, t *ui.Theme, busy bool) {
 				a.mu.Lock()
 				query := a.query
 				a.mu.Unlock()
-				a.searchPage(key, query, page-1)
+				a.searchPage(key, query, page-1, a.searchTicket())
 			}
 		}
 		if maxPage == 0 || page < maxPage {
@@ -1027,7 +1043,7 @@ func (a *App) resultsView(c *ui.Context, t *ui.Theme, busy bool) {
 				query := a.query
 				a.busy = "search"
 				a.mu.Unlock()
-				a.searchPage(key, query, page+1)
+				a.searchPage(key, query, page+1, a.searchTicket())
 			}
 		}
 	})
@@ -1053,6 +1069,7 @@ func (a *App) loadExplorePages() {
 	}
 	a.mu.Lock()
 	a.exploreBusy, a.errText = true, ""
+	ticket := a.exploreGen.next()
 	a.mu.Unlock()
 	go func() {
 		ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
@@ -1061,6 +1078,9 @@ func (a *App) loadExplorePages() {
 		a.win.Update(func() {
 			a.mu.Lock()
 			defer a.mu.Unlock()
+			if !a.exploreGen.current(ticket) {
+				return
+			}
 			a.exploreBusy = false
 			if err != nil {
 				a.errText = explain(err)
@@ -1091,6 +1111,7 @@ func (a *App) loadExplore(key string, index, page int) {
 	a.mu.Lock()
 	a.exploreBusy, a.errText = true, ""
 	a.exploreIndex, a.explorePage = index, page
+	ticket := a.exploreGen.next()
 	a.mu.Unlock()
 	go func() {
 		ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
@@ -1099,6 +1120,9 @@ func (a *App) loadExplore(key string, index, page int) {
 		a.win.Update(func() {
 			a.mu.Lock()
 			defer a.mu.Unlock()
+			if !a.exploreGen.current(ticket) {
+				return
+			}
 			a.exploreBusy = false
 			if err != nil {
 				a.errText = explain(err)

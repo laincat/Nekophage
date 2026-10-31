@@ -26,13 +26,14 @@
 在仓库根目录运行:
 
 ```sh
-sh scripts/check.sh   # gofmt、go vet、go test、docs、partitions,逐项打印
+sh scripts/check.sh   # gofmt、真实 Core pin、go vet、go test、docs、partitions,逐项打印
 ```
 
 单步等价于:
 
 ```sh
 gofmt -l .          # 应无输出
+sh scripts/check-core-pin.sh  # 实际模块 checkout、干净工作树与生成戳记必须匹配 pin
 go vet ./...
 go test ./...       # 含端到端测试,不访问外网:用 httptest
 sh scripts/check-docs.sh

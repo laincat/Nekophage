@@ -21,6 +21,7 @@
 | 搜索筛选 | 读源的 `search.optionList`,按组显示可横滑的选项;单选组直接换值,多选组按官方规则把 JSON 数组写成一个字符串传给 `search.load`;换源时回到该源默认值 |
 | 主窗口 | MyGo 原生 UI:源选择、搜索、结果网格(封面异步下载并解码,已在书架的卡片标「已在书架」)、分类浏览(源的 `explore`,四种类型)、详情(封面、标签分组、Markdown 简介、分组章节与章节筛选,章节列表用「读到」标出书架里记下的那一话,章头显示「上次读到 第 N 页 · P%」与「继续阅读」)、分页;记住上次的源、关键词与所选的收藏夹(`ui.json`) |
 | 阅读器 | WebView 里的自包含网页:竖向滚动、懒加载、进度、宽度调节、键盘滚动、单页重试,并按章节记住读到的位置;单页/双页与「左→右」「右→左」方向(`D`/`R` 键切换),横图自动独占一行;顶栏与章末都有「上一话/下一话」,点击由窗口(`/switch`)返回该话地址后页面自己跳转;另有「自动接续」开关(默认关,`A` 键),读到章末自动进下一话,且必须真的滚动过才触发;滚动时把页码与百分比回写给书架(`/progress`),图片由 Go 按源的规则取回流式送出 |
+| Magpie 本机网关 | `internal/magpie` 已实现连接层与「AI」窗口(地址/测试连接/模型目录/发送/取消,回包 80ms 节流重绘;档位可选简单/普通/复杂并各自映射到模型或组,窗口显示这次会发到哪):`/v1/models` 目录(保留模型/组 ID)、三种协议的原生正文、SSE 流式、`ctx` 取消、中文诊断;10 条假网关契约测试 `-race` 通过。**未接入界面,未对真实安装版发起过请求** |
 | 人机验证 | 独立窗口加载挑战页,按 Core 的完成规则判断,通过后把 Cookie 与 User-Agent 交回并自动重试 |
 
 ## 已验证(真实源、真实网络)
@@ -28,6 +29,9 @@
 **一条命令复跑全部真实源**:`NK_LIVE_DIR=/path/to/scripts scripts/live-sources.sh` 会对目录里每个 `.js` 跑一遍 `TestLiveSource`(`NK_LIVE_REPEAT=3` 适用例连跑三次,**时好时坏的源单列为 `FLAKY`**,不混进 PASS 或 FAIL),逐个打印 PASS/FAIL,日志写到 `build/live/<源>.log`。一个源失败是一个结果,不是崩溃 —— 站点变了和客户端坏了要能分开。2026-10-31 实测 5 个脚本(comick、copy_manga、komiic、komiic2、manga_dex)全部 PASS。
 
 **2026-10-31 复跑四源**:Core 同步到 `519623d` 后,MangaDex、Komiic、Comick、拷贝漫画的 `TestLiveSource` 全部 PASS。但**同一天稍后又复跑一次,拷贝漫画回到 HTTP 210 而其余四源仍 PASS** —— 所以它的状态是「时好时坏」,不是「已恢复」;`live-sources.sh` 会把两类结果分开打印,正是为了这种情形。Comick 这次暴露了测试里的一个假设:它取到的章节只有 1 张图,而用例固定要求 `page=3`,被阅读器正确地钳到 1,于是断言失败 —— 错的是用例不是代码,现在按 `min(3, len(images))` 断言。拷贝漫画此前报的 HTTP 210 已不复现,那是站点侧的临时行为,不是客户端回归。
+
+**换 pin 到 `6e07429`(2026-11-01)**:Core 新增了标准 AI 的三个入口与可选的分段传输(`HostStream`),并修掉包桥的一处死锁 —— 包在自己的 hook 里往 `__magpieChatPush` 写,而读取侧读到结束标记就停了,写方永远等不到读者。桌面端目前**没有实现 `HostStream`**,所以回复仍整包到达;`scripts/fetch-core.sh` 已把 `build/core` 对齐到该提交,`scripts/check-core-pin.sh` 通过。
+
 **换 pin 后重跑阅读器**:Core 同步到 `c1db2c3` 之后,`readercheck` 重跑 Komiic 一章(53 页):`page title=TEMPEST figures=53 images=53 decoded=4` —— DOM 里 53 张图都在,当前视口解码了 4 张。截图本身不含 WebView 内容,所以结论取自 DOM 与解码状态,不取自截图。
 
 **一条命令跑完全部本地检查**:`sh scripts/check.sh` 依次跑 `gofmt`、`go vet ./...`、`go test ./...`、`check-docs.sh`、`check-partitions.sh`,逐项 PASS/FAIL 打印,任何一项失败则整体退出码非 0。`check-partitions.sh` 是这次恢复 bug 的产物:分区名 `"comic:<key>"` 只允许出现在 `core.ComicPartition` 一处,别处再拼一次就报错 —— 因为那个 bug 当初是**测试跟着代码一起写错**,只有「禁止第二种写法」这种检查才拦得住。
