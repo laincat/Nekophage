@@ -199,6 +199,10 @@ Three deliberate choices:
 
 The unit test pins the argument shape: a single-folder source must receive `null`, not an empty string; add and remove are both covered. The capture confirms the button and the folder picker render.
 
+**Browse normalisation moved into Core so the two clients cannot drift (2026-11-01, pin `c855fd3`)**: the iOS gap recorded above (building `explore[i].load` itself) came from the same logic existing twice. The four shapes and the `load`/`loadNext` fallback now live in Core's `comic/js`, and the desktop only maps each comic into the shape its interface draws.
+
+A second full browse sweep afterwards: **23 passed / 8 failed / 3 need a server**; `ehentai`'s three pages work and `mh1234` passed this time (the earlier run was a site timeout, which is why one round is not a conclusion).
+
 **The browse tab had never been tested live, and for one class of source it could not work at all (2026-11-01, pin `110b0d8`)**
 
 All 34 official sources declare `explore`, and the live test only walked search → details → chapter: the browse tab was never looked at. `cmd/explorecheck` lists each source's browses and loads the first page of each; the first run gave **24 passed / 10 failed**, and `ehentai` failed all three of its browses with `source does not define this function`.
