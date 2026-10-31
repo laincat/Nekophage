@@ -158,6 +158,8 @@ Core 同步到 `af4f1a0` 之后又跑了两条真实源:MangaDex(`one piece` —
 
 **原先 6 个「加密/乱序图片」和 1 个「镜像回退」全部转通过**:桌面端接上 Core 的图片回调后,`cxc`(659,568 字节密文 → 494,647 字节真实 PNG)、`ccc`、`mojoin`、`mojoin_fixed_v107`、`manwaba_fixed`、`manwaba_fixed_v113`、`4khd_cosplay`(1,243 字节 HTML 错误页 → 回退后 248,428 字节 webp)都过了。阅读器层面另外实测过一遍:`cxc` 的作品 3 页全部渲染、`decoded=3`、首图 690×1380 —— 解密出来的是能真正解码的图,不只是字节看起来对。
 
+**上游也还没有修(2026-11-01 复核)**:翻过 `MoeForge/moejs` 的版本与分支 —— 标签只到 `v0.1.0-alpha.11`,而 `main` 上有一个比我们用更新的提交(`v0.1.0-alpha.11.0.20261030083738-b9fa0469d1df`,2026-10-30)。用独立探针(不碰仓库)在那个更新版本上跑同样的 `Object.getOwnPropertyDescriptor(globalThis,'atob')` + 严格模式赋值,**结果仍是 `writable=false`、`Cannot assign to read only property 'atob'`**。所以这不是「我们锁的版本太旧」,而是上游现在的行为;等它改,或另找实现。
+
 **`rumanhua2` 暴露了运行时的一处保真度问题**:它在 `finally` 里把 `root.atob` 还原回去,而 **moejs 把 `atob`/`btoa`/`TextDecoder` 等内建都定义成不可写且不可配置**,于是类方法(严格模式)里的赋值直接抛 `TypeError: Cannot assign to read only property 'atob'`。探针实测(`Object.getOwnPropertyDescriptor(globalThis,'atob')`)返回 `writable=false, configurable=false`,并且列表里 `atob`、`btoa`、`TextEncoder`、`TextDecoder`、`structuredClone`、`Intl` 全部同样锁死;真实浏览器与 Node 里这些是可写可配置的普通属性。因为不可配置,Core 的 JS 层**改不动**它,只能在运行时侧修或换实现 —— 先记录,不擅自改依赖版本。
 
 **`hot_manga` 的图片质量设置不生效 —— 是源自己的正则过期(2026-11-01,已定位)**:这一条挂了几轮。实测把 `image_quality` 从默认改成一个更低的值后,章节里第一张图的地址**一个字都没变**(都是 `...jpg.h1500x.webp`)。查源:`hot_manga` 用 `url.replace(/\.jpg\.h\d+x\.jpg$/, ".jpg.h{N}x.jpg")` 改质量,**而站点现在返回的后缀是 `.webp`** —— 正则根本匹配不上,自然不改。反向确认过我们的链路没坏:同一套 `Store.SaveSetting` → `loadSetting` 在 `manga_dex` 上确实生效(`/data/` → `/data-saver/`)。所以这条不是客户端问题,是源需要把正则改成 `.((jpg)|(webp))$`。
