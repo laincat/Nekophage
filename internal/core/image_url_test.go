@@ -84,3 +84,31 @@ func TestImageWithAnUnsafeSchemeIsRefused(t *testing.T) {
 		}
 	}
 }
+
+// A source that returns no image address leaves the reader saying only "not
+// http(s)"; the log names the address it got, which is what makes that
+// actionable.
+func TestInvalidImageURLIsLogged(t *testing.T) {
+	c, err := Open(Options{DataDir: t.TempDir(), AppVersion: "1.6.3", Locale: "zh_CN"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { c.Close() })
+	if _, err := c.Install(context.Background(), `class NoImages extends ComicSource {
+  name = 'NoImages'; key = 'noimages'; version = '1'
+  search = {load: async () => ({comics: [], maxPage: 1})}
+}`, "file", ""); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := c.fetchImageOnce(context.Background(), "noimages", ImageRequest{URL: ""}); err == nil {
+		t.Fatal("an empty address was accepted")
+	}
+	lines := c.LogLines()
+	if len(lines) == 0 {
+		t.Fatal("nothing was logged")
+	}
+	last := lines[len(lines)-1]
+	if last.Key != "noimages" || !strings.Contains(last.Content, "image URL") {
+		t.Errorf("logged %+v", last)
+	}
+}

@@ -88,3 +88,35 @@ func TestLogLineFormatting(t *testing.T) {
 		t.Error("sourceLogText dropped the source")
 	}
 }
+
+// A source that fails without logging leaves the panel empty, which is exactly
+// when a user opens it. Core's own failures are recorded with the call that
+// failed, so the panel has the one line that names the cause.
+func TestFailedCallsAreLoggedWithTheirSource(t *testing.T) {
+	c, err := core.Open(core.Options{DataDir: filepath.Join(t.TempDir(), "d"), AppVersion: "1.6.3", Locale: "zh_CN"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { c.Close() })
+	ctx := context.Background()
+	if _, err := c.Install(ctx, `class Broken extends ComicSource {
+  name = 'Broken'; key = 'broken'; version = '1'
+  search = {load: async () => { throw new Error('the site answered with a login page') }}
+}`, "file", ""); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := c.Search(ctx, "broken", "x", nil, 1); err == nil {
+		t.Fatal("the search was supposed to fail")
+	}
+	lines := c.LogLines()
+	if len(lines) == 0 {
+		t.Fatal("a failed call left no line behind")
+	}
+	last := lines[len(lines)-1]
+	if last.Key != "broken" || !strings.Contains(last.Content, "search") {
+		t.Errorf("the line does not name the source and the call: %+v", last)
+	}
+	if !strings.Contains(last.Content, "login page") {
+		t.Errorf("the line lost the cause: %q", last.Content)
+	}
+}

@@ -199,6 +199,13 @@ Three deliberate choices:
 
 The unit test pins the argument shape: a single-folder source must receive `null`, not an empty string; add and remove are both covered. The capture confirms the button and the folder picker render.
 
+**The panel was empty exactly when it was needed (2026-11-01)**: pointed at a real failing source (`jcomic`), the capture showed **0 lines** — because that source logs nothing and the failure is Core's (`image URL is not http(s)`). The panel only helped when a source used `console.log`, which is the opposite of the moment a user opens it.
+
+- A failed `Core.Call` now records a line: the source key, the call path and the cause. "The search failed" is no longer only an alert that the next screen covers.
+- An image address that is not http(s) records **the string it got**, quoted, so an empty one is visibly empty. The reader used to say only "not http(s)" with no hint what the source had returned.
+
+Two tests pin it: after a source throws, the last line carries the key, `search` and the cause; and a rejected empty image address leaves that source and message in the buffer.
+
 **What the source itself said was never visible (2026-11-01)**: during the live round I could read `Failed to convert base64 ...` because I ran the app from a terminal. A user who launches it from a launcher **never sees that line**. All they get is the message the source threw next — "Cannot read properties of null" — with the real cause hidden, which is exactly the answer to "is the client broken or did the site change".
 
 - Core now tags each source log line (a source's `console.log` and Core's failures on its behalf) **with the source key**, and keeps the last 400 in memory. `Services.LogSource` is optional; a host that only sets `Log` behaves as before.

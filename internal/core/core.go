@@ -19,6 +19,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -256,12 +257,21 @@ func (c *Core) Has(ctx context.Context, key, path string) bool {
 }
 
 // Call invokes ComicSource.<path> and returns the JSON result.
+//
+// A failure is also recorded in the log buffer with its source: the UI shows the
+// error where it happened, and the line is what tells a later reader why the
+// window they just closed was complaining.
 func (c *Core) Call(ctx context.Context, key, path string, args ...any) (json.RawMessage, error) {
 	rt, err := c.reg.Comic(key)
 	if err != nil {
+		c.appendLog(key, "error", "Core", path+": "+err.Error())
 		return nil, err
 	}
-	return rt.Call(ctx, key, path, args...)
+	out, err := rt.Call(ctx, key, path, args...)
+	if err != nil {
+		c.appendLog(key, "error", "Core", path+": "+err.Error())
+	}
+	return out, err
 }
 
 // --- comic data ---
@@ -1286,6 +1296,10 @@ func (c *Core) fetchImageOnce(ctx context.Context, key string, req ImageRequest)
 	req.URL = host.NormalizeURL(req.URL, c.tr.SchemeOf(ComicPartition(key))+"://")
 	u, err := url.Parse(req.URL)
 	if err != nil || (u.Scheme != "http" && u.Scheme != "https") {
+		// An empty or relative address here means the source returned no image
+		// URL at all, which the reader reports only as "not http(s)". Naming the
+		// address in the log is what makes that actionable.
+		c.appendLog(key, "error", "Core", "image URL is not http(s): "+strconv.Quote(req.URL))
 		return nil, "", errors.New("core: image URL is not http(s)")
 	}
 	header := http.Header{}
