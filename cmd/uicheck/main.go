@@ -49,6 +49,7 @@ func main() {
 	openLast := flag.Bool("open-last", false, "open the last result, to check a source switch")
 	keepPage := flag.Bool("keep-page", false, "click the reader's 收藏本页 button once")
 	favourite := flag.Bool("favourite", false, "keep the first search result, to check the shelf marker")
+	backupCookies := flag.Bool("backup-cookies", false, "start the sources window with the backup cookie checkbox ticked")
 	// dir reuses a profile, so the shelf and installed sources carry over
 	// from an earlier import.
 	dir := flag.String("dir", "", "profile directory; a fresh one under the temp directory when empty")
@@ -104,7 +105,7 @@ func main() {
 		ExploreIndex: *exploreIndex, ExplorePage: *explorePage, Shelf: *shelfMode, OpenChapter: *chapter, ShelfDemo: *shelfDemo, ScrollPercent: *scrollPercent,
 		AdvanceChapter: *advance, AutoNext: *autoNext, Filters: *filters, Filter: *filterPick,
 		SearchAll: *searchAll, OpenLast: *openLast,
-		KeepPage: *keepPage, Favourite: *favourite, OpenSettings: *settingsShot,
+		KeepPage: *keepPage, Favourite: *favourite, OpenSettings: *settingsShot, BackupCookies: *backupCookies,
 		SetSetting: *setSetting})
 
 	mygo.App.SetLanguages("zh-Hans")

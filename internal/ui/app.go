@@ -146,6 +146,10 @@ type DevOptions struct {
 	// OpenSettings opens the sources window with the first source's settings
 	// panel, so the tools can capture it.
 	OpenSettings bool
+	// BackupCookies starts the sources window with the backup import's cookie
+	// checkbox ticked, so a capture shows the state the checkbox reports rather
+	// than only that it renders.
+	BackupCookies bool
 	// Filters opens the source's search filters before capturing.
 	Filters bool
 	// SearchAll starts with every source selected.
@@ -239,6 +243,11 @@ func (a *App) Run() error {
 		if a.dev.SearchAll {
 			a.mu.Lock()
 			a.searchAll = true
+			a.mu.Unlock()
+		}
+		if a.dev.BackupCookies {
+			a.mu.Lock()
+			a.manage.backupCookies = true
 			a.mu.Unlock()
 		}
 		if a.dev.OpenSettings {
