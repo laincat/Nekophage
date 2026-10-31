@@ -458,9 +458,19 @@ func (a *App) applyBackup() {
 		cookieRows := 0
 		if b.Plan != nil && len(b.Plan.Cookies) > 0 && len(b.Plan.CookieTargets) > 0 {
 			jar := a.lib.Jar()
+			installed := make(map[string]bool, len(a.lib.Sources()))
+			for _, src := range a.lib.Sources() {
+				installed[src.Key] = true
+			}
+			cookies := toNetCookies(b.Plan.Cookies, time.Now())
 			for _, partition := range b.Plan.CookieTargets {
-				jar.Import(partition, toNetCookies(b.Plan.Cookies, time.Now()))
-				cookieRows += len(b.Plan.Cookies)
+				// A source whose script failed has no partition: writing there
+				// would leave rows nothing can ever send.
+				if !installed[partition] {
+					continue
+				}
+				jar.Import(partition, cookies)
+				cookieRows += len(cookies)
 			}
 		}
 
