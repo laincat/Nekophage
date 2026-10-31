@@ -170,6 +170,14 @@ Core 同步到 `af4f1a0` 之后又跑了两条真实源:MangaDex(`one piece` —
 
 **`modifyImage` 已接上(2026-11-01,pin `6aa9356`)**:Core 新增 `Runtime.ModifyImage`(把解码后的 RGBA 放进一次性位图仓库、在独立运行时里跑源给的脚本、取回结果位图;解码与编码仍由客户端做),桌面端在图片路径里接上:取回 → 有 `onResponse` 先改写 → 有 `modifyImage` 就解码成 RGBA、跑脚本、编码回 PNG,内容类型随之改成 `image/png`。`modifyImage` 在配置里是**字符串脚本**而不是函数,所以它走 `ImageConfig.ModifyImage` 而不是回调句柄 —— 这一点最初写错过,补了一条用例钉住。确定性验证:源返回 4×2 的红蓝图 + 顺时针旋转脚本,取回后是 2×4 且红在上;脚本返回非图像时如实报错、不回落到原图。真实源侧 `hitomi`、`manhuagui` 实测通过(它们的图多为 avif/webp,不一定触发脚本)。
 
+**13 个带分类的官方源逐个跑过(2026-11-01)**:结果 **11 通过 / 2 未通过**,而且两个都不是客户端的错。过程中修掉三处真问题:
+
+1. **取值可以是对象**:`hcomic` 的「热门TAG」`categories` 是对象数组,`String(v)` 会得到 `"[object Object]"` —— 一个任何加载器都不认识的参数。现在取它的 `label`/`name`/`text`/`value` 与自带的参数。
+2. **选项没有默认值时要取第一个**:`komiic` 报 `Variable "orderBy" has invalid value .`,因为空字符串被当成选项发出去;搜索选项本来就是这个回退,分类选项此前没有。
+3. **测试自己传错了第一个参数**(用维度名而不是取值)—— 与界面曾经犯的是同一个错,`nhentai` 因此显示空页。
+
+剩下两个:`copy_manga` 的「排行」维度稳定返回 **210**(站点对端点的策略,同源的「主题」维度正常);`baihehui` 的「作品类型(需要登陆)」维度需要账号、另一个「更多推荐」维度站点返回空。**巡检因此按维度而不是按源下结论**:一个源里有的维度能用、有的维度被站点挡住,这是真实状态。
+
 **随机维度,以及一个我自己写错的参数(2026-11-01,pin `c146110`)**:`nhentai` 的「Tags」是 `type:"random"` + `itemType:"search"`,语义是**随机挑 20 个标签去搜索**,不经过分类加载 —— 界面上现在是一个「随机 20 个」按钮,点了随机取 20 个值当关键词搜索。同时修掉一个真 bug:传给加载器的**第一个参数应是选中的取值,而不是维度名**。`nhentai` 因此一直显示「这个分类没有内容」(它按取值查 id,拿到的却是「Language」);`manhuagui`、`copy_manga` 之前能出结果纯属巧合(它们只看 `param`)。另外 `nhentai` 这类源还要 `groupParam` 作为参数(它的加载器按 `"language"` 分支走),Core 现在把 `groupParam` 一并带出来,桌面端按「每个取值的参数 > groupParam > 取值本身」的顺序决定。修完截图确认:`nhentai` 的 Language 分类列出真实作品;`manhuagui` 与 `copy_manga` 的活体检查仍通过。
 
 **`dynamic` 维度现在也读得到(2026-11-01,pin `d90b7ed`)**:官方源里有 12 处分类维度声明成 `type:"dynamic"` —— 它们**不列取值,只给一个 `loader`**,由运行时的 loader 返回(还可能是异步的,`manga_dex` 的「Tags」就是从标签表现算的)。此前我们只读静态的 `categories`,这类维度在界面上会是空的。Core 现在把每个维度都当承诺处理:声明了 `loader` 就调用它,再把返回项归一 —— 可以是字符串,也可以是 `{label, target:{param}}`,参数取自 `target`。实测 `manga_dex` 的「Tags」维度已列取值(如 `Oneshot`),加载 20 部、688 页,第 2 页 0 重复。**还没处理 `random` 那一种**:`nhentai` 的「Tags」是 `type:"random"` + `itemType:"search"`,语义是「随机挑若干标签去搜索」,不是分类加载,留作下一步。

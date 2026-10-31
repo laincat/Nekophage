@@ -51,14 +51,24 @@ func TestLiveCategoryPages(t *testing.T) {
 	// Each part loads its own first entry; a part that has no values is one
 	// the source declared empty.
 	for i, part := range cat.Parts {
+		// A random part is searched, not loaded: the interface picks some of its
+		// values and runs a search, so there is no category page to read.
+		if part.Type == "random" {
+			t.Logf("  part %d %q is random (%d values, take %d)", i, part.Name, len(part.Categories), part.RandomNumber)
+			continue
+		}
 		if len(part.Categories) == 0 {
 			continue
 		}
+		// The same choice the interface makes: a per-value parameter, else the
+		// part's groupParam, else the value itself.
 		param := part.Categories[0]
 		if len(part.Params) == len(part.Categories) {
 			param = part.Params[0]
+		} else if part.GroupParam != "" {
+			param = part.GroupParam
 		}
-		page, err := c.CategoryComics(ctx, rec.Key, part.Name, param, options, 1)
+		page, err := c.CategoryComics(ctx, rec.Key, part.Categories[0], param, options, 1)
 		if err != nil {
 			t.Errorf("part %d %q: %v", i, part.Name, err)
 			continue
@@ -72,7 +82,12 @@ func TestLiveCategoryPages(t *testing.T) {
 			continue
 		}
 		// The second page must move on rather than repeat what was shown.
-		next, err := c.CategoryComics(ctx, rec.Key, part.Name, param, options, 2)
+		//
+		// A pause first: some sites answer an empty page to a request that
+		// follows too closely, and an empty answer would read as a paging bug in
+		// the client.
+		time.Sleep(time.Second)
+		next, err := c.CategoryComics(ctx, rec.Key, part.Categories[0], param, options, 2)
 		if err != nil {
 			t.Errorf("part %d page 2: %v", i, err)
 			continue
