@@ -715,6 +715,12 @@ type CategoryPart struct {
 	Categories []string
 	// Params maps Categories by index; empty means the value is the parameter.
 	Params []string
+	// GroupParam is the name a source's loader expects as its parameter when the
+	// values are searched rather than looked up by id (nhentai: "language").
+	GroupParam string
+	// RandomNumber is set on a "random" part: pick that many values and search
+	// for them together instead of loading a category.
+	RandomNumber int
 }
 
 // Category is a source's category page: a title, what to choose and the options
@@ -744,7 +750,8 @@ func (c *Core) CategoryPage(ctx context.Context, key string) (Category, error) {
 	for _, p := range decl.Parts {
 		out.Parts = append(out.Parts, CategoryPart{
 			Name: p.Name, Type: p.Type, ItemType: p.ItemType,
-			Categories: p.Categories, Params: p.Params,
+			Categories: p.Categories, Params: p.Params, GroupParam: p.GroupParam,
+			RandomNumber: p.RandomNumber,
 		})
 	}
 	return out, nil

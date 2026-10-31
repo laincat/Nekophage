@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"hash/fnv"
 	"log"
+	"math/rand"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -1275,12 +1276,18 @@ func (a *App) loadCategoryPage(key string, part, value, page int) {
 		return
 	}
 	p := a.category.Parts[part]
-	name := p.Name
+	// The loader's first argument is the chosen value, not the dimension's
+	// name: nhentai looks the value up ("Chinese"), and only the parameter
+	// says which group it belongs to.
+	name := categories[value]
 	param := categories[value]
-	// A source may map each value onto its own parameter; a part without that
-	// map takes the value itself.
+	// A source may map each value onto its own parameter; a part with a
+	// groupParam wants that name instead (nhentai's loader switches on
+	// "language"); otherwise the value itself is the parameter.
 	if len(p.Params) == len(p.Categories) {
 		param = p.Params[value]
+	} else if p.GroupParam != "" {
+		param = p.GroupParam
 	}
 	options := a.catOptions
 	a.catBusy, a.errText = true, ""
@@ -1339,6 +1346,27 @@ func (a *App) chooseCatOption(group int, key string, multi bool) {
 	a.loadCategoryPage(a.currentKey(), part, value, page)
 }
 
+// randomCategory picks some values of a random part and searches for them.
+//
+// The part lists values but is not loaded through categoryComics: the official
+// client takes randomNumber of them and searches for the words together, which
+// is what nhentai's Tags part does.
+func (a *App) randomCategory(part core.CategoryPart, n int) {
+	values := append([]string(nil), part.Categories...)
+	if len(values) == 0 {
+		return
+	}
+	rand.Shuffle(len(values), func(i, j int) { values[i], values[j] = values[j], values[i] })
+	if n < len(values) {
+		values = values[:n]
+	}
+	a.mu.Lock()
+	a.query = strings.Join(values, " ")
+	a.mu.Unlock()
+	a.setMode(0)
+	a.startSearch()
+}
+
 // categoryView shows a source's category page: its parts, its options, then the
 // comics the chosen entry returned.
 func (a *App) categoryView(c *ui.Context, t *ui.Theme) {
@@ -1371,6 +1399,18 @@ func (a *App) categoryView(c *ui.Context, t *ui.Theme) {
 		i, p := i, p
 		ui.Row(c).Padding(6, 16).Gap(6).Wrap().AlignItems(ui.Center).Children(func() {
 			ui.Text(c, p.Name).FontSize(12).TextColor(t.TextMuted).Width(64)
+			if p.Type == "random" {
+				// A random part is not loaded: it picks some of its values and
+				// searches for them, which is what the official client does.
+				n := p.RandomNumber
+				if n <= 0 {
+					n = 1
+				}
+				if ui.Button(c, "随机 "+itoa(n)+" 个").Clicked() {
+					a.randomCategory(p, n)
+				}
+				return
+			}
 			for j, name := range p.Categories {
 				j, name := j, name
 				if i == part && j == value {
