@@ -199,7 +199,7 @@ Three deliberate choices:
 
 The unit test pins the argument shape: a single-folder source must receive `null`, not an empty string; add and remove are both covered. The capture confirms the button and the folder picker render.
 
-**Live source round N: one BOM took a whole source down (2026-11-01, pin `947dc63`)**
+**Live source round N: one BOM took a whole source down (2026-11-01, pin `a93ac09`)**
 
 Re-ran all 34 official sources: **20 passed**, 11 failed, 3 need a server the user runs (counted separately as SKIP). Reading each log turned up one real problem:
 
