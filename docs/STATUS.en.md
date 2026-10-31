@@ -199,6 +199,8 @@ Three deliberate choices:
 
 The unit test pins the argument shape: a single-folder source must receive `null`, not an empty string; add and remove are both covered. The capture confirms the button and the folder picker render.
 
+**The same gap existed on iOS (2026-11-01, pin `7019844`)**: mobile's `CallComic` also recorded nothing on failure; it now writes the same shape the desktop does (source key, call path, cause). Verified negatively: turning that check into `if false` makes the test fail. The desktop only moves its pin.
+
 **The panel was empty exactly when it was needed (2026-11-01)**: pointed at a real failing source (`jcomic`), the capture showed **0 lines** — because that source logs nothing and the failure is Core's (`image URL is not http(s)`). The panel only helped when a source used `console.log`, which is the opposite of the moment a user opens it.
 
 - A failed `Core.Call` now records a line: the source key, the call path and the cause. "The search failed" is no longer only an alert that the next screen covers.
