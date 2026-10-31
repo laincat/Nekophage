@@ -64,6 +64,8 @@ func main() {
 	openLast := flag.Bool("open-last", false, "open the last result, to check a source switch")
 	keepPage := flag.Bool("keep-page", false, "click the reader's 收藏本页 button once")
 	favourite := flag.Bool("favourite", false, "keep the first search result, to check the shelf marker")
+	logsShot := flag.Bool("logs", false, "open the source log panel and capture it")
+	logsOut := flag.String("logs-out", "", "where to write the log-panel capture")
 	backupCookies := flag.Bool("backup-cookies", false, "start the sources window with the backup cookie checkbox ticked")
 	// dir reuses a profile, so the shelf and installed sources carry over
 	// from an earlier import.
@@ -169,6 +171,22 @@ func main() {
 					}
 				} else {
 					log.Printf("AI capture: the AI window was never opened")
+				}
+			}
+			if *logsShot {
+				app.OpenSourceLogs()
+				time.Sleep(1200 * time.Millisecond)
+				if win := app.LogWindow(); win != nil {
+					if shot, err := win.CapturePage(); err == nil && *logsOut != "" {
+						if werr := os.WriteFile(*logsOut, shot, 0o644); werr == nil {
+							log.Printf("log capture: %s (%d bytes)", *logsOut, len(shot))
+						}
+					} else if err != nil {
+						log.Printf("log capture: %v", err)
+					}
+					win.Close()
+				} else {
+					log.Printf("log capture: the panel was never opened")
 				}
 			}
 			// A dialog is a window of its own too. Without auto-confirm the

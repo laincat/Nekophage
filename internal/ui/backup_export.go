@@ -121,10 +121,15 @@ func (a *App) writeBackup(path string) error {
 	return nil
 }
 
-// backupRow draws the export control beside the import one.
+// exportRow draws the export control beside the import one, and the way into the
+// log panel: an export or an import that fails is exactly when the source's own
+// lines explain why.
 func (a *App) exportRow(c *ui.Context, t *ui.Theme) {
 	m := &a.manage
 	ui.Row(c).Gap(8).AlignItems(ui.Center).Children(func() {
+		if ui.Button(c, "源日志").Clicked() {
+			a.OpenSourceLogs()
+		}
 		if ui.Button(c, "导出 .venera 备份").Disabled(m.backupBusy).Clicked() {
 			a.exportBackup()
 		}

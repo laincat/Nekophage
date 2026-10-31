@@ -50,14 +50,38 @@ type Options struct {
 	// VerifierFactory builds the verifier once the cookie jar exists; it is
 	// used when Verifier is nil.
 	VerifierFactory func(jar *cookies.Jar) host.Verifier
+	// LogSink receives script log lines tagged with their source key. When nil
+	// they go to stderr only, which a user who started the app from a launcher
+	// never sees.
+	LogSink func(key, level, title, content string)
 }
 
 // Core is one profile: its runtime, registry and stores.
+// LogLine is one line a source printed, tagged with the source it came from.
+// Core keeps the last few so a user can see why a source misbehaved: the same
+// lines go to stderr, which nobody who started the app from a launcher sees.
+type LogLine struct {
+	Key     string
+	Level   string
+	Title   string
+	Content string
+	Time    time.Time
+}
+
+// maxLogLines bounds what is kept; a source that logs in a loop must not grow
+// the process without limit.
+const maxLogLines = 400
+
+// MaxLogLines is what the panel tells the user the buffer holds.
+func MaxLogLines() int { return maxLogLines }
+
 type Core struct {
 	rt    *js.Runtime
 	reg   *plugin.Registry
 	store *store.Store
 	jar   *cookies.Jar
+	logMu sync.Mutex
+	logs  []LogLine
 	tr    *Transport
 	opts  Options
 
@@ -97,10 +121,20 @@ func Open(opts Options) (*Core, error) {
 	if verifier == nil && opts.VerifierFactory != nil {
 		verifier = opts.VerifierFactory(jar)
 	}
+	// The sink needs the Core it writes into, so the Core exists first and the
+	// runtime is attached to it below.
+	c := &Core{store: st, jar: jar, tr: tr, opts: opts, cursors: map[string]map[int]string{}}
 	rt, err := js.New(js.Options{MemoryLimit: opts.MemoryLimit}, js.Services{
-		Storage:   st,
-		Env:       js.Environment{Locale: opts.Locale, Platform: platformName(), AppVersion: opts.AppVersion, DefaultUA: opts.UserAgent},
-		Log:       logLine,
+		Storage: st,
+		Env:     js.Environment{Locale: opts.Locale, Platform: platformName(), AppVersion: opts.AppVersion, DefaultUA: opts.UserAgent},
+		Log:     logLine,
+		LogSource: func(key, level, title, content string) {
+			c.appendLog(key, level, title, content)
+			if opts.LogSink != nil {
+				opts.LogSink(key, level, title, content)
+			}
+			logLine(level, title, content)
+		},
 		Transport: tr,
 		Verifier:  verifier,
 		Cookies:   jar,
@@ -110,8 +144,34 @@ func Open(opts Options) (*Core, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Core{rt: rt, reg: plugin.New(rt, tr), store: st, jar: jar, tr: tr, opts: opts,
-		cursors: map[string]map[int]string{}}, nil
+	c.rt = rt
+	c.reg = plugin.New(rt, tr)
+	return c, nil
+}
+
+// appendLog keeps the newest maxLogLines lines.
+func (c *Core) appendLog(key, level, title, content string) {
+	c.logMu.Lock()
+	defer c.logMu.Unlock()
+	c.logs = append(c.logs, LogLine{Key: key, Level: level, Title: title, Content: content, Time: time.Now()})
+	if len(c.logs) > maxLogLines {
+		c.logs = append(c.logs[:0], c.logs[len(c.logs)-maxLogLines:]...)
+	}
+}
+
+// LogLines returns what the sources have printed, oldest first. The slice is a
+// copy: the runtime appends from its own goroutines.
+func (c *Core) LogLines() []LogLine {
+	c.logMu.Lock()
+	defer c.logMu.Unlock()
+	return append([]LogLine(nil), c.logs...)
+}
+
+// ClearLogs empties the buffer.
+func (c *Core) ClearLogs() {
+	c.logMu.Lock()
+	defer c.logMu.Unlock()
+	c.logs = nil
 }
 
 // Close releases the runtime.

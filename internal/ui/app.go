@@ -153,6 +153,8 @@ type App struct {
 	exploreGen generation
 
 	manageWin *mygo.Window
+	// logs is the 源日志 panel's window.
+	logs logPanel
 	// aiWin is the connection to the Magpie installed on this machine.
 	aiWin  *mygo.Window
 	ai     aiState
@@ -438,6 +440,9 @@ func (a *App) Window() *mygo.Window { return a.win }
 // ManageWindow is the sources window, for the development tools that capture
 // it.
 func (a *App) ManageWindow() *mygo.Window { return a.manageWin }
+
+// LogWindow is the source log panel, or nil before it is opened.
+func (a *App) LogWindow() *mygo.Window { return a.logs.win }
 
 // AIWindow is the AI window, or nil before it is opened.
 func (a *App) AIWindow() *mygo.Window { return a.aiWin }
