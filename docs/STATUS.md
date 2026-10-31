@@ -149,6 +149,8 @@ Core 同步到 `af4f1a0` 之后又跑了两条真实源:MangaDex(`one piece` —
 
 **源写了哪种搜索入口就调哪种(2026-11-01)**:官方的搜索有两个入口 —— `search.load(keyword, options, page)` 收页码,`search.loadNext(keyword, options, next)` 收上一页返回的游标。客户端只认前者,于是 `ehentai` 这种只声明 `loadNext` 的源在搜索时直接报「source does not define this function」,而它在官方客户端里是能用的。现在先看源声明了哪个;声明了 `loadNext` 就按游标翻页,游标按源和页码记住,新搜索(第 1 页)清掉上一轮。之前 `search` 的 `load` 与 `loadNext` 混在两个文件里的判断也统一了 —— 视频那条路早就有,漫画这条一直缺。
 
+**游标翻第二页的活体检查(2026-11-01)**:只声明 `loadNext` 的源,第一页能出结果不代表第二页也能 —— 游标丢了或形状不对时,第一页照样正常。新增 `internal/core/live_cursor_test.go`(`NK_LIVE_JS` / `NK_LIVE_QUERY` 门控,平时离线跳过)读两页并要求第二页非空且不与第一页完全重复。用 `ehentai.js` 实测:第 1 页 25 条、第 2 页 25 条、重复 0 条。iOS 端改成同样的调用后,这条路径在 Core 侧先有了证据。
+
 **多选筛选组必须传 JSON 数组(2026-11-01)**:`multi-select` 组的值是「选中键的 JSON 数组字符串」,源的 `JSON.parse(options[i])` 就是按这个读的。我们给的是单个键,`ehentai` 因此在 `JSON.parse("0")` 上报 `Unexpected token ,`。Core 的 `SearchOptionGroup` 现在有 `DefaultValues`(来源声明的数组默认值),桌面端把多选组编码成 JSON 数组再传,单选组仍然只传一个键 —— 两种形状不混用。
 
 **`-<none>` 这种空值选项被读成了字面量(2026-11-01)**:选项格式是「`值-文字`」,左边可以是空的,`-<none>` 的意思是「值为空、文字是 `<none>`」。原来只要 `-` 出现在第 0 位就把整串当值,于是「没选任何筛选」被传成字符串 `-<none>` —— 源用 `if (stars)` 判断有没有选,`-<none>` 是真值,于是往请求里塞进一个不存在的筛选。现在按「第一个 `-` 分隔、左边可以为空」解析。
