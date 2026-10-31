@@ -3,8 +3,10 @@ package ui
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/laincat/nekophage/internal/archive"
@@ -267,5 +269,14 @@ func TestExportAndImportKeepSettingsApart(t *testing.T) {
 	}
 	if _, ok, _ := into.Store().LoadData("cycle", "domain"); ok {
 		t.Error("the setting was filed as data")
+	}
+}
+
+// The refusal has to read as a sentence, not as Core's English.
+func TestTooMuchSourceDataIsExplained(t *testing.T) {
+	err := errors.New(`backup: source "cat.js" has more than 16777216 bytes of data`)
+	got := explain(err)
+	if !strings.Contains(got, "数据太大") {
+		t.Errorf("explain = %q", got)
 	}
 }

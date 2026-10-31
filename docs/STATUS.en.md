@@ -199,6 +199,12 @@ Three deliberate choices:
 
 The unit test pins the argument shape: a single-folder source must receive `null`, not an empty string; add and remove are both covered. The capture confirms the button and the folder picker render.
 
+**The export could write a file it cannot itself read (2026-11-01, pin `9013ca5`)**: the reader caps every file under `comic_source/` at 16 MiB; the writer checked the script and **never the `.data`**. So a source holding a lot of data exported successfully into a file Core's own reader refuses to open — the worst kind of failure, because the user believes the backup is good until the day they need it.
+
+- `MaxWriteDataBytes` matches the reader's `MaxSourceBytes`; going over is an error that **names the source**.
+- The desktop turns that into one sentence: 这个漫画源存的数据太大,写进备份后会读不回来,所以没有导出.
+- Another test **builds an over-cap member by hand** and confirms the reader refuses it — evidence that the cap is a real boundary rather than a guess.
+
 **The source's settings did not travel either — now they do, and land back in their own bucket (2026-11-01)**: the previous entry fixed `.data` (what a source stores for itself), while each source's **settings** (what the user picked in the settings panel) still stayed behind.
 
 The root of the mismatch is shape: the archive has **one object per source**, and this client splits that into `data` and `settings`. Merging on export is easy; the hard part is knowing, on the way back in, which key belongs to which bucket.

@@ -22,6 +22,10 @@ func explain(err error) string {
 		return "操作已取消"
 	case has("no such source") || has("source not found") || has("unknown source"):
 		return "找不到这个漫画源,可能已被删除"
+	case has("bytes of data") || has("larger than"):
+		// A backup that would not open again is refused at the source: saying
+		// "导出失败" and stopping is better than handing over a broken file.
+		return "这个漫画源存的数据太大,写进备份后会读不回来,所以没有导出"
 	case has("not installed"):
 		return "漫画源还未安装"
 	case has("timeout") || has("deadline exceeded"):
