@@ -170,6 +170,18 @@ Core 同步到 `af4f1a0` 之后又跑了两条真实源:MangaDex(`one piece` —
 
 **`modifyImage` 已接上(2026-11-01,pin `6aa9356`)**:Core 新增 `Runtime.ModifyImage`(把解码后的 RGBA 放进一次性位图仓库、在独立运行时里跑源给的脚本、取回结果位图;解码与编码仍由客户端做),桌面端在图片路径里接上:取回 → 有 `onResponse` 先改写 → 有 `modifyImage` 就解码成 RGBA、跑脚本、编码回 PNG,内容类型随之改成 `image/png`。`modifyImage` 在配置里是**字符串脚本**而不是函数,所以它走 `ImageConfig.ModifyImage` 而不是回调句柄 —— 这一点最初写错过,补了一条用例钉住。确定性验证:源返回 4×2 的红蓝图 + 顺时针旋转脚本,取回后是 2×4 且红在上;脚本返回非图像时如实报错、不回落到原图。真实源侧 `hitomi`、`manhuagui` 实测通过(它们的图多为 avif/webp,不一定触发脚本)。
 
+**源自己的收藏:11 个源声明了,之前完全没读(2026-11-01,pin `0bcdaef`)**:`favorites` 块是源在**它自己那边**保存的收藏,与客户端的本地书架是两回事。三种形状实测各不相同:
+
+| 源 | multiFolder | loadFolders | loadComics | 实际表现 |
+| --- | --- | --- | --- | --- |
+| `nhentai` | 否 | 无 | 有 | 未登录时源回 `Authentication required. Please login again or provide API Key in source settings.` |
+| `ehentai` | 是 | 有 | **无** | 能列出 1 个收藏夹,但**没有列表接口** —— 之前调用会得到 `source does not define this function` |
+| `wnacg` | 是 | 有 | 有 | 收藏夹与列表都在 |
+
+所以客户端必须**按声明区分能力**:只声明了收藏夹切换、没有列表的源(`ehentai`)不能去列表,否则就是上面那个错;只支持单收藏夹的源不传收藏夹 id。桌面端新增「源收藏」入口,按源实际能力显示:有列表的显示列表与分页,没有列表的明说「这个源没有提供收藏列表」,未登录的显示**源的原文**与重试按钮。
+
+为此 Core 加了 `Value`(读**数据**而非调函数):`favorites.multiFolder` 是数据,`Call` 调不到。
+
 **源声明的界面文字:之前一直显示键名(2026-11-01,pin `239221b`)**:`ehentai` 的设置写的是 `title: "domain"`,可读文字在它自己的 `translation` 表里(七成的源都有这张表)。不读这张表,面板上就是 `domain`、`ehevent`、`hvevent` 三个英文键 —— 这正是上一轮账号面板截图里能看到的东西。现在 Core 按客户端语言取表:先精确 locale,再同语言(表里写 `zh_CN`、客户端是 `zh_TW` 也能匹配),再英文、中文兜底;桌面端把它用在设置项的标题和选项文字上,截图确认变成「域名」「触发黎明事件」「提示HV遭遇战」。
 
 Cookie 字段名(`ipb_member_id` 等)**不翻译**:那是 Cookie 名,不是界面文字。

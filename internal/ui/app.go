@@ -93,10 +93,24 @@ type App struct {
 	// plus paging, loaded by categoryComics.ranking.load.
 	catRank       bool
 	catRankOption string
-	catComics     []core.Comic
-	catOptions    []string
-	catBusy       bool
-	catGen        generation
+
+	// A source's own favorites, the ones it keeps on the site. The client has a
+	// local shelf too; this is a different list, and eleven official sources
+	// declare one.
+	favSup          core.FavoritesSupport
+	favLoaded       bool
+	favFolders      map[string]string
+	sourceFavFolder string
+	favComics       []core.Comic
+	favPage         int
+	favMax          int
+	favBusy         bool
+	favErr          string
+	favGen          generation
+	catComics       []core.Comic
+	catOptions      []string
+	catBusy         bool
+	catGen          generation
 
 	// chapterQuery filters the chapter list of the open comic.
 	chapterQuery string
@@ -196,6 +210,9 @@ type DevOptions struct {
 	// Rank picks a ranking option after the category page opens, so a capture
 	// shows the ranking list rather than only its buttons.
 	Rank string
+	// Favorites opens the source's own favorites, so a capture shows what the
+	// source answers without a human clicking 源收藏.
+	Favorites bool
 	// Filters opens the source's search filters before capturing.
 	Filters bool
 	// SearchAll starts with every source selected.
@@ -347,6 +364,9 @@ func (a *App) Run() error {
 		}
 		if a.dev.Category {
 			a.setMode(3)
+		}
+		if a.dev.Favorites {
+			a.setMode(4)
 		}
 		if rank := a.dev.Rank; rank != "" {
 			// The declaration loads as JS work, so give it a moment first.
@@ -1016,6 +1036,8 @@ func (a *App) view(c *ui.Context) {
 			a.shelfView(c, t)
 		case a.mode == 3:
 			a.categoryView(c, t)
+		case a.mode == 4:
+			a.favoritesView(c, t)
 		default:
 			a.resultsView(c, t, busy == "search")
 		}
@@ -1038,7 +1060,13 @@ func (a *App) header(c *ui.Context, t *ui.Theme, sources []plugin.Record, option
 					a.results, a.open, a.notice, a.errText = nil, false, "", ""
 					a.explorePages, a.exploreIndex, a.explorePage = nil, 0, 1
 					a.explore = core.ExploreResult{}
+					a.favGen.next()
+					a.favLoaded, a.favBusy = false, false
+					a.favFolders, a.favComics, a.favErr = nil, nil, ""
 					a.mu.Unlock()
+					if a.mode == 4 {
+						a.loadFavorites(a.currentKey())
+					}
 					if a.mode == 1 {
 						a.loadExplorePages()
 					}
@@ -1052,6 +1080,9 @@ func (a *App) header(c *ui.Context, t *ui.Theme, sources []plugin.Record, option
 		}
 		if ui.Button(c, "分类").Clicked() {
 			a.setMode(3)
+		}
+		if ui.Button(c, "源收藏").Clicked() {
+			a.setMode(4)
 		}
 		if mode == 0 {
 			if ui.SearchField(c, &a.query).Width(280).Submitted() {
@@ -1549,12 +1580,16 @@ func (a *App) setMode(mode int) {
 	a.open = false
 	need := mode == 1 && len(a.explorePages) == 0
 	needCategory := mode == 3 && !a.catLoaded
+	needFavorites := mode == 4 && !a.favLoaded
 	a.mu.Unlock()
 	if need {
 		a.loadExplorePages()
 	}
 	if needCategory {
 		a.loadCategoryDecl(a.currentKey())
+	}
+	if needFavorites {
+		a.loadFavorites(a.currentKey())
 	}
 }
 

@@ -809,6 +809,109 @@ func (c *Core) CategoryComics(ctx context.Context, key, category, param string, 
 	return parsePage(raw)
 }
 
+// FavoritesSupport describes how a source keeps favorites on its own side.
+//
+// Eleven official sources declare a favorites block, and none of it was
+// reachable: the client only had a local shelf, so a comic kept on the site was
+// invisible here.
+type FavoritesSupport struct {
+	// Supported is false when the source keeps no favorites of its own.
+	Supported bool
+	// MultiFolder means the source files favorites into folders and can report
+	// them; a single-folder source takes no folder id at all.
+	MultiFolder bool
+	// Folders means the source can also list its folders and say which of them
+	// already hold a comic.
+	Folders bool
+	// CanLoad means the source can list the comics in a folder. ehentai declares
+	// favorites but not this: it offers folders and a toggle, no list, so an
+	// entry that would show nothing must not appear.
+	CanLoad bool
+}
+
+// FavoritesSupport reads how a source keeps favorites.
+func (c *Core) FavoritesSupport(ctx context.Context, key string) FavoritesSupport {
+	rt, err := c.reg.Comic(key)
+	if err != nil {
+		return FavoritesSupport{}
+	}
+	has := func(path string) bool {
+		ok, err := rt.Has(ctx, key, path)
+		return err == nil && ok
+	}
+	out := FavoritesSupport{
+		Supported: has("favorites.loadComics") || has("favorites.addOrDelFavorite"),
+		Folders:   has("favorites.loadFolders"),
+		CanLoad:   has("favorites.loadComics"),
+	}
+	if out.Supported {
+		// multiFolder is data, not a function: Call invokes, Value reads.
+		raw, err := rt.Value(ctx, key, "favorites.multiFolder")
+		if err == nil {
+			var multi bool
+			if json.Unmarshal(raw, &multi) == nil {
+				out.MultiFolder = multi
+			}
+		}
+		out.Folders = out.Folders && out.MultiFolder
+	}
+	return out
+}
+
+// FavoriteFolders lists a source's folders and, when comicID is not empty, which
+// of them already hold that comic.
+func (c *Core) FavoriteFolders(ctx context.Context, key, comicID string) (map[string]string, []string, error) {
+	var arg any
+	if comicID != "" {
+		arg = comicID
+	} else {
+		arg = nil
+	}
+	raw, err := c.Call(ctx, key, "favorites.loadFolders", arg)
+	if err != nil {
+		return nil, nil, err
+	}
+	var envelope struct {
+		Folders   map[string]string `json:"folders"`
+		Favorited []string          `json:"favorited"`
+	}
+	if err := json.Unmarshal(raw, &envelope); err != nil {
+		return nil, nil, fmt.Errorf("core: favorites.loadFolders: %w", err)
+	}
+	return envelope.Folders, envelope.Favorited, nil
+}
+
+// FavoriteComics loads one page of a folder. A single-folder source takes no
+// folder id, so pass an empty one.
+func (c *Core) FavoriteComics(ctx context.Context, key, folder string, page int) (Page, error) {
+	if page < 1 {
+		page = 1
+	}
+	var arg any
+	if folder != "" {
+		arg = folder
+	} else {
+		arg = nil
+	}
+	raw, err := c.Call(ctx, key, "favorites.loadComics", page, arg)
+	if err != nil {
+		return Page{}, err
+	}
+	return parsePage(raw)
+}
+
+// SetFavorite adds or removes a comic on the source's side.
+func (c *Core) SetFavorite(ctx context.Context, key, comicID, folder string, adding bool) error {
+	var arg any
+	if folder != "" {
+		arg = folder
+	} else {
+		arg = nil
+	}
+	_, err := c.Call(ctx, key, "favorites.addOrDelFavorite", comicID, arg, adding)
+	return err
+}
+
 // Translations reads the UI strings a source declares for this client's locale.
 //
 // A source writes `title: "domain"` and supplies the readable text in its
