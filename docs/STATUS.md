@@ -106,6 +106,10 @@ Core 同步到 `af4f1a0` 之后又跑了两条真实源:MangaDex(`one piece` —
 4. **封面永远是灰块**:首帧渲染时封面还没下载完,解码缓存把「没有图片」记成了最终结果。现在只缓存解码成功的结果和失败的下载。
 5. **源列表陈旧**:`Library.Sources()` 原来读自己的缓存,从其他路径安装的源不显示;现在每次都向 Core 要。
 
+**合并搜索把「源出错」报成了「源没有结果」(2026-11-01)**:`searchEverySource` 里每个源的失败键 `failed[i]` 是被记下来的,但**从来没有被读过**;汇总时只数 `len(found[i]) == 0`,于是失败的源和「搜到 0 条」的源进了同一个篮子。界面上只会说「其中 N 个源没有结果」——用户没法区分是自己关键词的问题还是某个源坏了。现在 `quietSources` 把两者分开:实跑 `goda`(可用)+ `ykmh`(Cloudflare 拦)合并搜索「火影」,提示是 **「30 部,其中 1 个源出错」**,30 张卡片照常显示且各自带来源名;修之前这句会是「30 部,其中 1 个源没有结果」。反向:两条分支的措辞由 `TestQuietSourcesSeparatesErrorsFromNoResults` 分别锁住。
+
+**待查的观察(未定性)**:同一张合并搜索截图里,第一行卡片的来源名都画出来了,第二行起没有;探针显示这 12 条结果的 `subtitle` 全为空,所以不是「副标题把标签挤出去」。可能只是网格在可视区边缘的渲染边界,证据只有一张截图,不足以判定为缺陷,记在这里等复现。
+
 **AI 窗口「默认模型」是死输入框,发送必然 400(2026-11-01)**:在真实界面上点发送,窗口回「Magpie 拒绝了这个请求(HTTP 400)」。逐层查下来是两件事叠在一起:第一,`a.ai.model`(默认模型输入框)只在读取设置时被赋值,**从来没有写回设置** —— 输进去的模型等于没输;第二,`ModelFor` 的注释写「空字符串表示交给 Magpie 的默认路由」,而这台 Magpie 的答案是 `invalid request: model must be a nonempty string`。也就是说「空模型 = 让网关自己路由」这个假设本身是错的,客户端据此发出的请求一定会被拒。现在:输入框的值在 `测试连接` 与 `发送` 时都写回设置(`applyAIFields`,同时去空格),`Session.Ask` 在模型为空时直接返回 `ErrNoModel` 并在窗口里给出「先点读取模型,把这次要用的模型或组填进档位或默认模型」,而不是把注定失败的请求发出去。反向验证:把写回那一行删掉,`TestTheTypedModelReachesTheRequest` 立刻得到 `model = "", want what was typed`。
 
 **AI 窗口对真实 Magpie 的界面证据(2026-11-01)**:`cmd/uicheck` 新增 `-ai` / `-ai-test` / `-ai-model` / `-ai-prompt` / `-ai-out`,可以打开 AI 窗口(它是独立窗口,需要单独截屏)并走一遍真实流程。实跑结果:地址 `http://127.0.0.1:3425`、`Magpie 可用,共 53 个模型或路由组`、目录列出 `group/laincat`、`group/laincat-subagent`、`auto/gpt-6-luna`、`auto/deepseek-v4.1-flash`、`auto/minimax-m3`、`auto/deepseek-v4-pro` 等;选 `group/laincat` 后发送,窗口里出现真实流式回答「我收到了你的消息。」。截图 `ui-ai-magpie.png`(目录)与 `ui-ai-answer2.png`(回答)保留在证据目录。

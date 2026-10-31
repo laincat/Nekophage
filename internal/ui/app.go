@@ -434,6 +434,22 @@ func (a *App) startSearch() {
 	a.searchPage(key, q, 1, ticket)
 }
 
+// quietSources says what happened to the sources that contributed nothing, so
+// a source that errored is never reported as one that simply had no results.
+func quietSources(empty, broken int) string {
+	var parts []string
+	if empty > 0 {
+		parts = append(parts, itoa(empty)+" 个源没有结果")
+	}
+	if broken > 0 {
+		parts = append(parts, itoa(broken)+" 个源出错")
+	}
+	if len(parts) == 0 {
+		return ""
+	}
+	return ",其中 " + strings.Join(parts, "、")
+}
+
 // searchEverySource searches every enabled source at once and shows the
 // results in one grid, each card knowing where it came from.
 func (a *App) searchEverySource(query string, ticket int) {
@@ -487,8 +503,14 @@ func (a *App) searchEverySource(query string, ticket int) {
 			}
 			a.busy = ""
 			a.results, a.resultSources = nil, nil
-			empty := 0
+			empty, broken := 0, 0
 			for i := range enabled {
+				// A source that errored is not a source that found nothing:
+				// one says the source is broken, the other says the query is.
+				if failed[i] != "" {
+					broken++
+					continue
+				}
 				if len(found[i]) == 0 {
 					empty++
 					continue
@@ -499,11 +521,10 @@ func (a *App) searchEverySource(query string, ticket int) {
 				}
 			}
 			a.page, a.maxPage = 1, 0
-			switch {
-			case len(a.results) == 0:
-				a.notice = "没有结果"
-			case empty > 0:
-				a.notice = itoa(len(a.results)) + " 部,其中 " + itoa(empty) + " 个源没有结果"
+			if len(a.results) == 0 {
+				a.notice = "没有结果" + quietSources(empty, broken)
+			} else if tail := quietSources(empty, broken); tail != "" {
+				a.notice = itoa(len(a.results)) + " 部" + tail
 			}
 			if a.dev.OpenLast && !a.dev.opened && len(a.results) > 0 {
 				a.dev.opened = true
