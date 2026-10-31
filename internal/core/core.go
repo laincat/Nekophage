@@ -4,6 +4,7 @@
 package core
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -630,6 +631,21 @@ type ImageRequest struct {
 	Method  string
 	Headers map[string]string
 	Body    []byte
+	// Handle names the config's callbacks inside the source's runtime, and
+	// Callbacks says which of onResponse/onLoadFailed it carries. A source
+	// that only names an address leaves both empty.
+	Handle    string
+	Callbacks []string
+}
+
+// HasCallback reports whether the config carries name.
+func (r ImageRequest) HasCallback(name string) bool {
+	for _, c := range r.Callbacks {
+		if c == name {
+			return true
+		}
+	}
+	return false
 }
 
 // ImageRequest asks the source how to fetch an image. thumbnail asks
@@ -637,44 +653,35 @@ type ImageRequest struct {
 // URL is fetched as it is.
 func (c *Core) ImageRequest(ctx context.Context, key, url, comicID, chapterID string, thumbnail bool) (ImageRequest, error) {
 	req := ImageRequest{URL: url, Method: "GET"}
-	var raw json.RawMessage
-	var err error
-	switch {
-	case thumbnail && c.Has(ctx, key, "comic.onThumbnailLoad"):
-		raw, err = c.Call(ctx, key, "comic.onThumbnailLoad", url)
-	case c.Has(ctx, key, "comic.onImageLoad"):
-		var arg any
-		if chapterID != "" {
-			arg = chapterID
-		}
-		raw, err = c.Call(ctx, key, "comic.onImageLoad", url, comicID, arg)
-	case c.Has(ctx, key, "comic.onThumbnailLoad"):
-		raw, err = c.Call(ctx, key, "comic.onThumbnailLoad", url)
-	default:
+	rt, err := c.reg.Comic(key)
+	if err != nil {
+		return req, err
+	}
+	// Core keeps the config's callbacks and reports a handle for them; a
+	// source without a hook reports ErrNoImageCallback and the address is
+	// fetched as it is.
+	cfg, err := rt.ImageConfig(ctx, key, url, comicID, chapterID, thumbnail)
+	if errors.Is(err, js.ErrNoImageCallback) {
 		return req, nil
 	}
 	if err != nil {
 		return req, err
 	}
-	var out struct {
-		URL     string            `json:"url"`
-		Method  string            `json:"method"`
-		Headers map[string]string `json:"headers"`
-		Data    string            `json:"data"`
-	}
-	if err := json.Unmarshal(raw, &out); err != nil || out.URL == "" && out.Headers == nil && out.Data == "" {
+	if cfg.URL == "" && cfg.Headers == nil && cfg.Data == "" && cfg.Handle == "" {
 		return req, nil // the source returned nothing useful
 	}
-	if out.URL != "" {
-		req.URL = out.URL
+	if cfg.URL != "" {
+		req.URL = cfg.URL
 	}
-	if out.Method != "" {
-		req.Method = strings.ToUpper(out.Method)
+	if cfg.Method != "" {
+		req.Method = strings.ToUpper(cfg.Method)
 	}
-	req.Headers = out.Headers
-	if out.Data != "" {
-		req.Body = []byte(out.Data)
+	req.Headers = cfg.Headers
+	if cfg.Data != "" {
+		req.Body = []byte(cfg.Data)
 	}
+	req.Handle = cfg.Handle
+	req.Callbacks = cfg.Callbacks
 	return req, nil
 }
 
@@ -712,6 +719,82 @@ func (c *Core) DoImageRequest(ctx context.Context, key string, req ImageRequest)
 }
 
 func (c *Core) doImage(ctx context.Context, key string, req ImageRequest) ([]byte, string, error) {
+	// A config may name several mirrors and a body transform. Both live in the
+	// source's runtime, so a failure asks for the next mirror and a success
+	// hands the body to onResponse. The hop count bounds a source that keeps
+	// answering with another failing address.
+	const maxHops = 4
+	var lastErr error
+	for hop := 0; hop < maxHops; hop++ {
+		data, ctype, err := c.fetchImageOnce(ctx, key, req)
+		if err == nil && looksLikeHTML(data) && req.HasCallback("onLoadFailed") {
+			// A mirror can answer 200 with an error page. The official client
+			// treats that as a failed load because decoding it fails, and asks
+			// the source for the next mirror; here the fetch itself succeeded,
+			// so the body is what has to say so.
+			err = errors.New("core: image response is an HTML page")
+		}
+		if err == nil {
+			if req.Handle != "" && req.HasCallback("onResponse") {
+				rt, rerr := c.reg.Comic(key)
+				if rerr != nil {
+					return nil, "", rerr
+				}
+				got, aerr := rt.ApplyImageResponse(ctx, key, req.Handle, data)
+				if aerr != nil && !errors.Is(aerr, js.ErrNoImageCallback) {
+					return nil, "", aerr
+				}
+				if aerr == nil {
+					// The bytes are whatever the source produced now, so the
+					// server's label no longer describes them.
+					return got, "", nil
+				}
+			}
+			return data, ctype, nil
+		}
+		lastErr = err
+		if req.Handle == "" || !req.HasCallback("onLoadFailed") {
+			return nil, "", err
+		}
+		rt, rerr := c.reg.Comic(key)
+		if rerr != nil {
+			return nil, "", err
+		}
+		next, ferr := rt.ImageFallback(ctx, key, req.Handle)
+		if ferr != nil || next.URL == "" {
+			return nil, "", err
+		}
+		req.URL, req.Headers, req.Handle, req.Callbacks = next.URL, next.Headers, next.Handle, next.Callbacks
+		if next.Method != "" {
+			req.Method = strings.ToUpper(next.Method)
+		}
+		if next.Data != "" {
+			req.Body = []byte(next.Data)
+		}
+	}
+	return nil, "", lastErr
+}
+
+// looksLikeHTML reports whether a body is a web page rather than an image. A
+// mirror that is out of quota answers 200 with an error page, and the source is
+// the only one that knows another mirror.
+func looksLikeHTML(data []byte) bool {
+	head := data
+	if len(head) > 512 {
+		head = head[:512]
+	}
+	head = bytes.TrimLeft(head, " \t\r\n\ufeff")
+	lower := bytes.ToLower(head)
+	for _, prefix := range []string{"<!doctype html", "<html", "<?xml", "<head", "<body"} {
+		if bytes.HasPrefix(lower, []byte(prefix)) {
+			return true
+		}
+	}
+	return false
+}
+
+// fetchImageOnce performs one hop of a config: one address, one request.
+func (c *Core) fetchImageOnce(ctx context.Context, key string, req ImageRequest) ([]byte, string, error) {
 	// A source may hand back an image address without its scheme, such as
 	// "//images.example.com/1.jpg". RFC 3986 says such an address inherits
 	// the scheme of the page, so the scheme this source last used is the one
