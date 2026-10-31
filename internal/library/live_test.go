@@ -153,6 +153,18 @@ func TestLiveSource(t *testing.T) {
 
 	// The reader page's own requests, exactly as the WebView makes them: it
 	// asks /chapter for the list, then /img per page.
+	//
+	// A site can answer a different number of pages on every call — drmh3
+	// answered 351 and then 350 within one run, and 404 on another — so the
+	// reader is held to any count the source itself produced, not to one
+	// snapshot. A reader that drops or repeats a page still fails, because
+	// its count is then a third number.
+	counts := []int{len(images)}
+	if again, err := c.ChapterImages(ctx, rec.Key, pick.ID, chapterID); err == nil {
+		counts = append(counts, len(again))
+	} else {
+		t.Logf("the second page list failed (%v)", err)
+	}
 	srv := reader.New(c)
 	chapterURL := readerURL("/chapter", "source", rec.Key, "comic", pick.ID, "chapter", chapterID)
 	rec2 := httptest.NewRecorder()
@@ -168,8 +180,17 @@ func TestLiveSource(t *testing.T) {
 		t.Fatalf("reader /chapter json: %v", err)
 	}
 	t.Logf("reader /chapter: %d images", len(listed.Images))
-	if len(listed.Images) != len(images) {
-		t.Errorf("reader /chapter has %d images, the source gave %d", len(listed.Images), len(images))
+	matched := false
+	for _, count := range counts {
+		if count == len(listed.Images) {
+			matched = true
+		}
+	}
+	if !matched {
+		t.Errorf("reader /chapter has %d images; the source answered %v", len(listed.Images), counts)
+	}
+	if len(images) == 0 {
+		t.Fatalf("no page to fetch")
 	}
 
 	imgURL := reader.ImageURL(rec.Key, pick.ID, chapterID, images[0])
