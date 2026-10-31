@@ -459,7 +459,7 @@ func (a *App) applyBackup() {
 		if b.Plan != nil && len(b.Plan.Cookies) > 0 && len(b.Plan.CookieTargets) > 0 {
 			jar := a.lib.Jar()
 			for _, partition := range b.Plan.CookieTargets {
-				jar.Import(partition, toNetCookies(b.Plan.Cookies))
+				jar.Import(partition, toNetCookies(b.Plan.Cookies, time.Now()))
 				cookieRows += len(b.Plan.Cookies)
 			}
 		}
@@ -511,13 +511,19 @@ func (a *App) applyBackup() {
 //
 // Expiry is milliseconds since the epoch in the backup and a time here; a row
 // without one is a session cookie and stays without one.
-func toNetCookies(rows []backup.Cookie) []*http.Cookie {
+func toNetCookies(rows []backup.Cookie, now time.Time) []*http.Cookie {
 	out := make([]*http.Cookie, 0, len(rows))
 	for _, row := range rows {
 		c := &http.Cookie{Name: row.Name, Value: row.Value, Domain: row.Domain, Path: row.Path,
 			Secure: row.Secure, HttpOnly: row.HTTPOnly}
 		if row.Expires != nil && *row.Expires > 0 {
-			c.Expires = time.UnixMilli(*row.Expires)
+			when := time.UnixMilli(*row.Expires)
+			// Already expired: the jar would never send it, yet the summary
+			// would count it as a restored sign-in. Skip it instead.
+			if !when.After(now) {
+				continue
+			}
+			c.Expires = when
 		}
 		out = append(out, c)
 	}
