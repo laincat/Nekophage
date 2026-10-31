@@ -123,12 +123,23 @@ func (a *App) filtersView(c *ui.Context, t *ui.Theme) {
 	if len(groups) == 0 {
 		return
 	}
+	optionChips(c, t, groups, values, a.chooseOption)
+	ui.Divider(c)
+}
 
+// optionChips draws one row of chips per option group.
+//
+// Both a search and a category page take one chosen value per group, so the
+// drawing is shared and only what happens on a tap differs: a search reruns
+// itself, a category page reloads the entry that is open.
+func optionChips(c *ui.Context, t *ui.Theme, groups []core.SearchOptionGroup, values []string,
+	pick func(group int, key string, multi bool)) {
 	ui.Column(c).Padding(6, 16).Gap(4).Children(func() {
 		for i, g := range groups {
 			if i >= len(values) {
 				break
 			}
+			i, g := i, g
 			label := g.Label
 			if label == "" {
 				label = "选项 " + itoa(i+1)
@@ -151,19 +162,19 @@ func (a *App) filtersView(c *ui.Context, t *ui.Theme) {
 				ui.ScrollHorizontal(c).Grow(1).Children(func() {
 					ui.Row(c).Gap(4).Children(func() {
 						for j, key := range g.Values {
+							j, key := j, key
 							text := key
 							if j < len(g.Labels) && g.Labels[j] != "" {
 								text = g.Labels[j]
 							}
-							on := selected(key)
-							if on {
+							if selected(key) {
 								if ui.PrimaryButton(c, text).Clicked() {
-									a.chooseOption(i, key, multi)
+									pick(i, key, multi)
 								}
 								continue
 							}
 							if ui.Button(c, text).Clicked() {
-								a.chooseOption(i, key, multi)
+								pick(i, key, multi)
 							}
 						}
 					})
@@ -171,11 +182,8 @@ func (a *App) filtersView(c *ui.Context, t *ui.Theme) {
 			})
 		}
 	})
-	ui.Divider(c)
 }
 
-// chooseOption records one chip click: single-choice groups replace their
-// value, multi-choice groups add or drop the key.
 func (a *App) chooseOption(group int, key string, multi bool) {
 	a.mu.Lock()
 	if group < len(a.searchValues) {

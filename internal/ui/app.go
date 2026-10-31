@@ -1307,6 +1307,38 @@ func (a *App) loadCategoryPage(key string, part, value, page int) {
 	}()
 }
 
+// chooseCatOption changes one of the loader's options and reloads the entry
+// that is open, so the choice takes effect the way a search filter does.
+func (a *App) chooseCatOption(group int, key string, multi bool) {
+	a.mu.Lock()
+	if group < len(a.catOptions) {
+		if multi {
+			current := multiValues(a.catOptions[group])
+			out := make([]string, 0, len(current)+1)
+			had := false
+			for _, v := range current {
+				if v == key {
+					had = true
+					continue
+				}
+				out = append(out, v)
+			}
+			if !had {
+				out = append(out, key)
+			}
+			a.catOptions[group] = encodeMulti(out)
+		} else {
+			a.catOptions[group] = key
+		}
+	}
+	part, value, page := a.catPart, a.catValue, a.catPage
+	a.mu.Unlock()
+	if a.win != nil {
+		a.win.Update(func() {})
+	}
+	a.loadCategoryPage(a.currentKey(), part, value, page)
+}
+
 // categoryView shows a source's category page: its parts, its options, then the
 // comics the chosen entry returned.
 func (a *App) categoryView(c *ui.Context, t *ui.Theme) {
@@ -1352,6 +1384,14 @@ func (a *App) categoryView(c *ui.Context, t *ui.Theme) {
 				}
 			}
 		})
+	}
+	// The loader's own options, drawn the way a search's filters are.
+	a.mu.Lock()
+	groups := append([]core.SearchOptionGroup(nil), cat.Options...)
+	values := append([]string(nil), a.catOptions...)
+	a.mu.Unlock()
+	if len(groups) > 0 {
+		optionChips(c, t, groups, values, a.chooseCatOption)
 	}
 	ui.Divider(c)
 
