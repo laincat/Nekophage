@@ -154,7 +154,7 @@ Core 同步到 `af4f1a0` 之后又跑了两条真实源:MangaDex(`one piece` —
 | 加密/乱序图片,客户端丢了 `onResponse` | 6 | `cxc`、`ccc`、`mojoin`、`mojoin_fixed_v107`、`manwaba_fixed`、`manwaba_fixed_v113` | 客户端缺口,见上一节 |
 | 运行时把 JS 内建锁成只读 | 1 | `rumanhua2` | 依赖问题,见下 |
 | 图片地址本身报错 | 6 | `baozi`、`baozi_fixed`、`mh1234_fixed`、`manga51`(仅封面 404)、`haokan`(525)、`311`(EOF) | 站点/CDN,不是客户端 |
-| 图片地址返回 HTML | 2 | `4khd_cosplay`、`mh03` | 站点改版或防抓 |
+| 图片地址返回 HTML | 2 | `4khd_cosplay`(镜像回退未接)、`mh03`(`manga.5um.net` 本机 curl 连 TLS 握手都失败) | 前者是客户端缺口,后者是站点侧 |
 | 需要账号 | 1 | `hanabimanga`(`请先在插件登录界面登录`) | 未登录,预期行为 |
 | 站点搜索 404 或首页也空 | 3 | `isamanhua`、`sunday_webry`、`guazi` | 站点改了路径或不可用 |
 | 版本门槛 | 1 | `recode-jm`(`minAppVersion 1.16.0`) | 源要求的版本高于参照版本,拒绝安装是对的 |
@@ -162,7 +162,7 @@ Core 同步到 `af4f1a0` 之后又跑了两条真实源:MangaDex(`one piece` —
 
 **`rumanhua2` 暴露了运行时的一处保真度问题**:它在 `finally` 里把 `root.atob` 还原回去,而 **moejs 把 `atob`/`btoa`/`TextDecoder` 等内建都定义成不可写且不可配置**,于是类方法(严格模式)里的赋值直接抛 `TypeError: Cannot assign to read only property 'atob'`。探针实测(`Object.getOwnPropertyDescriptor(globalThis,'atob')`)返回 `writable=false, configurable=false`,并且列表里 `atob`、`btoa`、`TextEncoder`、`TextDecoder`、`structuredClone`、`Intl` 全部同样锁死;真实浏览器与 Node 里这些是可写可配置的普通属性。因为不可配置,Core 的 JS 层**改不动**它,只能在运行时侧修或换实现 —— 先记录,不擅自改依赖版本。
 
-**加密图片的源在客户端显示不出图(2026-11-01,已确认,未修)**:`cxc` 这类源给的不是图片地址,而是「地址 + `#cxc-v1=密钥:IV`」,再由 `comic.onImageLoad` 返回一个 `ImageLoadingConfig`,里面用 `onResponse` 回调把响应体做 AES-CBC 解密、转成真正的图片。**客户端的 `ImageRequest` 只取了 `url`/`method`/`headers`/`data`,把 `onResponse` 与 `modifyImage` 直接丢掉了**,于是 `/img` 把密文当图片返回:`cxc` 实测 659,568 字节、`Content-Type: image/png`,但文件头不是任何已知图片格式,阅读器只能显示破图。`comic/js/init.js` 里 `ImageLoadingConfig` 是有这两个字段的,所以这不是源写错,是宿主没实现。修它要让宿主把响应体交回 JS 回调、再把返回的字节拿回来 —— 需要 Core 提供「按配置 id 应用 onResponse」的入口,属于 Core 接口变更(会动 pin 与两个客户端),因此先记录、不擅自扩大。
+**图片配置里的三个回调,客户端一个都没接(2026-11-01,已确认,未修)**:`ImageLoadingConfig` 除了 `url`/`method`/`headers`/`data`,还可能带 `onResponse`(把响应体解密或改写后再用)、`modifyImage`(用像素缓冲脚本改图)、`onLoadFailed`(这次地址不行就换下一个镜像)。**这三个都在 `ImageRequest` 里被丢掉了**,于是同一类源分别坏在三个地方:`cxc`/`mojoin`/`manwaba` 把密文当图片(见下条),而 `4khd_cosplay` 的首选镜像 `img.uuss.uk` 返回的是 1243 字节的 HTML 错误页 —— 源本来就写了「这一家失败就换 4khd/wordpress」,客户端没调 `onLoadFailed`,就直接把这张 HTML 当成了图片。两处都能用同一个机制修:让 Core 留住配置里的函数并允许「按句柄调用」,宿主再把响应体交给它。:`cxc` 这类源给的不是图片地址,而是「地址 + `#cxc-v1=密钥:IV`」,再由 `comic.onImageLoad` 返回一个 `ImageLoadingConfig`,里面用 `onResponse` 回调把响应体做 AES-CBC 解密、转成真正的图片。**客户端的 `ImageRequest` 只取了 `url`/`method`/`headers`/`data`,把 `onResponse` 与 `modifyImage` 直接丢掉了**,于是 `/img` 把密文当图片返回:`cxc` 实测 659,568 字节、`Content-Type: image/png`,但文件头不是任何已知图片格式,阅读器只能显示破图。`comic/js/init.js` 里 `ImageLoadingConfig` 是有这两个字段的,所以这不是源写错,是宿主没实现。修它要让宿主把响应体交回 JS 回调、再把返回的字节拿回来 —— 需要 Core 提供「按配置 id 应用 onResponse」的入口,属于 Core 接口变更(会动 pin 与两个客户端),因此先记录、不擅自扩大。
 
 **源写了哪种搜索入口就调哪种(2026-11-01)**:官方的搜索有两个入口 —— `search.load(keyword, options, page)` 收页码,`search.loadNext(keyword, options, next)` 收上一页返回的游标。客户端只认前者,于是 `ehentai` 这种只声明 `loadNext` 的源在搜索时直接报「source does not define this function」,而它在官方客户端里是能用的。现在先看源声明了哪个;声明了 `loadNext` 就按游标翻页,游标按源和页码记住,新搜索(第 1 页)清掉上一轮。之前 `search` 的 `load` 与 `loadNext` 混在两个文件里的判断也统一了 —— 视频那条路早就有,漫画这条一直缺。
 
