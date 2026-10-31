@@ -112,3 +112,64 @@ func TestLiveCategoryPages(t *testing.T) {
 		t.Logf("    page 2: %d comics, %d shared", len(next.Comics), shared)
 	}
 }
+
+// A random part is not a category: its declared meaning is "take this many
+// values and search for them", so the values have to work as a keyword.
+func TestLiveCategoryRandomSearch(t *testing.T) {
+	script := os.Getenv("NK_LIVE_JS")
+	if script == "" {
+		t.Skip("set NK_LIVE_JS to a source file")
+	}
+	body, err := os.ReadFile(script)
+	if err != nil {
+		t.Fatal(err)
+	}
+	c, err := core.Open(core.Options{DataDir: t.TempDir(), AppVersion: "1.6.3", Locale: "zh_CN"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer c.Close()
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
+	defer cancel()
+	rec, err := c.Install(ctx, string(body), script, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	cat, err := c.CategoryPage(ctx, rec.Key)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var part *core.CategoryPart
+	for i := range cat.Parts {
+		if cat.Parts[i].Type == "random" && len(cat.Parts[i].Categories) > 0 {
+			part = &cat.Parts[i]
+			break
+		}
+	}
+	if part == nil {
+		t.Skip("SKIP: source declares no random part")
+	}
+	// A search takes the search's own options, not the category page's: nhentai
+	// declares "/-Recent" for the category loader and "date" for search.load.
+	groups, err := c.SearchOptions(ctx, rec.Key)
+	if err != nil {
+		t.Fatal(err)
+	}
+	options := []string{}
+	for _, g := range groups {
+		options = append(options, g.Default)
+	}
+	// What the interface sends: one value, which the site accepts. Joining the
+	// declared randomNumber of values asks for works carrying all of them —
+	// measured on nhentai, eight tags still answered, ten answered nothing and
+	// twenty were rejected — so the count is a display size, not a join width.
+	keyword := part.Categories[0]
+	page, err := c.Search(ctx, rec.Key, keyword, options, 1)
+	if err != nil {
+		t.Fatalf("%q: %v", keyword, err)
+	}
+	t.Logf("  random part %q: %q -> %d comics, maxPage %d", part.Name, keyword, len(page.Comics), page.MaxPage)
+	if len(page.Comics) == 0 {
+		t.Fatalf("%q returned nothing, so the random part cannot be searched", keyword)
+	}
+}

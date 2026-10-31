@@ -1351,17 +1351,23 @@ func (a *App) chooseCatOption(group int, key string, multi bool) {
 // The part lists values but is not loaded through categoryComics: the official
 // client takes randomNumber of them and searches for the words together, which
 // is what nhentai's Tags part does.
-func (a *App) randomCategory(part core.CategoryPart, n int) {
+// randomCategory searches for one value of a random part.
+//
+// The declared randomNumber is not the number of values to join: the source's
+// own note says it is "the number of comics to display at the same time", and
+// a comic search treats several tags as all-of-them. Joining twenty nhentai
+// tags asks for works carrying all twenty, which is nothing: measured on the
+// live site, eight tags still answered 20 comics, ten answered none, and twenty
+// were rejected outright. One value per click is what the site accepts, and
+// clicking again explores another.
+func (a *App) randomCategory(part core.CategoryPart) {
 	values := append([]string(nil), part.Categories...)
 	if len(values) == 0 {
 		return
 	}
 	rand.Shuffle(len(values), func(i, j int) { values[i], values[j] = values[j], values[i] })
-	if n < len(values) {
-		values = values[:n]
-	}
 	a.mu.Lock()
-	a.query = strings.Join(values, " ")
+	a.query = values[0]
 	a.mu.Unlock()
 	a.setMode(0)
 	a.startSearch()
@@ -1400,14 +1406,10 @@ func (a *App) categoryView(c *ui.Context, t *ui.Theme) {
 		ui.Row(c).Padding(6, 16).Gap(6).Wrap().AlignItems(ui.Center).Children(func() {
 			ui.Text(c, p.Name).FontSize(12).TextColor(t.TextMuted).Width(64)
 			if p.Type == "random" {
-				// A random part is not loaded: it picks some of its values and
-				// searches for them, which is what the official client does.
-				n := p.RandomNumber
-				if n <= 0 {
-					n = 1
-				}
-				if ui.Button(c, "随机 "+itoa(n)+" 个").Clicked() {
-					a.randomCategory(p, n)
+				// A random part is not loaded: it searches for one of its
+				// values, which is what the site accepts (see randomCategory).
+				if ui.Button(c, "随机一个标签").Clicked() {
+					a.randomCategory(p)
 				}
 				return
 			}
