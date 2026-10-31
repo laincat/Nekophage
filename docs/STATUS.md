@@ -170,6 +170,10 @@ Core 同步到 `af4f1a0` 之后又跑了两条真实源:MangaDex(`one piece` —
 
 **`modifyImage` 已接上(2026-11-01,pin `6aa9356`)**:Core 新增 `Runtime.ModifyImage`(把解码后的 RGBA 放进一次性位图仓库、在独立运行时里跑源给的脚本、取回结果位图;解码与编码仍由客户端做),桌面端在图片路径里接上:取回 → 有 `onResponse` 先改写 → 有 `modifyImage` 就解码成 RGBA、跑脚本、编码回 PNG,内容类型随之改成 `image/png`。`modifyImage` 在配置里是**字符串脚本**而不是函数,所以它走 `ImageConfig.ModifyImage` 而不是回调句柄 —— 这一点最初写错过,补了一条用例钉住。确定性验证:源返回 4×2 的红蓝图 + 顺时针旋转脚本,取回后是 2×4 且红在上;脚本返回非图像时如实报错、不回落到原图。真实源侧 `hitomi`、`manhuagui` 实测通过(它们的图多为 avif/webp,不一定触发脚本)。
 
+**门禁:源声明了却没接上的能力,现在会失败(2026-11-01)**:`category`、`ranking`、`account`、`favorites`、`translation` 这几处缺口都是同一类问题 —— 源在脚本里声明,客户端读不到,症状只是一个空屏或一个英文键名,只能靠人反复重读契约去找。现在 `scripts/check-capabilities.sh` 按能力列出「Core 入口 + 界面入口」,用**固定字符串**匹配(改名后不会靠前缀继续通过),任一路径消失就失败,已接进 `scripts/check.sh`。
+
+负向验证:把 `favoritesView` 改名、把 `"favorites.loadComics"` 改名,脚本分别点名缺失的能力并非零退出;恢复后回到 `ok`。它只保证**路径还在**,不保证行为正确。
+
 **源自己的收藏:11 个源声明了,之前完全没读(2026-11-01,pin `0bcdaef`)**:`favorites` 块是源在**它自己那边**保存的收藏,与客户端的本地书架是两回事。三种形状实测各不相同:
 
 | 源 | multiFolder | loadFolders | loadComics | 实际表现 |

@@ -43,5 +43,6 @@ run 'go vet' go vet ./...
 run 'go test' go test -count=1 ./...
 run 'docs' sh scripts/check-docs.sh
 run 'partitions' sh scripts/check-partitions.sh
+run 'capabilities' sh scripts/check-capabilities.sh
 
 exit $status
