@@ -10,6 +10,8 @@ import (
 	"errors"
 	"fmt"
 	"image"
+	_ "image/gif"  // registered so a modifyImage script can read gif bytes
+	_ "image/jpeg" // and jpeg, which is what most pages serve
 	"image/png"
 	"net/http"
 	"net/url"

@@ -164,6 +164,8 @@ Core 同步到 `af4f1a0` 之后又跑了两条真实源:MangaDex(`one piece` —
 
 **`hot_manga` 的图片质量设置不生效 —— 是源自己的正则过期(2026-11-01,已定位)**:这一条挂了几轮。实测把 `image_quality` 从默认改成一个更低的值后,章节里第一张图的地址**一个字都没变**(都是 `...jpg.h1500x.webp`)。查源:`hot_manga` 用 `url.replace(/\.jpg\.h\d+x\.jpg$/, ".jpg.h{N}x.jpg")` 改质量,**而站点现在返回的后缀是 `.webp`** —— 正则根本匹配不上,自然不改。反向确认过我们的链路没坏:同一套 `Store.SaveSetting` → `loadSetting` 在 `manga_dex` 上确实生效(`/data/` → `/data-saver/`)。所以这条不是客户端问题,是源需要把正则改成 `.((jpg)|(webp))$`。
 
+**只注册了一个解码器,导致脚本静默不生效(2026-11-01,已修)**:接上 `modifyImage` 之后,拿 `shonen_jump_plus` 实测却发现返回的还是 `image/jpeg` —— 脚本明明带上了(配置里 548 字符,`req.ModifyImage` 也非空)。原因是这个构建只 `import _ "image/png"`,**没注册 jpeg 与 gif 的解码器**,于是 `image.Decode` 对 JPEG 报「未知格式」,被当成「解不了」而走了放行分支。补上两个空导入后,同一张图从 232,750 字节 JPEG 变成 879,725 字节 PNG(该源用脚本还原被切块打散的页面)。`TestModifyImageRunsOnJPEGBytes` 用 JPEG 输入 + 旋转脚本钉住这条:结果必须是 `image/png`,否则说明脚本没跑。
+
 **解不了的格式要放行,不能让整页失败(2026-11-01)**:`hitomi` 这类源给的是 avif,而我们只注册了 png/jpeg/gif/webp 解码器 —— 源一旦给它配上 `modifyImage` 脚本,解码失败就会让整页打不开。现在把「这个构建读不了这种格式」与「脚本本身出错」分开:前者原样返回服务器给的字节与内容类型(读者至少能看到图),后者仍然如实报错。`TestModifyImagePassesThroughAnUnknownFormat` 用一段 avif 头钉住这条。
 
 **`modifyImage` 已接上(2026-11-01,pin `6aa9356`)**:Core 新增 `Runtime.ModifyImage`(把解码后的 RGBA 放进一次性位图仓库、在独立运行时里跑源给的脚本、取回结果位图;解码与编码仍由客户端做),桌面端在图片路径里接上:取回 → 有 `onResponse` 先改写 → 有 `modifyImage` 就解码成 RGBA、跑脚本、编码回 PNG,内容类型随之改成 `image/png`。`modifyImage` 在配置里是**字符串脚本**而不是函数,所以它走 `ImageConfig.ModifyImage` 而不是回调句柄 —— 这一点最初写错过,补了一条用例钉住。确定性验证:源返回 4×2 的红蓝图 + 顺时针旋转脚本,取回后是 2×4 且红在上;脚本返回非图像时如实报错、不回落到原图。真实源侧 `hitomi`、`manhuagui` 实测通过(它们的图多为 avif/webp,不一定触发脚本)。

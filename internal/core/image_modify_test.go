@@ -5,6 +5,7 @@ import (
 	"context"
 	"image"
 	"image/color"
+	"image/jpeg"
 	"image/png"
 	"net/http"
 	"net/http/httptest"
@@ -155,5 +156,58 @@ class Avif extends ComicSource {
 	}
 	if ctype != "image/avif" {
 		t.Errorf("content type = %q, want the server's own", ctype)
+	}
+}
+
+// The decoders that must be registered are easy to forget: with only png
+// registered, a jpeg page silently took the "cannot decode" path and the
+// script never ran. The type of the result is what proves it ran.
+func TestModifyImageRunsOnJPEGBytes(t *testing.T) {
+	src := image.NewRGBA(image.Rect(0, 0, 3, 2))
+	for y := 0; y < 2; y++ {
+		for x := 0; x < 3; x++ {
+			src.Set(x, y, color.RGBA{G: 200, A: 255})
+		}
+	}
+	var body bytes.Buffer
+	if err := jpeg.Encode(&body, src, nil); err != nil {
+		t.Fatal(err)
+	}
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "image/jpeg")
+		_, _ = w.Write(body.Bytes())
+	}))
+	defer srv.Close()
+
+	c, err := Open(Options{DataDir: filepath.Join(t.TempDir(), "data"), AppVersion: "1.6.0", Locale: "zh_CN"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer c.Close()
+
+	script := `
+class Jpg extends ComicSource {
+    name = "Jpg"; key = "jpg"; version = "1.0.0"
+    comic = {
+        onImageLoad: (url) => ({ url: url, modifyImage: "let modifyImage = (image) => image.copyAndRotate90()" })
+    }
+}
+`
+	if _, err := c.Install(context.Background(), script, "test", ""); err != nil {
+		t.Fatalf("install: %v", err)
+	}
+	got, ctype, err := c.FetchImage(context.Background(), "jpg", srv.URL+"/1.jpg", "c1", "e1")
+	if err != nil {
+		t.Fatalf("fetch image: %v", err)
+	}
+	if ctype != "image/png" {
+		t.Fatalf("content type = %q, want image/png: the script did not run", ctype)
+	}
+	out, err := png.Decode(bytes.NewReader(got))
+	if err != nil {
+		t.Fatalf("not a PNG: %v", err)
+	}
+	if b := out.Bounds(); b.Dx() != 2 || b.Dy() != 3 {
+		t.Errorf("result is %dx%d, want 2x3", b.Dx(), b.Dy())
 	}
 }
