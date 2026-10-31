@@ -117,3 +117,43 @@ class Bad extends ComicSource {
 		t.Error("a script that returns no image was accepted")
 	}
 }
+
+// A source may pair a pixel script with a format this build cannot read —
+// hitomi serves avif. The script cannot run, but failing the page over it would
+// hide an image the reader could show as it arrived.
+func TestModifyImagePassesThroughAnUnknownFormat(t *testing.T) {
+	avif := append([]byte{0, 0, 0, 0x1C, 'f', 't', 'y', 'p', 'a', 'v', 'i', 'f'}, make([]byte, 40)...)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "image/avif")
+		_, _ = w.Write(avif)
+	}))
+	defer srv.Close()
+
+	c, err := Open(Options{DataDir: filepath.Join(t.TempDir(), "data"), AppVersion: "1.6.0", Locale: "zh_CN"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer c.Close()
+
+	script := `
+class Avif extends ComicSource {
+    name = "Avif"; key = "avif"; version = "1.0.0"
+    comic = {
+        onImageLoad: (url) => ({ url: url, modifyImage: "let modifyImage = (i) => i" })
+    }
+}
+`
+	if _, err := c.Install(context.Background(), script, "test", ""); err != nil {
+		t.Fatalf("install: %v", err)
+	}
+	got, ctype, err := c.FetchImage(context.Background(), "avif", srv.URL+"/1.avif", "c1", "e1")
+	if err != nil {
+		t.Fatalf("fetch image: %v", err)
+	}
+	if !bytes.Equal(got, avif) {
+		t.Errorf("the body changed: %d bytes", len(got))
+	}
+	if ctype != "image/avif" {
+		t.Errorf("content type = %q, want the server's own", ctype)
+	}
+}

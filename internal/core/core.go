@@ -762,6 +762,13 @@ func (c *Core) doImage(ctx context.Context, key string, req ImageRequest) ([]byt
 				// long strip, and several sources rotate a page. The result is
 				// re-encoded, so the server's label no longer applies.
 				fixed, merr := c.modifyImage(ctx, key, req.ModifyImage, data)
+				if errors.Is(merr, errUndecodable) {
+					// The source asked for a pixel pass but this build cannot
+					// read the format it sent (avif, for one). Showing the image
+					// as it arrived beats failing the page over an ordering the
+					// reader may not even notice.
+					return data, ctype, nil
+				}
 				if merr != nil {
 					return nil, "", merr
 				}
@@ -1039,6 +1046,10 @@ const DefaultUserAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/
 // the reader will ever show, so a bigger one is passed through untouched.
 const maxModifyPixels = 64 << 20
 
+// errUndecodable marks a body this build cannot decode, which is not the
+// source's mistake.
+var errUndecodable = errors.New("core: image format not supported")
+
 // modifyImage runs a source's pixel-buffer script and returns PNG bytes.
 //
 // The script works on RGBA and Core only moves pixels; decoding the fetched
@@ -1047,7 +1058,7 @@ const maxModifyPixels = 64 << 20
 func (c *Core) modifyImage(ctx context.Context, key, script string, data []byte) ([]byte, error) {
 	img, _, err := image.Decode(bytes.NewReader(data))
 	if err != nil {
-		return nil, fmt.Errorf("core: modifyImage: %w", err)
+		return nil, errUndecodable
 	}
 	bounds := img.Bounds()
 	w, h := bounds.Dx(), bounds.Dy()
