@@ -13,6 +13,7 @@ import (
 
 	"github.com/egoist/mygo/ui"
 	"github.com/laincat/nekophage/internal/archive"
+	"github.com/laincat/nekophage/internal/cookies"
 	"github.com/laincat/nekophage/internal/core"
 	"github.com/laincat/nekophage/internal/shelf"
 	"github.com/laincat/veneracat-core/backup"
@@ -455,24 +456,11 @@ func (a *App) applyBackup() {
 			}
 		}
 
-		cookieRows := 0
-		if b.Plan != nil && len(b.Plan.Cookies) > 0 && len(b.Plan.CookieTargets) > 0 {
-			jar := a.lib.Jar()
-			installed := make(map[string]bool, len(a.lib.Sources()))
-			for _, src := range a.lib.Sources() {
-				installed[src.Key] = true
-			}
-			cookies := toNetCookies(b.Plan.Cookies, time.Now())
-			for _, partition := range b.Plan.CookieTargets {
-				// A source whose script failed has no partition: writing there
-				// would leave rows nothing can ever send.
-				if !installed[partition] {
-					continue
-				}
-				jar.Import(partition, cookies)
-				cookieRows += len(cookies)
-			}
+		installed := make([]string, 0, len(a.lib.Sources()))
+		for _, src := range a.lib.Sources() {
+			installed = append(installed, src.Key)
 		}
+		cookieRows := restoreCookies(b.Plan, a.lib.Jar(), installed, time.Now())
 
 		searched := 0
 		if a.searches != nil && len(b.Content.SearchHistory) > 0 {
@@ -515,6 +503,35 @@ func (a *App) applyBackup() {
 			a.refreshSources()
 		})
 	}()
+}
+
+// restoreCookies writes a plan's cookies into the partitions that exist now.
+//
+// Split out from the import so the rule can be tested without a window: a
+// partition is written only when its source is installed, because a source whose
+// script failed has nothing that would ever send the cookie. Returns how many
+// cookie rows were written, across all partitions.
+func restoreCookies(plan *backup.Plan, jar *cookies.Jar, installed []string, now time.Time) int {
+	if plan == nil || len(plan.Cookies) == 0 || len(plan.CookieTargets) == 0 {
+		return 0
+	}
+	present := make(map[string]bool, len(installed))
+	for _, key := range installed {
+		present[key] = true
+	}
+	rows := toNetCookies(plan.Cookies, now)
+	if len(rows) == 0 {
+		return 0
+	}
+	written := 0
+	for _, partition := range plan.CookieTargets {
+		if !present[partition] {
+			continue
+		}
+		jar.Import(partition, rows)
+		written += len(rows)
+	}
+	return written
 }
 
 // toNetCookies turns a backup's cookie rows into the shape the jar imports.
