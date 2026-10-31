@@ -26,11 +26,20 @@
 在仓库根目录运行:
 
 ```sh
+sh scripts/check.sh   # gofmt、go vet、go test、docs、partitions,逐项打印
+```
+
+单步等价于:
+
+```sh
 gofmt -l .          # 应无输出
 go vet ./...
 go test ./...       # 含端到端测试,不访问外网:用 httptest
-./scripts/check-docs.sh
+sh scripts/check-docs.sh
+sh scripts/check-partitions.sh
 ```
+
+`check-partitions.sh` 守的是分区名: `"comic:<key>"` 只允许出现在 `core.ComicPartition`。它来自一个真实的 bug —— 恢复备份 cookie 时写进了裸源 key 分区,而所有请求读的是 `comic:<key>`,cookie 落在没人读的地方,导入摘要却显示「恢复了 N 条」。**当时的测试断言的是同一个错误假设**,所以全绿。这类错误不是「没覆盖到」,而是**用例在帮我们确认误解**:唯一可靠的查法是对照代码之外的事实源(传输层真正用的 key),并让错写不成立(传源 key、内部加前缀),而不是靠「记得用助手」。
 
 真实源与界面的核对(需要网络与桌面会话,可选):
 

@@ -23,35 +23,23 @@ For people and AI assistants working on the code. Read before changing it.
 
 ## Checks
 
-From the repository root:
+In the repository root:
 
 ```sh
-gofmt -l .          # should print nothing
+sh scripts/check.sh   # gofmt, go vet, go test, docs, partitions — one line per step
+```
+
+The steps individually:
+
+```sh
+gofmt -l .          # no output expected
 go vet ./...
-go test ./...       # includes end-to-end tests; no internet, they use httptest
-./scripts/check-docs.sh
+go test ./...       # includes end-to-end tests; no network, httptest
+sh scripts/check-docs.sh
+sh scripts/check-partitions.sh
 ```
 
-Checking against a real source and the interface (needs the network and a desktop session, optional):
-
-```sh
-NK_LIVE_JS=/path/to/manga_dex.js NK_LIVE_QUERY="one piece" go test -run TestLiveSource -v ./internal/library
-go run ./cmd/readercheck -script ... -query ... -out reader.png
-go run ./cmd/uicheck -script ... -query ... -open -out window.png
-go run ./cmd/verifycheck -e2e
-NK_LIVE_JS=... NK_LIVE_QUERY=... go test -run TestLiveSource -v ./internal/library   # the whole line   # verification: 403, window, retry, on a local fake site
-```
-
-Cross-compilation:
-
-```sh
-CGO_ENABLED=0 GOOS=linux   go build ./...
-CGO_ENABLED=0 GOOS=windows go build ./...
-CGO_ENABLED=0 GOOS=darwin  go build ./...
-```
-
-Set `GOTMPDIR` and `GOCACHE` when Go's temporary files and cache belong elsewhere.
-
+`check-partitions.sh` guards a partition name: `"comic:<key>"` may appear only in `core.ComicPartition`. It comes from a real bug — a backup restore wrote cookies under the bare source key while every request reads `comic:<key>`, so they landed where nothing would read them and the summary still claimed "N sign-ins restored". **The test asserted the same wrong assumption**, so it passed. That is not uncovered code: the case was confirming a misunderstanding. The only reliable check is a fact source outside the code (the key the transport really uses), plus making the wrong call impossible (take a source key, add the prefix inside) rather than relying on "remember the helper".
 ## Run the checks before committing — do not pipe them
 
 `bash scripts/check-docs.sh | tail -1 && git commit ...` looks like a gate, but the exit
