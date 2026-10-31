@@ -48,6 +48,10 @@ go test ./...              # unit and end-to-end tests
 | `internal/reader` | The reader page and the image service |
 | `internal/browser` | The verification window |
 | `internal/ui` | The main window: sources, search, details, the reader window |
+| `cmd/*` | verification tools: window screenshots (`uicheck`), the reader (`readercheck`), sources and verification (`verifycheck`), backup import (`importcheck`) |
+| `scripts/live-sources.sh` | one command that runs the live end-to-end test for every source script in a directory |
+
+How the real-source and manual checks are run is in [docs/STATUS.en.md](docs/STATUS.en.md); `go run ./cmd/verifycheck --help` lists its flags.
 
 ## Licence
 

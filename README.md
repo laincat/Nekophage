@@ -49,6 +49,10 @@ go test ./...              # 单元与端到端测试
 | `internal/browser` | 人机验证窗口 |
 | `internal/archive` | 读官方 `.venera` 备份,整理成本地可应用的导入计划 |
 | `internal/ui` | 主窗口:源、搜索、详情、备份导入、阅读器窗口 |
+| `cmd/*` | 验证工具:界面截图(`uicheck`)、阅读器(`readercheck`)、源与人机验证(`verifycheck`)、备份导入(`importcheck`) |
+| `scripts/live-sources.sh` | 一条命令对目录里每个源脚本跑一遍真实端到端用例 |
+
+真实源与人工验证怎么做,见 [docs/STATUS.md](docs/STATUS.md);`go run ./cmd/verifycheck --help` 会列出可用参数。
 
 ## 许可证
 
