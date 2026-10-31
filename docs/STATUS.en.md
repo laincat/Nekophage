@@ -199,6 +199,16 @@ Three deliberate choices:
 
 The unit test pins the argument shape: a single-folder source must receive `null`, not an empty string; add and remove are both covered. The capture confirms the button and the folder picker render.
 
+**A tapped tag stopped halfway when it pointed at a category (2026-11-01, pin `0c721f3`)**
+
+Six sources declare `comic.onClickTag` and the desktop has used it for a while, but **the "category" branch never worked** — a tap only said "this version cannot open category parameters yet". On iOS the tags are not even tappable.
+
+The desktop now works: when the source maps a tag to a category, the category tab opens **with the parameter the source named selected**; a parameter that is not in the current declaration is stated plainly rather than silently falling back to the first value. A fixture pins both cases (value 0 is selected; an unknown parameter produces a message), and the exercise recorded two real contract details: the declared array is `categoryParams`, not `params`, and the declaration object is `category` while `categoryComics` only loads it.
+
+Core gained `ClickTag(callID, key, namespace, tag)` so the phone gets the same semantics — including an empty action when the source has no opinion (not an error) and the source's own words in the log when it throws.
+
+**Not done**: tapping a tag on iOS is still unwired (`LinkToId` and `enableTagsTranslate` are unwired too).
+
 **Twenty sources have comments and the client had no way in (2026-11-01)**
 
 **Twenty official sources declare `comic.loadComments` and thirteen declare `comic.sendComment`**, and neither client ever called either — for those sources the thread did not exist.

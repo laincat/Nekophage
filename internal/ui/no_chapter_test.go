@@ -96,9 +96,9 @@ func TestTagOutcomeFollowsTheSource(t *testing.T) {
 	if query, notice = tagOutcome(core.TagAction{Action: "search"}, "张三"); query != "" || notice == "" {
 		t.Errorf("empty search tag = %q, %q", query, notice)
 	}
-	// A category tag names a parameter this view cannot pass, and says so
-	// rather than searching for the word.
-	if query, notice = tagOutcome(core.TagAction{Action: "category", Keyword: "长篇", Param: "33"}, "长篇"); query != "" || notice == "" {
+	// A category tag is not a search: the caller opens the category tab on the
+	// parameter instead, so this returns nothing to run here.
+	if query, notice = tagOutcome(core.TagAction{Action: "category", Keyword: "长篇", Param: "33"}, "长篇"); query != "" || notice != "" {
 		t.Errorf("category tag = %q, %q", query, notice)
 	}
 	if query, notice = tagOutcome(core.TagAction{Action: ""}, "长篇"); query != "" || notice == "" {

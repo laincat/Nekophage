@@ -789,7 +789,9 @@ func tagOutcome(action core.TagAction, tag string) (query, notice string) {
 		}
 		return "", "这个源没有给出「" + tag + "」的搜索词"
 	case "category":
-		return "", "这个源把「" + tag + "」归到分类页,当前版本还打不开分类参数"
+		// The source named a category parameter, not a keyword; the category
+		// tab can open on it instead of searching for a word it never wanted.
+		return "", ""
 	}
 	return "", "这个源没有说明「" + tag + "」该做什么"
 }
@@ -822,6 +824,13 @@ func (a *App) tagClicked(namespace, tag string) {
 				a.mu.Unlock()
 				return
 			}
+			if action.Action == "category" {
+				// Open the category tab on the value the source pointed at, so a
+				// tapped 类型 lands where the source meant instead of searching
+				// for a word it never asked for.
+				a.openCategoryAt(action.Param)
+				return
+			}
 			query, notice := tagOutcome(action, tag)
 			if query != "" {
 				a.mu.Lock()
@@ -834,6 +843,51 @@ func (a *App) tagClicked(namespace, tag string) {
 			a.notice = notice
 			a.mu.Unlock()
 		})
+	}()
+}
+
+// openCategoryAt switches to the category tab and selects the value whose
+// parameter is param. It reports plainly when the source named a parameter this
+// client cannot find, rather than silently landing on the first value.
+func (a *App) openCategoryAt(param string) {
+	a.setMode(3)
+	if param == "" {
+		return
+	}
+	go func() {
+		// The declaration may still be loading; wait for it rather than racing.
+		deadline := time.Now().Add(20 * time.Second)
+		for {
+			a.mu.Lock()
+			loaded := a.catLoaded
+			a.mu.Unlock()
+			if loaded || time.Now().After(deadline) {
+				break
+			}
+			time.Sleep(50 * time.Millisecond)
+		}
+		a.mu.Lock()
+		key := a.currentKey()
+		cat := a.category
+		a.mu.Unlock()
+		for part, p := range cat.Parts {
+			for value := range p.Categories {
+				candidate := p.Categories[value]
+				if len(p.Params) == len(p.Categories) {
+					candidate = p.Params[value]
+				} else if p.GroupParam != "" {
+					candidate = p.GroupParam
+				}
+				if candidate == param {
+					a.loadCategoryPage(key, part, value, 1)
+					return
+				}
+			}
+		}
+		a.mu.Lock()
+		a.notice = "这个源把「" + param + "」归到分类页,但当前分类声明里没有这一项"
+		a.mu.Unlock()
+		a.win.Update(func() {})
 	}()
 }
 

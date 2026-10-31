@@ -192,6 +192,16 @@ Network.get(`${this.baseUrl}/users-fav_del-id-${favoriteId}.html?ajax=true...`)
 
 单测覆盖参数形态:单收藏夹源必须收到 `null` 而不是空串;改名/移除的收尾都验证过。截图确认按钮与文件夹选择渲染正常。
 
+**点标签遇到分类就断在半路(2026-11-01,pin `0c721f3`)**
+
+6 个源声明了 `comic.onClickTag`,桌面端一直在用,但**「分类」这一支从来没走通** —— 点了只弹一句「当前版本还打不开分类参数」。iOS 则连标签都不可点。
+
+这轮把桌面端走通:标签被源归到分类时,**切到分类页并选中源点名的那个参数值**;参数在当前声明里找不到时明说,而不是悄悄落到第一个值。测试用一个 fixture 钉住这两条(选中的是 value 0、未知参数会出提示),并顺手记下两处真实契约细节:`params` 在声明里叫 `categoryParams`;声明对象是 `category`,`categoryComics` 只是加载器。
+
+Core 侧加了 `ClickTag(callID, key, namespace, tag)`,给手机端同一份语义(含「源没意见」时返回空 action 而不是报错,以及源抛错时把原话记进日志)。
+
+**未做**:iOS 的标签点击还没接(`LinkToId`、`enableTagsTranslate` 也仍未接)。
+
 **20 个源有评论,客户端一处入口都没有(2026-11-01)**
 
 官方源里 **20 个声明了 `comic.loadComments`,13 个声明了 `comic.sendComment`**,而两个客户端从来没有调用过它们 —— 这些源的评论区在客户端里等于不存在。
