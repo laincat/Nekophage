@@ -25,6 +25,8 @@ Updated 2026-10-30. Every result below comes from **Windows** on this machine, w
 
 ## Verified with real sources and the real network
 
+**One command reruns every real source**: `NK_LIVE_DIR=/path/to/scripts scripts/live-sources.sh` runs `TestLiveSource` for each `.js` in that directory, prints PASS or FAIL per source, and leaves logs in `build/live/<source>.log`. A failing source is a result, not a crash: a site that changed has to be distinguishable from a client that broke. On 2026-10-31 all five scripts present (comick, copy_manga, komiic, komiic2, manga_dex) passed.
+
 **Four sources re-run on 2026-10-31**: with Core at `4f31b8a`, `TestLiveSource` passes for MangaDex, Komiic, Comick and Copy Manga. Comick exposed an assumption in the test: its chapter had a single image while the case asked for `page=3`, the reader clamped it to 1 as it should, and the assertion failed — the test was wrong, not the code; it now asserts `min(3, len(images))`. The HTTP 210 that Copy Manga used to return no longer reproduces: that was temporary site behaviour, not a client regression.
 
 | Source | Result |
