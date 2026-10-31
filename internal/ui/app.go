@@ -1160,32 +1160,32 @@ func (a *App) loadExplorePages() {
 		pages, err := a.core.ExplorePages(ctx, key)
 		a.win.Update(func() {
 			a.mu.Lock()
-			defer a.mu.Unlock()
 			if !a.exploreGen.current(ticket) {
+				a.mu.Unlock()
 				return
 			}
 			a.exploreBusy = false
 			if err != nil {
 				a.errText = explain(err)
+				a.mu.Unlock()
 				return
 			}
 			a.explorePages = pages
 			a.exploreIndex = 0
 			a.explore = core.ExploreResult{}
 			a.explorePage = 1
-		})
-		if err == nil && len(pages) > 0 {
-			// The tools may ask for a browse and a page; the first load after
-			// the pages arrive is where that belongs.
 			index, page := 0, 1
-			a.mu.Lock()
 			if !a.devExploreUsed && (a.dev.ExploreIndex > 0 || a.dev.ExplorePage > 1) {
 				index, page = a.dev.ExploreIndex, max(1, a.dev.ExplorePage)
 				a.devExploreUsed = true
 			}
 			a.mu.Unlock()
-			a.loadExplore(key, index, page)
-		}
+			// Commit the list before advancing the generation for its first
+			// page; Update may schedule this callback asynchronously.
+			if len(pages) > 0 {
+				a.loadExplore(key, index, page)
+			}
+		})
 	}()
 }
 
