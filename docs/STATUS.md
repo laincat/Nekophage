@@ -8,7 +8,7 @@
 
 | 部分 | 内容 |
 |---|---|
-| 装配 | Core 编译进同一进程;`internal/core` 提供运行时、注册表与漫画数据接口。2026-10-31 用**最新的 Core**(含 `magpieplugin`、`host/sse`、`mobile` 的 Magpie 接口)重新装配并全量跑过:`gofmt` 干净、`go vet ./...`、`go test ./...` 全过 —— 桌面端不接 AI,但 Core 新增的包不能把桌面端带坏。`build/core` 与 Core 工作树**逐文件一致**(`diff -rq` 无差异,不含 `.git`/`.github`/`apple`/`build`/测试与 `testdata`;`build/bin` 是 gomobile 工具链,9 MB,搬过来只是浪费)。当前工作树 = Core `519623d`,所以「用的是哪一版 Core」由 `diff` 与提交号回答,不由记忆回答。装配后跑 `go test -count=1 ./...` 与 `go test -race -count=1 ./...`,10 个有测试的包全过、无数据竞争(此前 race 只覆盖 `./internal/...`,与 `go test` 覆盖的包不是同一批,现已对齐)。另有 `-version` 现在同时给出自身提交与 **Core 提交**:后者由 `scripts/fetch-core.sh` 生成的 `corestamp.go` 写入,没有戳记时如实打印 `Core unknown`,而不是拿自身提交冒充 |
+| 装配 | Core 编译进同一进程;`internal/core` 提供运行时、注册表与漫画数据接口。2026-10-31 用**最新的 Core**(含 `magpieplugin`、`host/sse`、`mobile` 的 Magpie 接口)重新装配并全量跑过:`gofmt` 干净、`go vet ./...`、`go test ./...` 全过 —— 桌面端不接 AI,但 Core 新增的包不能把桌面端带坏。`build/core` 与 Core 工作树**逐文件一致**(`diff -rq` 无差异,不含 `.git`/`.github`/`apple`/`build`/测试与 `testdata`;`build/bin` 是 gomobile 工具链,9 MB,搬过来只是浪费)。当前工作树 = Core `519623d`,所以「用的是哪一版 Core」由 `diff` 与提交号回答,不由记忆回答。装配后跑 `go test -count=1 ./...` 与 `go test -race -count=1 ./...`,10 个有测试的包全过、无数据竞争(2026-11-01 复跑为 **11 个**,新增的 `internal/sourceapi` 也有包,`-race` 全过)(此前 race 只覆盖 `./internal/...`,与 `go test` 覆盖的包不是同一批,现已对齐)。另有 `-version` 现在同时给出自身提交与 **Core 提交**:后者由 `scripts/fetch-core.sh` 生成的 `corestamp.go` 写入,没有戳记时如实打印 `Core unknown`,而不是拿自身提交冒充 |
 | 网络 | `internal/core/transport.go`:net/http,按分区取用 Cookie,重定向逐跳保存与发送 Cookie,单响应 64 MiB 上限;请求行不能承载的字节(空格、控制字符)自动转义 |
 | Cookie | `internal/cookies`:host-only 与域 Cookie、路径、Secure、过期;持久 Cookie 写入 `cookies.json` |
 | 存储 | `internal/store`:源数据、设置、插件记录;值是 Core 给的原文,大整数与键顺序不变 |
@@ -21,7 +21,7 @@
 | 搜索筛选 | 读源的 `search.optionList`,按组显示可横滑的选项;单选组直接换值,多选组按官方规则把 JSON 数组写成一个字符串传给 `search.load`;换源时回到该源默认值 |
 | 主窗口 | MyGo 原生 UI:源选择、搜索、结果网格(封面异步下载并解码,已在书架的卡片标「已在书架」)、分类浏览(源的 `explore`,四种类型)、详情(封面、标签分组、Markdown 简介、分组章节与章节筛选,章节列表用「读到」标出书架里记下的那一话,章头显示「上次读到 第 N 页 · P%」与「继续阅读」)、分页;记住上次的源、关键词与所选的收藏夹(`ui.json`) |
 | 阅读器 | WebView 里的自包含网页:竖向滚动、懒加载、进度、宽度调节、键盘滚动、单页重试,并按章节记住读到的位置;单页/双页与「左→右」「右→左」方向(`D`/`R` 键切换),横图自动独占一行;顶栏与章末都有「上一话/下一话」,点击由窗口(`/switch`)返回该话地址后页面自己跳转;另有「自动接续」开关(默认关,`A` 键),读到章末自动进下一话,且必须真的滚动过才触发;滚动时把页码与百分比回写给书架(`/progress`),图片由 Go 按源的规则取回流式送出 |
-| Magpie 本机网关 | `internal/magpie` 已实现连接层与「AI」窗口(地址/测试连接/模型目录/发送/取消,回包 80ms 节流重绘;档位可选简单/普通/复杂并各自映射到模型或组,窗口显示这次会发到哪):`/v1/models` 目录(保留模型/组 ID)、三种协议的原生正文、SSE 流式、`ctx` 取消、中文诊断;10 条假网关契约测试 `-race` 通过。**未接入界面,未对真实安装版发起过请求** |
+| Magpie 本机网关 | `internal/magpie` 已实现连接层与「AI」窗口(地址/测试连接/模型目录/发送/取消,回包 80ms 节流重绘;档位可选简单/普通/复杂并各自映射到模型或组,窗口显示这次会发到哪):`/v1/models` 目录(保留模型/组 ID)、三种协议的原生正文、SSE 流式、`ctx` 取消、中文诊断;10 条假网关契约测试 `-race` 通过。**2026-11-01 已接到界面上,并对本机真实安装版跑通**:目录 53 个模型或路由组,`chat`/`responses`/`messages` 三种协议各走一遍真实流式,窗口里拿到真实回答。三项未验证仍在:真机以外的平台、取消时机、以及 Magpie 里没配置路由时的表现 |
 | 人机验证 | 独立窗口加载挑战页,按 Core 的完成规则判断,通过后把 Cookie 与 User-Agent 交回并自动重试 |
 
 ## 已验证(真实源、真实网络)
