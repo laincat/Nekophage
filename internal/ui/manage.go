@@ -510,8 +510,8 @@ func (a *App) applyBackup() {
 			for _, f := range d.Fields {
 				values[f.Name] = f.Value
 			}
-			n, err := a.lib.ImportSourceData(d.Key, values)
-			fields += n
+			n, settings, err := a.lib.ImportSourceValues(ctx, d.Key, values)
+			fields += n + settings
 			if err != nil && firstErr == nil {
 				firstErr = err
 			}

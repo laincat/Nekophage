@@ -69,14 +69,29 @@ func (a *App) writeBackup(path string) error {
 		}
 		// The source's own stored object travels beside its script: without it a
 		// restore brings back code that has lost its tokens and its chosen domain.
+		//
+		// This client keeps data and settings in two buckets while the archive has
+		// one object per source, so they are merged here and split again on the way
+		// in. Data wins a name clash: it is what the source wrote for itself.
 		data, err := a.core.Store().AllData(record.Key)
 		if err != nil {
 			return err
 		}
+		settings, err := a.core.Store().AllSettings(record.Key)
+		if err != nil {
+			return err
+		}
+		merged := make(map[string]json.RawMessage, len(data)+len(settings))
+		for name, value := range settings {
+			merged[name] = value
+		}
+		for name, value := range data {
+			merged[name] = value
+		}
 		sources = append(sources, backup.WriteSource{
 			Name: record.Key + ".js",
 			Body: []byte(record.Body),
-			Data: data,
+			Data: merged,
 		})
 	}
 

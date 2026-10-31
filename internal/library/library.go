@@ -11,6 +11,7 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
+	"sort"
 	"strings"
 	"sync"
 
@@ -129,6 +130,44 @@ func (l *Library) ImportSourceData(key string, data map[string]json.RawMessage) 
 		n++
 	}
 	return n, nil
+}
+
+// ImportSourceValues writes one source's values from a backup, splitting them
+// the way this client keeps them.
+//
+// The archive has a single object per source, while this client has two buckets:
+// data (what a source stores for itself) and settings (what the user chose in the
+// settings panel). The split cannot be read back out of the archive, so the
+// source itself decides: a key the source declares in its settings schema is a
+// setting, everything else is data. A source that fails to load leaves every key
+// as data, which is what the old importer did for all of them.
+func (l *Library) ImportSourceValues(ctx context.Context, key string, values map[string]json.RawMessage) (data, settings int, err error) {
+	declared := map[string]bool{}
+	if list, err := l.core.Settings(ctx, key); err == nil {
+		for _, s := range list {
+			declared[s.Key] = true
+		}
+	}
+	names := make([]string, 0, len(values))
+	for name := range values {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	for _, name := range names {
+		value := values[name]
+		if declared[name] {
+			if err := l.core.Store().SaveSetting(key, name, value); err != nil {
+				return data, settings, fmt.Errorf("library: %s/%s: %w", key, name, err)
+			}
+			settings++
+			continue
+		}
+		if err := l.core.Store().SaveData(key, name, value); err != nil {
+			return data, settings, fmt.Errorf("library: %s/%s: %w", key, name, err)
+		}
+		data++
+	}
+	return data, settings, nil
 }
 
 // Index downloads an index.json and compares it with the installed sources.

@@ -199,6 +199,14 @@ Three deliberate choices:
 
 The unit test pins the argument shape: a single-folder source must receive `null`, not an empty string; add and remove are both covered. The capture confirms the button and the folder picker render.
 
+**The source's settings did not travel either — now they do, and land back in their own bucket (2026-11-01)**: the previous entry fixed `.data` (what a source stores for itself), while each source's **settings** (what the user picked in the settings panel) still stayed behind.
+
+The root of the mismatch is shape: the archive has **one object per source**, and this client splits that into `data` and `settings`. Merging on export is easy; the hard part is knowing, on the way back in, which key belongs to which bucket.
+
+The answer is the source's own word: **a key it declares under `settings` is a setting, everything else is data.** Import is now `Library.ImportSourceValues`, which reads `core.Settings(key)` for the declared keys and routes each value accordingly; a source that fails to load sends everything to data, which is exactly what the old importer did, so it cannot be worse. Export merges the two buckets into one object, with data winning a name clash because data is what the source wrote for itself.
+
+The verification: a source that declares `settings = {domain: ...}` and also stored a `token` is exported and imported into an empty client; the `token` lands in the data bucket, `domain` in the settings bucket, **and a reverse assertion confirms `domain` was not filed as data**. This also fixes the older problem of the official app's settings being dropped into our data bucket.
+
 **The export carried the code but not the source's state (2026-11-01, pin `e46c8f9`)**: the previous export wrote only `comic_source/<key>.js`, while the format also holds `comic_source/<key>.data` — what a source keeps between runs (tokens, the domain it settled on). The reader always parsed it and the import always wrote it back; **only the writer never produced it**. The result was "the restore worked, and the source woke up logged out".
 
 - Core's `WriteSource` gains `Data`, written as `<key>.data` so the reader's pairing by key still holds.

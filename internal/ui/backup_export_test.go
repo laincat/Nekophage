@@ -202,3 +202,70 @@ func mustSourceData(t *testing.T, b *archive.Backup) []archive.Data {
 	}
 	return data
 }
+
+// This client keeps a source's data and settings in two buckets; the archive has
+// one object per source. Both have to come back, in the buckets they started in.
+func TestExportAndImportKeepSettingsApart(t *testing.T) {
+	source := `class Cycle extends ComicSource {
+  name = 'Cycle'; key = 'cycle'; version = '1'
+  settings = {domain: {title: '域名', type: 'input', default: 'a.example'}}
+  search = {load: async () => ({comics: [], maxPage: 1})}
+}`
+	from, err := core.Open(core.Options{DataDir: filepath.Join(t.TempDir(), "a"), AppVersion: "1.6.3", Locale: "zh_CN"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { from.Close() })
+	ctx := context.Background()
+	if _, err := from.Install(ctx, source, "file", ""); err != nil {
+		t.Fatal(err)
+	}
+	if err := from.Store().SaveData("cycle", "token", json.RawMessage(`"abc"`)); err != nil {
+		t.Fatal(err)
+	}
+	if err := from.Store().SaveSetting("cycle", "domain", json.RawMessage(`"b.example"`)); err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(t.TempDir(), "cycle.venera")
+	if err := New(from, library.New(from), nil).writeBackup(path); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+
+	into, err := core.Open(core.Options{DataDir: filepath.Join(t.TempDir(), "b"), AppVersion: "1.6.3", Locale: "zh_CN"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { into.Close() })
+	lib := library.New(into)
+	backupFile, err := archive.Read(ctx, path, nil, archive.Options{})
+	if err != nil {
+		t.Fatalf("read: %v", err)
+	}
+	for _, src := range backupFile.Plan.Sources {
+		if src.Script != "" {
+			if _, err := lib.InstallText(ctx, src.Script, "backup:"+src.Key); err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
+	for _, d := range mustSourceData(t, backupFile) {
+		values := map[string]json.RawMessage{}
+		for _, f := range d.Fields {
+			values[f.Name] = f.Value
+		}
+		if _, _, err := lib.ImportSourceValues(ctx, d.Key, values); err != nil {
+			t.Fatalf("import: %v", err)
+		}
+	}
+	if got, ok, _ := into.Store().LoadData("cycle", "token"); !ok || string(got) != `"abc"` {
+		t.Errorf("token came back as %s (present %v)", got, ok)
+	}
+	// The setting has to land in the settings bucket, where the settings panel and
+	// the source's own getSetting() look for it.
+	if got, ok, _ := into.Store().LoadSetting("cycle", "domain"); !ok || string(got) != `"b.example"` {
+		t.Errorf("domain came back as %s (present %v)", got, ok)
+	}
+	if _, ok, _ := into.Store().LoadData("cycle", "domain"); ok {
+		t.Error("the setting was filed as data")
+	}
+}
