@@ -69,7 +69,15 @@ func TestLiveSource(t *testing.T) {
 	}
 	t.Logf("search %q: %d comics, maxPage %d", query, len(page.Comics), page.MaxPage)
 	if len(page.Comics) == 0 {
-		t.Fatal("search returned nothing, the rest of the path cannot run")
+		// "Nothing for this word" is not the same as a broken client: a site
+		// that indexes its own titles often has nothing for a sample keyword
+		// (cxc.today has 0 for 海贼 and 4 for 魔氣). Ask the source's own
+		// front page before calling it a failure, and say which one was used.
+		page.Comics = firstBrowseComics(ctx, c, rec.Key, t)
+		if len(page.Comics) == 0 {
+			t.Fatalf("search %q matched nothing and the source's own front page is empty too", query)
+		}
+		t.Logf("the sample keyword matched nothing; continuing from a browse instead")
 	}
 	for i, comic := range page.Comics {
 		if i >= 3 {
@@ -323,4 +331,31 @@ func shorten(s string, n int) string {
 		return s
 	}
 	return s[:n] + "…"
+}
+
+// firstBrowseComics returns the comics of a source's first non-empty browse,
+// or nil. It is the fallback for a sample keyword the site does not index.
+func firstBrowseComics(ctx context.Context, c *core.Core, key string, t *testing.T) []core.Comic {
+	pages, err := c.ExplorePages(ctx, key)
+	if err != nil {
+		t.Logf("browse list: %v", err)
+		return nil
+	}
+	for i, p := range pages {
+		res, err := c.Explore(ctx, key, i, 1)
+		if err != nil {
+			t.Logf("browse %q: %v", p.Title, err)
+			continue
+		}
+		for _, section := range res.Sections {
+			if len(section.Comics) > 0 {
+				t.Logf("browse %q section %q: %d comics", p.Title, section.Title, len(section.Comics))
+				return section.Comics
+			}
+		}
+	}
+	if len(pages) == 0 {
+		t.Logf("the source declares no browses")
+	}
+	return nil
 }
