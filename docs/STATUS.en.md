@@ -212,7 +212,7 @@ Two tests pin it: after a source throws, the last line carries the key, `search`
 - The desktop gains a 源日志 panel: time, source key, level and text; errors red, warnings amber; 复制全部 for a bug report, and 清空.
 - The buffer is bounded: a source logging in a loop cannot grow the process (a test logs 500 lines and confirms 400 are kept and that the **newest** survive).
 
-Visual evidence: `E:\Temp\nkprobe\ui-source-logs.png` (5 lines, including a base64 failure correctly attributed to its source).
+Visual evidence: `E:\Temp\nkprobe\ui-source-logs.png` (5 lines, including a base64 failure correctly attributed to its source), and `E:\Temp\nkprobe\ui-source-logs-baozi.png` for a real site — `Core: search.load: js: Invalid status code: 403`, attributed to `baozi`.
 
 **Live source round N: one BOM took a whole source down (2026-11-01, pin `a93ac09`)**
 

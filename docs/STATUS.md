@@ -205,7 +205,7 @@ Network.get(`${this.baseUrl}/users-fav_del-id-${favoriteId}.html?ajax=true...`)
 - 桌面端新增「源日志」面板:时间、源 key、级别、正文;error 红、warn 黄;可「复制全部」贴进 bug 报告,可「清空」。
 - 内存有上限:在循环里打日志的源不会撑爆进程(测试打 500 行,确认只留 400 且**保留最新的**)。
 
-视觉证据:`E:\Temp\nkprobe\ui-source-logs.png`(5 行,含一条被正确归属到该源的 base64 转换失败)。
+视觉证据:`E:\Temp\nkprobe\ui-source-logs.png`(5 行,含一条被正确归属到该源的 base64 转换失败);`E:\Temp\nkprobe\ui-source-logs-baozi.png`(真实站点 403:`Core: search.load: js: Invalid status code: 403`,归属到 `baozi`)。
 
 **真实源第 N 轮巡检:一个 BOM 让整条源失效(2026-11-01,pin `a93ac09`)**
 
