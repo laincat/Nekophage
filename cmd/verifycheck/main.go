@@ -25,6 +25,7 @@ import (
 	"github.com/laincat/nekophage/internal/browser"
 	"github.com/laincat/nekophage/internal/cookies"
 	"github.com/laincat/nekophage/internal/core"
+	"github.com/laincat/nekophage/internal/sourceapi"
 	"github.com/laincat/veneracat-core/host"
 )
 
@@ -165,7 +166,7 @@ func runE2E(timeout time.Duration) {
 			defer close(done)
 			// The verifier must import clearance into the jar the transport
 			// reads, so Core builds it: this is the wiring main.go uses.
-			c, err := core.Open(core.Options{DataDir: dataDir, AppVersion: "1.6.0", Locale: "zh_CN",
+			c, err := core.Open(core.Options{DataDir: dataDir, AppVersion: sourceapi.Level, Locale: "zh_CN",
 				VerifierFactory: func(j *cookies.Jar) host.Verifier { return browser.NewVerifier(j) }})
 			if err != nil {
 				ferr = err

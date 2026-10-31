@@ -22,6 +22,7 @@ import (
 	"github.com/egoist/mygo/ui"
 	"github.com/laincat/nekophage/internal/core"
 	"github.com/laincat/nekophage/internal/reader"
+	"github.com/laincat/nekophage/internal/sourceapi"
 )
 
 func main() {
@@ -46,7 +47,7 @@ func main() {
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
 	defer cancel()
 
-	c, err := core.Open(core.Options{DataDir: filepath.Join(os.TempDir(), "readercheck"), AppVersion: "1.6.0", Locale: "zh_CN"})
+	c, err := core.Open(core.Options{DataDir: filepath.Join(os.TempDir(), "readercheck"), AppVersion: sourceapi.Level, Locale: "zh_CN"})
 	if err != nil {
 		log.Fatal(err)
 	}

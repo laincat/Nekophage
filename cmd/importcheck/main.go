@@ -21,6 +21,7 @@ import (
 	"github.com/laincat/nekophage/internal/library"
 	"github.com/laincat/nekophage/internal/searches"
 	"github.com/laincat/nekophage/internal/shelf"
+	"github.com/laincat/nekophage/internal/sourceapi"
 )
 
 func main() {
@@ -36,7 +37,7 @@ func main() {
 	if err := os.MkdirAll(*dir, 0o755); err != nil {
 		fail(err)
 	}
-	opts := core.Options{DataDir: *dir, Locale: "zh_CN", AppVersion: "1.6.0",
+	opts := core.Options{DataDir: *dir, Locale: "zh_CN", AppVersion: sourceapi.Level,
 		UserAgent: "Nekophage/0.1"}
 	c, err := core.Open(opts)
 	if err != nil {

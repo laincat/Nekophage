@@ -19,6 +19,7 @@ import (
 	"github.com/laincat/nekophage/internal/core"
 	"github.com/laincat/nekophage/internal/library"
 	"github.com/laincat/nekophage/internal/reader"
+	"github.com/laincat/nekophage/internal/sourceapi"
 	"github.com/laincat/nekophage/internal/ui"
 
 	_ "github.com/egoist/mygo/locales/zh-Hans"
@@ -65,7 +66,7 @@ func main() {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	defer cancel()
-	c, err := core.Open(core.Options{DataDir: dataDir, AppVersion: "1.6.0", Locale: "zh_CN"})
+	c, err := core.Open(core.Options{DataDir: dataDir, AppVersion: sourceapi.Level, Locale: "zh_CN"})
 	if err != nil {
 		log.Fatal(err)
 	}

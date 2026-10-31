@@ -106,6 +106,8 @@ Core 同步到 `af4f1a0` 之后又跑了两条真实源:MangaDex(`one piece` —
 4. **封面永远是灰块**:首帧渲染时封面还没下载完,解码缓存把「没有图片」记成了最终结果。现在只缓存解码成功的结果和失败的下载。
 5. **源列表陈旧**:`Library.Sources()` 原来读自己的缓存,从其他路径安装的源不显示;现在每次都向 Core 要。
 
+**检查工具报的源接口版本和 App 不一致(2026-11-01)**:`main.go` 的 `sourceVersion` 提到 1.6.3 之后,`cmd/uicheck`、`cmd/readercheck`、`cmd/importcheck`、`cmd/verifycheck` 还各自写死 `AppVersion: "1.6.0"`。后果很具体:卡在 1.6.3 的两个源(`cxc`、`mangabz`)在 App 里能装,在检查工具里被版本门槛拒掉 —— **工具对产品下的结论是错的**,而这正是我这轮踩过的坑。现在这个数字只有一份:`internal/sourceapi.Level`,App 与四个工具的 `AppVersion` 都引用它,`main.go` 的 `sourceVersion` 也只是它的别名。
+
 **真实 Magpie 安装版已连通(2026-11-01)**:此前「对真实 Magpie 发起请求」一直是待验证项。本机 `magpie-windows-amd64.exe` 正在运行,网关监听的 `127.0.0.1:3425` 与 `internal/magpie.DefaultAddr` 一致(同一进程另外在 3430 提供需要登录 cookie 的 Web UI)。新增的 `internal/magpie/live_test.go` 用 `NK_MAGPIE_LIVE=1` 才跑,对真实网关上做完整一条:**53 个模型**(首个 `group/laincat`)、真实补全、`chat` / `responses` / `messages` 三种协议各走一遍流式,三条回复都精确等于 `ready`。这条证据同时说明目录读取、协议选择、SSE 解析、流结束判定在这台机器上是通的。
 
 **`responses` 协议把回答拼了两遍(2026-11-01)**:上一条验证一开始返回的是 **`readyready`**。抓真实事件流才看清原因:网关先发 `response.output_text.delta`(字段 `delta:"ready"`),再发 `response.output_text.done`(字段 `text:"ready"`,是**整段成品文本**)。解析器对 `delta` 和 `text` 都取了,于是同一段文本进了两次。现在只取 `delta`;`text` 是结束事件里的成品,再取一次就是把答案复制一遍。反向验证:把 `text` 回退加回去,单元测试立刻得到 `text = "readyready", want "ready"` —— 与真实网关上一模一样的症状。
