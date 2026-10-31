@@ -199,6 +199,12 @@ Three deliberate choices:
 
 The unit test pins the argument shape: a single-folder source must receive `null`, not an empty string; add and remove are both covered. The capture confirms the button and the folder picker render.
 
+**The browse sweep is one command now (2026-11-01)**: `NK_LIVE_DIR=/path/to/scripts scripts/live-explore.sh` runs `cmd/explorecheck`, which lists each source's browses and loads the first page of each; failures are reported per source, sources needing a server are listed separately, and `NK_LIVE_REPEAT=2` re-runs to tell an intermittent site from a stable failure.
+
+The desktop's `internal/core` also lost `exploreType`, `parseParts` and `parseOrderedParts`, which nothing called any more — leaving them would invite the next reader to copy a second implementation out of them, and "one implementation per client" is exactly why the iOS browse page was broken.
+
+Latest full sweep (34 sources): **23 passed / 8 failed / 3 need a server**.
+
 **Browse normalisation moved into Core so the two clients cannot drift (2026-11-01, pin `c855fd3`)**: the iOS gap recorded above (building `explore[i].load` itself) came from the same logic existing twice. The four shapes and the `load`/`loadNext` fallback now live in Core's `comic/js`, and the desktop only maps each comic into the shape its interface draws.
 
 A second full browse sweep afterwards: **23 passed / 8 failed / 3 need a server**; `ehentai`'s three pages work and `mh1234` passed this time (the earlier run was a site timeout, which is why one round is not a conclusion).

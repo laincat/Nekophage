@@ -192,6 +192,12 @@ Network.get(`${this.baseUrl}/users-fav_del-id-${favoriteId}.html?ajax=true...`)
 
 单测覆盖参数形态:单收藏夹源必须收到 `null` 而不是空串;改名/移除的收尾都验证过。截图确认按钮与文件夹选择渲染正常。
 
+**浏览巡检变成一条命令(2026-11-01)**:`NK_LIVE_DIR=/path/to/scripts scripts/live-explore.sh` 跑 `cmd/explorecheck`,逐源列出浏览页并加载第一页;失败按源逐条报,需要自建服务的源单列,`NK_LIVE_REPEAT=2` 可复跑以区分「站点偶发」与「稳定坏」。
+
+同时清掉了桌面端 `internal/core` 里已成死代码的 `exploreType` / `parseParts` / `parseOrderedParts` —— 留着只会让下一个人从这里再抄出第二份实现,而"两端各一份"正是上一轮 iOS 浏览页坏掉的原因。
+
+最近一次全量(34 源):**23 通过 / 8 失败 / 3 需自建服务**。
+
 **浏览页的归一化移进 Core,两端不再各写一份(2026-11-01,pin `c855fd3`)**:上一节 iOS 那条缺口(自己拼 `explore[i].load`)的根因是**同一段逻辑在两端各有一份**。现在四种浏览形状与 `load`/`loadNext` 回退都在 Core 的 `comic/js` 里,桌面端只把每个 comic 映射成界面要的形状。
 
 修完后又跑了一遍全量浏览巡检:**23 通过 / 8 失败 / 3 需自建服务**,`ehentai` 三页可用,`mh1234` 这次通过(上一轮是站点超时,印证了单轮结果不能当结论)。
