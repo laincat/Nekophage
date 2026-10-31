@@ -50,6 +50,9 @@ need "source log panel" internal/ui/sourcelogs.go 'func (a *App) OpenSourceLogs(
 need "source log buffer" internal/core/core.go 'func (c *Core) LogLines() []LogLine'
 need "browse cursor" internal/core/core.go 'rt.Explore(ctx, key, index, page, cursor)'
 need "browse cursor paging" internal/ui/app.go 'a.loadExploreAt(key, index, page+1, res.Next)'
+need "comments" internal/core/comments.go 'func (c *Core) Comments(ctx context.Context'
+need "send comment" internal/core/comments.go 'func (c *Core) SendComment('
+need "comment window" internal/ui/comments.go 'func (a *App) openComments()'
 need "favorite folders" internal/ui/favorites.go 'func folderPicker(folders map[string]string)'
 # The UI strings a source declares for this locale.
 need "translations" internal/core/core.go 'func (c *Core) Translations(ctx context.Context, key string) (map[string]string, error)'

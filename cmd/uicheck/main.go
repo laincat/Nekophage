@@ -64,6 +64,8 @@ func main() {
 	openLast := flag.Bool("open-last", false, "open the last result, to check a source switch")
 	keepPage := flag.Bool("keep-page", false, "click the reader's 收藏本页 button once")
 	favourite := flag.Bool("favourite", false, "keep the first search result, to check the shelf marker")
+	commentsShot := flag.Bool("comments", false, "open the comment thread and capture it")
+	commentsOut := flag.String("comments-out", "", "where to write the comment-window capture")
 	logsShot := flag.Bool("logs", false, "open the source log panel and capture it")
 	logsOut := flag.String("logs-out", "", "where to write the log-panel capture")
 	backupCookies := flag.Bool("backup-cookies", false, "start the sources window with the backup cookie checkbox ticked")
@@ -171,6 +173,22 @@ func main() {
 					}
 				} else {
 					log.Printf("AI capture: the AI window was never opened")
+				}
+			}
+			if *commentsShot {
+				app.OpenCommentsForCheck()
+				time.Sleep(4000 * time.Millisecond)
+				if win := app.CommentsWindow(); win != nil {
+					if shot, err := win.CapturePage(); err == nil && *commentsOut != "" {
+						if werr := os.WriteFile(*commentsOut, shot, 0o644); werr == nil {
+							log.Printf("comments capture: %s (%d bytes)", *commentsOut, len(shot))
+						}
+					} else if err != nil {
+						log.Printf("comments capture: %v", err)
+					}
+					win.Close()
+				} else {
+					log.Printf("comments capture: the window was never opened")
 				}
 			}
 			if *logsShot {

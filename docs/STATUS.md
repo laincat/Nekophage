@@ -192,6 +192,18 @@ Network.get(`${this.baseUrl}/users-fav_del-id-${favoriteId}.html?ajax=true...`)
 
 单测覆盖参数形态:单收藏夹源必须收到 `null` 而不是空串;改名/移除的收尾都验证过。截图确认按钮与文件夹选择渲染正常。
 
+**20 个源有评论,客户端一处入口都没有(2026-11-01)**
+
+官方源里 **20 个声明了 `comic.loadComments`,13 个声明了 `comic.sendComment`**,而两个客户端从来没有调用过它们 —— 这些源的评论区在客户端里等于不存在。
+
+- **路径一开始就查错了**:评论函数挂在源的 `comic` 对象下(`comic.loadComments`),不是顶层 `loadComments`;按顶层查会把「有评论」的源全报成「没有」。
+- Core 客户端层新增:`CommentsSupported` / `CanSendComment` / `CanLikeComment` / `Comments` / `SendComment` / `LikeComment`;`Details` 补上 `subId`(部分源的评论线程用它定位作品),空 id 传 `null` 而不是空串。
+- 桌面端详情页多一个「评论」按钮(源没声明就不显示),评论区独立窗口:列表、翻页、回复某人、发送、刷新。`canSend` 在开窗时读一次 —— 放进渲染路径等于每次重绘都跑一次源调用。
+
+**活体验证**:`komiic` 搜索→详情→评论,读到 3 条真实评论(用户名、时间、正文),截图 `E:/Temp/nkprobe/ui-comments-komiic.png`;`nhentai` 声明支持但未登录时返回 0 条,属账号维度,不是客户端问题。
+
+**未做**:iOS 侧还没有评论 UI(这轮只做桌面端),也没有 Mac 编译验证。
+
 **浏览巡检变成一条命令(2026-11-01)**:`NK_LIVE_DIR=/path/to/scripts scripts/live-explore.sh` 跑 `cmd/explorecheck`,逐源列出浏览页并加载第一页;失败按源逐条报,需要自建服务的源单列,`NK_LIVE_REPEAT=2` 可复跑以区分「站点偶发」与「稳定坏」。
 
 同时清掉了桌面端 `internal/core` 里已成死代码的 `exploreType` / `parseParts` / `parseOrderedParts` —— 留着只会让下一个人从这里再抄出第二份实现,而"两端各一份"正是上一轮 iOS 浏览页坏掉的原因。

@@ -62,9 +62,12 @@ type App struct {
 	notice        string
 
 	// details
-	open        bool
-	detail      core.Details
-	detailComic core.Comic
+	open   bool
+	detail core.Details
+	// detailCanComment is read once per comic: asking Core inside the render
+	// path would run a source call on every repaint.
+	detailCanComment bool
+	detailComic      core.Comic
 
 	// covers and bitmaps: downloaded bytes and the decoded images the grid
 	// draws, bounded by imageCache so a long session does not keep every cover.
@@ -153,6 +156,8 @@ type App struct {
 	exploreGen generation
 
 	manageWin *mygo.Window
+	// comments is the open comment thread, if any.
+	comments commentsState
 	// logs is the 源日志 panel's window.
 	logs logPanel
 	// aiWin is the connection to the Magpie installed on this machine.
@@ -738,6 +743,7 @@ func (a *App) openComic(c core.Comic) {
 	a.mu.Lock()
 	a.open, a.detailComic, a.busy, a.errText, a.notice = true, c, "details", "", ""
 	a.detail = core.Details{}
+	a.detailCanComment = a.core.CommentsSupported(context.Background(), key)
 	a.srcFavLoaded, a.srcFavFolders, a.srcFavHeld, a.srcFavMsg = false, nil, nil, ""
 	ticket := a.detailGen.next()
 	a.mu.Unlock()
@@ -1858,6 +1864,7 @@ func (a *App) detailsView(c *ui.Context, t *ui.Theme, busy bool) {
 	sh := a.shelf
 	srcFav, srcFavFolders, srcFavHeld := a.srcFav, a.srcFavFolders, a.srcFavHeld
 	srcFavFolder, srcFavMsg, srcFavBusy := a.srcFavFolder, a.srcFavMsg, a.srcFavBusy
+	canComment := a.detailCanComment
 	a.mu.Unlock()
 
 	// The chapter read last, so the list shows where reading stopped even
@@ -1977,6 +1984,14 @@ func (a *App) detailsView(c *ui.Context, t *ui.Theme, busy bool) {
 							ui.Spinner(c)
 						} else if ui.Button(c, label).Clicked() {
 							a.toggleSourceFavorite()
+						}
+					}
+					// A source that keeps comments gets a way in; one that does
+					// not keeps the control away instead of showing an empty
+					// thread. The flag is read when the comic opens, not here.
+					if canComment {
+						if ui.Button(c, "评论").Clicked() {
+							a.openComments()
 						}
 					}
 					if ui.Button(c, "返回").Clicked() {

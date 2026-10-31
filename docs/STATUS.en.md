@@ -199,6 +199,18 @@ Three deliberate choices:
 
 The unit test pins the argument shape: a single-folder source must receive `null`, not an empty string; add and remove are both covered. The capture confirms the button and the folder picker render.
 
+**Twenty sources have comments and the client had no way in (2026-11-01)**
+
+**Twenty official sources declare `comic.loadComments` and thirteen declare `comic.sendComment`**, and neither client ever called either — for those sources the thread did not exist.
+
+- **The path was wrong at the start**: the handlers hang off the source's `comic` object (`comic.loadComments`), not off the source itself. Looking for a top-level `loadComments` reports "no comments" for every source that has them.
+- The core layer gained `CommentsSupported` / `CanSendComment` / `CanLikeComment` / `Comments` / `SendComment` / `LikeComment`, and `Details` carries `subId`, which some threads are keyed by; an empty id is passed as `null`, not an empty string.
+- The details view has a 评论 button (hidden when the source declares none) and the thread opens in its own window: list, pages, reply to someone, send, refresh. `canSend` is read once when the window opens — putting it in the render path would run a source call on every repaint.
+
+**Verified live**: `komiic`, search then details then comments, returned three real comments; the capture is `E:/Temp/nkprobe/ui-comments-komiic.png`. `nhentai` declares support but returned nothing while logged out — the account dimension, not a client fault.
+
+**Not done**: iOS has no comment interface yet (this round is the desktop), and there is no Mac build.
+
 **The browse sweep is one command now (2026-11-01)**: `NK_LIVE_DIR=/path/to/scripts scripts/live-explore.sh` runs `cmd/explorecheck`, which lists each source's browses and loads the first page of each; failures are reported per source, sources needing a server are listed separately, and `NK_LIVE_REPEAT=2` re-runs to tell an intermittent site from a stable failure.
 
 The desktop's `internal/core` also lost `exploreType`, `parseParts` and `parseOrderedParts`, which nothing called any more — leaving them would invite the next reader to copy a second implementation out of them, and "one implementation per client" is exactly why the iOS browse page was broken.

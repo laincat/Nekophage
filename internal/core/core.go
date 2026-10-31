@@ -575,6 +575,9 @@ type Details struct {
 	// FavoriteID is the source's handle on this comic's favorite entry, when
 	// loadInfo reports one. Removal needs it on some sources.
 	FavoriteID string
+	// SubID is the source's secondary identifier for this comic, which some
+	// comment APIs need to place a thread under the right work.
+	SubID string
 }
 
 // Details runs comic.loadInfo(id).
@@ -1287,12 +1290,13 @@ func parseDetails(raw json.RawMessage) (Details, error) {
 		Tags        json.RawMessage `json:"tags"`
 		Chapters    json.RawMessage `json:"chapters"`
 		FavoriteID  flexString      `json:"favoriteId"`
+		SubID       flexString      `json:"subId"`
 	}
 	if err := json.Unmarshal(raw, &f); err != nil {
 		return Details{}, fmt.Errorf("core: comic.loadInfo: %w", err)
 	}
 	d := Details{Title: string(f.Title), Cover: string(f.Cover), Description: string(f.Description),
-		FavoriteID: string(f.FavoriteID)}
+		FavoriteID: string(f.FavoriteID), SubID: string(f.SubID)}
 	d.Subtitle = string(f.Subtitle)
 	if d.Subtitle == "" {
 		d.Subtitle = string(f.SubTitle)
