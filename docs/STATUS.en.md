@@ -199,6 +199,10 @@ Three deliberate choices:
 
 The unit test pins the argument shape: a single-folder source must receive `null`, not an empty string; add and remove are both covered. The capture confirms the button and the folder picker render.
 
+**A panic in a dialog callback no longer hangs the script (2026-11-01)**: the buttons in a dialog run **the source's own code**. If `Invoke` panicked, the goroutine that owed a result was gone while the caller stayed blocked inside `ShowDialog` — the source was wedged, and the window just sat there. `invokeSafely` now turns a panic into an error handed back to the source, the same path as the source's own `throw`; four tests cover a panic, the source's own error, a missing callback, and a panicking validator.
+
+`ShowLoading` also became visible: it only kept a count before, with nothing in the window. While a source holds a loading id the main window shows 源正在处理… with a spinner, and it disappears on cancel (cancelling twice cannot drive the count negative — also tested). The handler also guards `app == nil`: it can exist before the window and outlive it, and a source's call should not crash because of that.
+
 **Re-checked inside the real process, and one potential deadlock fixed (2026-11-01)**: the table above used a test handler, which does not prove `jsui.go` itself works. The capture tool grew `-callback <key>`: it runs `settings.<key>.callback` against the same Core **inside the real App process**, with the real windows, threads and handler.
 
 ```

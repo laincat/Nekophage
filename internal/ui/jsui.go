@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"fmt"
 	"log"
 	"os/exec"
 	"runtime"
@@ -40,6 +41,15 @@ func NewJSHandler() *JSHandler {
 // Attach points the handler at the window it reports through.
 func (h *JSHandler) Attach(app *App) {
 	h.app = app
+	app.SetJSUI(h)
+}
+
+// LoadingCount is how many spinners the source is waiting on; the window shows
+// one line while any is open.
+func (h *JSHandler) LoadingCount() int {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	return len(h.loading)
 }
 
 // SetAutoConfirm makes the capture tools take the first dialog action, since a
@@ -51,6 +61,11 @@ func (h *JSHandler) SetAutoConfirm(on bool) {
 // ShowMessage puts a line in the main window; a source's "done" message is not
 // worth a window of its own.
 func (h *JSHandler) ShowMessage(message string) {
+	// A handler can exist before the window and outlive it; a message with
+	// nowhere to go is dropped rather than crashing the source's call.
+	if h.app == nil {
+		return
+	}
 	h.app.setNotice(message)
 	if h.app.win != nil {
 		h.app.win.Update(func() {})
@@ -87,7 +102,7 @@ func (h *JSHandler) ShowDialog(title, content string, actions []js.DialogAction)
 		// It runs off this goroutine: Invoke calls back into the script, and the
 		// script is the caller sitting in this very call.
 		done := make(chan error, 1)
-		go func() { done <- actions[0].Invoke() }()
+		go func() { done <- invokeSafely(actions[0]) }()
 		return <-done
 	}
 	done := make(chan error, 1)
@@ -117,7 +132,7 @@ func (h *JSHandler) ShowDialog(title, content string, actions []js.DialogAction)
 						continue
 					}
 					close()
-					go func() { finish(action.Invoke()) }()
+					go func() { finish(invokeSafely(action)) }()
 					return
 				}
 			})
@@ -133,7 +148,7 @@ func (h *JSHandler) ShowLoading(onCancel func()) int {
 	h.nextID++
 	h.loading[id] = onCancel
 	h.mu.Unlock()
-	if h.app.win != nil {
+	if h.app != nil && h.app.win != nil {
 		h.app.win.Update(func() {})
 	}
 	return id
@@ -144,7 +159,7 @@ func (h *JSHandler) CancelLoading(id int) {
 	h.mu.Lock()
 	delete(h.loading, id)
 	h.mu.Unlock()
-	if h.app.win != nil {
+	if h.app != nil && h.app.win != nil {
 		h.app.win.Update(func() {})
 	}
 }
@@ -259,6 +274,23 @@ func (h *JSHandler) openWindow(title string, width, height int, draw func(c *ui.
 	})
 	win.Show()
 	win.Focus()
+}
+
+// invokeSafely runs a dialog action's script callback.
+//
+// The callback is source code: it can throw, and a panic here would leave the
+// caller waiting on a dialog nobody can answer, because the goroutine that owed
+// it a result is gone. A panic becomes an error instead.
+func invokeSafely(action js.DialogAction) (err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			err = fmt.Errorf("源内的操作失败:%v", r)
+		}
+	}()
+	if action.Invoke == nil {
+		return nil
+	}
+	return action.Invoke()
 }
 
 // safeValidate runs the source's validator, treating a panic as invalid input

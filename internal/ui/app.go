@@ -97,6 +97,9 @@ type App struct {
 	// A source's own favorites, the ones it keeps on the site. The client has a
 	// local shelf too; this is a different list, and eleven official sources
 	// declare one.
+	// jsui is the handler Core asks for source UI; the window shows its spinners.
+	jsui *JSHandler
+
 	// The details view keeps the source's own favorites in reach: whether the
 	// source supports them, which folders it has, and which of them hold this
 	// comic.
@@ -273,6 +276,10 @@ type DevOptions struct {
 }
 
 // New builds the app.
+// SetJSUI gives the app the source UI handler, so the window can show what a
+// source is waiting on.
+func (a *App) SetJSUI(h *JSHandler) { a.jsui = h }
+
 func New(c *core.Core, lib *library.Library, srv *reader.Server) *App {
 	a := &App{core: c, lib: lib, scheme: srv,
 		images:   newImageCache(),
@@ -1041,6 +1048,10 @@ func (a *App) view(c *ui.Context) {
 	a.mu.Lock()
 	sources, options, open, busy, errText, notice := a.sources, a.options, a.open, a.busy, a.errText, a.notice
 	a.mu.Unlock()
+	loading := 0
+	if a.jsui != nil {
+		loading = a.jsui.LoadingCount()
+	}
 
 	ui.Column(c).Fill().Children(func() {
 		a.header(c, t, sources, options)
@@ -1050,6 +1061,14 @@ func (a *App) view(c *ui.Context) {
 		}
 		if notice != "" {
 			ui.Text(c, notice).TextColor(t.TextMuted).Padding(12, 16)
+		}
+		if loading > 0 {
+			// A source asked for a spinner and has not cancelled it: the work is
+			// still running somewhere, so say so rather than looking idle.
+			ui.Row(c).Padding(8, 16).Gap(8).AlignItems(ui.Center).Children(func() {
+				ui.Spinner(c)
+				ui.Text(c, "源正在处理…").FontSize(12).TextColor(t.TextMuted)
+			})
 		}
 
 		if !open && a.mode == 0 && a.filtersOpen {
