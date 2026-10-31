@@ -199,6 +199,14 @@ Three deliberate choices:
 
 The unit test pins the argument shape: a single-folder source must receive `null`, not an empty string; add and remove are both covered. The capture confirms the button and the folder picker render.
 
+**What the source itself said was never visible (2026-11-01)**: during the live round I could read `Failed to convert base64 ...` because I ran the app from a terminal. A user who launches it from a launcher **never sees that line**. All they get is the message the source threw next — "Cannot read properties of null" — with the real cause hidden, which is exactly the answer to "is the client broken or did the site change".
+
+- Core now tags each source log line (a source's `console.log` and Core's failures on its behalf) **with the source key**, and keeps the last 400 in memory. `Services.LogSource` is optional; a host that only sets `Log` behaves as before.
+- The desktop gains a 源日志 panel: time, source key, level and text; errors red, warnings amber; 复制全部 for a bug report, and 清空.
+- The buffer is bounded: a source logging in a loop cannot grow the process (a test logs 500 lines and confirms 400 are kept and that the **newest** survive).
+
+Visual evidence: `E:\Temp\nkprobe\ui-source-logs.png` (5 lines, including a base64 failure correctly attributed to its source).
+
 **Live source round N: one BOM took a whole source down (2026-11-01, pin `a93ac09`)**
 
 Re-ran all 34 official sources: **20 passed**, 11 failed, 3 need a server the user runs (counted separately as SKIP). Reading each log turned up one real problem:
