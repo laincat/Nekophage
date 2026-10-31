@@ -177,6 +177,18 @@ That also fixed a blind spot in `cmd/uicheck`: its `-chapter` was gated on `n < 
 
 **`modifyImage` is wired up (2026-11-01, pin `6aa9356`)**: Core adds `Runtime.ModifyImage` (decoded RGBA into a throwaway bitmap store, the source's script runs in its own runtime, the result bitmap comes back; decoding and encoding stay with the client), and the desktop client uses it on the image path: fetch → `onResponse` first if present → `modifyImage` decodes to RGBA, runs the script and re-encodes as PNG, with the content type changed to `image/png` to match. In the config `modifyImage` is a **string of JavaScript, not a function**, so it travels as `ImageConfig.ModifyImage` rather than as a callback handle — a mistake made and pinned down with a test. Deterministic check: a source returns a 4×2 red/blue picture plus a clockwise-rotate script, and what arrives is 2×4 with red on top; a script that returns no image reports the failure instead of falling back to the original. Against real sources `hitomi` and `manhuagui` pass (their images are mostly avif/webp, which need not trigger the script).
 
+**Source accounts: three ways to log in, none of them wired up (2026-11-01, pin `896f647`)**: fifteen official sources declare an `account`, but in **three** different styles, so reading only `account.login` missed half of them:
+
+| Style | Declaration | Measured |
+| --- | --- | --- |
+| Password | `account.login(user, pwd)` | `picacg` (answers its own `Failed to login`), `ccc` |
+| In-page | `account.loginWithWebview {url, checkStatus, onLoginSuccess}` | `nhentai` offers only this; `ccc`/`mycomic` offer both |
+| Cookie fields | `account.loginWithCookies {fields, validate(values)}` | `ehentai` `[ipb_member_id ipb_pass_hash igneous star]`, `mycomic` `[cf_clearance]` |
+
+The desktop panel now draws what the source declares: a password style gets account, password, 登录 and 登出; a cookie style gets one field per declared name plus 校验并保存, and the source's own `validate` decides and writes the cookies (empty values are refused by the source, never accepted silently); a source that **only** offers in-page login (`nhentai`) says **桌面端暂不支持** rather than showing a form that cannot work. `ehentai` is exactly that case — it has no password login at all.
+
+Errors are shown in the source's own words: `picacg` answers `Failed to login`, `ccc` answers `No JavaScript UI handler provided`, because its login wants a JS UI session from the host — a current boundary, not a client bug. `TestLiveAccountStyles` covers all three styles.
+
 **A ranking page: nine official sources declare one, and it was unreachable (2026-11-01, pin `c22a944`)**: `enableRankingPage: true` with `categoryComics.ranking = {options: ["date-Recent", …], load: (option, page) => …}` is a separate entry a source offers, not a category dimension. Core's `Category` now reports it as `ranking.options` (value and label split on the same `-`), and `RankingComics` calls `categoryComics.ranking.load`; the desktop's category screen grows a 排行 row that reuses the same list and pager, with `catRank` deciding which loader a page belongs to.
 
 Verified on the live source: all five `nhentai` options answer 25 comics — `date` over 26307 pages, `today`/`week`/`month` over 20 each, `popular` over 26307 — and the capture shows the list switching to the real weekly ranking once Popular Week is chosen. `TestLiveCategoryRanking` covers it.

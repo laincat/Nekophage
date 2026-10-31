@@ -809,6 +809,93 @@ func (c *Core) CategoryComics(ctx context.Context, key, category, param string, 
 	return parsePage(raw)
 }
 
+// AccountStyles says how a source logs in. Three styles exist in the official
+// sources: a password (account.login), a host webview
+// (account.loginWithWebview) and a set of cookies the user pastes in
+// (account.loginWithCookies).
+type AccountStyles struct {
+	Password bool
+	Webview  bool
+	Cookies  bool
+	Logout   bool
+}
+
+// AccountSupport reads which login styles a source declares.
+//
+// Without this the interface could not tell a source that needs an account from
+// one that does not, and fifteen official sources were unreachable past their
+// public pages. The styles matter: ehentai has no password login at all, only a
+// webview and a cookie form.
+func (c *Core) AccountSupport(ctx context.Context, key string) AccountStyles {
+	var out AccountStyles
+	rt, err := c.reg.Comic(key)
+	if err != nil {
+		return out
+	}
+	has := func(path string) bool {
+		ok, err := rt.Has(ctx, key, path)
+		return err == nil && ok
+	}
+	out.Password = has("account.login")
+	out.Webview = has("account.loginWithWebview")
+	out.Cookies = has("account.loginWithCookies.validate")
+	out.Logout = has("account.logout")
+	return out
+}
+
+// AccountCookieFields lists the cookie names a source wants for its cookie
+// login; empty when it does not offer that style.
+func (c *Core) AccountCookieFields(ctx context.Context, key string) ([]string, error) {
+	rt, err := c.reg.Comic(key)
+	if err != nil {
+		return nil, err
+	}
+	return rt.AccountLoginFields(ctx, key)
+}
+
+// LoginWithCookies hands the pasted cookie values to the source's own validate,
+// which sets them and answers whether they work. A false answer is not an
+// error: the source looked and found them unusable.
+func (c *Core) LoginWithCookies(ctx context.Context, key string, values []string) (bool, error) {
+	if values == nil {
+		values = []string{}
+	}
+	raw, err := c.Call(ctx, key, "account.loginWithCookies.validate", values)
+	if err != nil {
+		return false, err
+	}
+	var ok bool
+	if err := json.Unmarshal(raw, &ok); err != nil {
+		return false, fmt.Errorf("core: account.loginWithCookies.validate: %w", err)
+	}
+	return ok, nil
+}
+
+// LoginAccount calls the source's own account.login and returns what it said.
+// A source that refuses answers with its own text, which the interface shows
+// verbatim: the reason usually names the field it did not like.
+func (c *Core) LoginAccount(ctx context.Context, key, account, password string) (string, error) {
+	raw, err := c.Call(ctx, key, "account.login", account, password)
+	if err != nil {
+		return "", err
+	}
+	// A source answers "ok" or some short phrase; anything else is passed on as
+	// JSON text rather than dropped.
+	var out any
+	if json.Unmarshal(raw, &out) == nil {
+		if text, ok := out.(string); ok {
+			return text, nil
+		}
+	}
+	return strings.TrimSpace(string(raw)), nil
+}
+
+// LogoutAccount calls account.logout when the source declares one.
+func (c *Core) LogoutAccount(ctx context.Context, key string) error {
+	_, err := c.Call(ctx, key, "account.logout")
+	return err
+}
+
 // ErrNoTagAction reports a source that does not say what a tapped tag means.
 var ErrNoTagAction = errors.New("core: source does not handle tag taps")
 

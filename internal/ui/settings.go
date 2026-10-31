@@ -26,10 +26,24 @@ func (a *App) openSourceSettings(key string) {
 	a.manage.settingValues = nil
 	a.manage.settingsBusy = true
 	a.manage.settingsErr = ""
+	a.manage.accountMessage = ""
+	a.manage.accountUser, a.manage.accountPass = "", ""
 	a.manageWin.Update(func() {})
 	go func() {
 		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 		defer cancel()
+		styles := a.core.AccountSupport(ctx, key)
+		fields, ferr := a.core.AccountCookieFields(ctx, key)
+		if ferr != nil {
+			styles.Cookies = false
+		}
+		blank := make([]string, len(fields))
+		a.manageWin.Update(func() {
+			a.manage.account = styles
+			a.manage.accountFields = fields
+			a.manage.accountCookies = blank
+			a.manage.accountEditing = -1
+		})
 		list, err := a.core.Settings(ctx, key)
 		values := map[string]json.RawMessage{}
 		if err == nil {
@@ -56,6 +70,162 @@ func (a *App) openSourceSettings(key string) {
 				return
 			}
 			m.settings, m.settingValues = list, values
+		})
+	}()
+}
+
+// accountPanel draws the source's own login, when it declares one. The source
+// does the talking: what it answers, or the error it throws, is what the panel
+// shows, because the reason usually names the field it did not like.
+func (a *App) accountPanel(c *ui.Context, t *ui.Theme) {
+	m := &a.manage
+	if m.settingsFor == "" {
+		return
+	}
+	if !m.account.Password && !m.account.Cookies && !m.account.Webview {
+		return
+	}
+	key := m.settingsFor
+	// A webview login needs a browser the client does not host yet; saying so is
+	// better than a form that cannot work. manga_dex and nhentai only offer it.
+	if m.account.Webview && !m.account.Password && !m.account.Cookies {
+		ui.Row(c).Gap(8).AlignItems(ui.Center).Children(func() {
+			ui.Text(c, "登录").FontSize(11).TextColor(t.TextMuted).Width(96)
+			ui.Text(c, "这个源只提供网页内登录，桌面端暂不支持。").FontSize(11).TextColor(t.TextMuted)
+		})
+		return
+	}
+	if m.account.Cookies && len(m.accountCookies) > 0 {
+		a.cookieLoginPanel(c, t, key)
+	}
+	if !m.account.Password {
+		return
+	}
+	ui.Row(c).Gap(8).AlignItems(ui.Center).Children(func() {
+		ui.Text(c, "账号").FontSize(11).TextColor(t.TextMuted).Width(96)
+		ui.TextInput(c, &m.accountUser).Width(180)
+		ui.Text(c, "密码").FontSize(11).TextColor(t.TextMuted)
+		ui.TextInput(c, &m.accountPass).Width(160)
+		if m.accountBusy {
+			ui.Spinner(c)
+			return
+		}
+		if ui.PrimaryButton(c, "登录").Clicked() {
+			user, pass := m.accountUser, m.accountPass
+			if user == "" || pass == "" {
+				m.accountMessage = "账号和密码都要填。"
+				a.manageWin.Update(func() {})
+				return
+			}
+			a.loginAccount(key, user, pass)
+		}
+		if m.account.Logout {
+			if ui.Button(c, "登出").Clicked() {
+				a.logoutAccount(key)
+			}
+		}
+	})
+	if m.accountMessage != "" {
+		ui.Text(c, m.accountMessage).FontSize(11).Selectable()
+	}
+}
+
+// cookieLoginPanel draws one field per cookie name the source asked for and
+// hands the values to the source's own validate, which sets them.
+func (a *App) cookieLoginPanel(c *ui.Context, t *ui.Theme, key string) {
+	m := &a.manage
+	for i := range m.accountCookies {
+		i := i
+		ui.Row(c).Gap(8).AlignItems(ui.Center).Children(func() {
+			label := ""
+			if i < len(m.accountFields) {
+				label = m.accountFields[i]
+			}
+			ui.Text(c, label).FontSize(11).TextColor(t.TextMuted).Width(96)
+			ui.TextInput(c, &m.accountCookies[i]).Width(300)
+		})
+	}
+	ui.Row(c).Gap(8).AlignItems(ui.Center).Children(func() {
+		ui.Text(c, "").Width(96)
+		if m.accountBusy {
+			ui.Spinner(c)
+			return
+		}
+		if ui.PrimaryButton(c, "校验并保存").Clicked() {
+			a.loginWithCookies(key, append([]string(nil), m.accountCookies...))
+		}
+	})
+}
+
+// loginWithCookies asks the source to validate pasted cookies. A false answer
+// means the source looked and found them unusable, which is not the same as an
+// error and is reported as such.
+func (a *App) loginWithCookies(key string, values []string) {
+	a.manage.accountBusy = true
+	a.manage.accountMessage = ""
+	a.manageWin.Update(func() {})
+	go func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+		defer cancel()
+		ok, err := a.core.LoginWithCookies(ctx, key, values)
+		a.manageWin.Update(func() {
+			m := &a.manage
+			m.accountBusy = false
+			switch {
+			case err != nil:
+				m.accountMessage = explain(err)
+			case ok:
+				m.accountMessage = "登录：已保存"
+			default:
+				m.accountMessage = "源校验未通过：这组 Cookie 不能用。"
+			}
+		})
+	}()
+}
+
+// loginAccount asks the source to log in and reports what it said.
+func (a *App) loginAccount(key, account, password string) {
+	a.manage.accountBusy = true
+	a.manage.accountMessage = ""
+	a.manageWin.Update(func() {})
+	go func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+		defer cancel()
+		message, err := a.core.LoginAccount(ctx, key, account, password)
+		a.manageWin.Update(func() {
+			m := &a.manage
+			m.accountBusy = false
+			if err != nil {
+				// The source's own words: the reason usually names the field.
+				m.accountMessage = explain(err)
+				return
+			}
+			if message == "" {
+				message = "已完成"
+			}
+			m.accountMessage = "登录：" + message
+			m.accountPass = ""
+		})
+	}()
+}
+
+// logoutAccount asks the source to forget the session it holds.
+func (a *App) logoutAccount(key string) {
+	a.manage.accountBusy = true
+	a.manage.accountMessage = ""
+	a.manageWin.Update(func() {})
+	go func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+		err := a.core.LogoutAccount(ctx, key)
+		a.manageWin.Update(func() {
+			m := &a.manage
+			m.accountBusy = false
+			if err != nil {
+				m.accountMessage = explain(err)
+				return
+			}
+			m.accountMessage = "已登出"
 		})
 	}()
 }
@@ -125,6 +295,7 @@ func (a *App) settingsPanel(c *ui.Context, t *ui.Theme) {
 		if m.settingsErr != "" {
 			ui.Text(c, m.settingsErr).FontSize(11).TextColor(ui.RGB(224, 49, 49)).Selectable()
 		}
+		a.accountPanel(c, t)
 		if !m.settingsBusy && len(m.settings) == 0 && m.settingsErr == "" {
 			ui.Text(c, "这个源没有声明设置。").FontSize(12).TextColor(t.TextMuted)
 		}

@@ -170,6 +170,18 @@ Core 同步到 `af4f1a0` 之后又跑了两条真实源:MangaDex(`one piece` —
 
 **`modifyImage` 已接上(2026-11-01,pin `6aa9356`)**:Core 新增 `Runtime.ModifyImage`(把解码后的 RGBA 放进一次性位图仓库、在独立运行时里跑源给的脚本、取回结果位图;解码与编码仍由客户端做),桌面端在图片路径里接上:取回 → 有 `onResponse` 先改写 → 有 `modifyImage` 就解码成 RGBA、跑脚本、编码回 PNG,内容类型随之改成 `image/png`。`modifyImage` 在配置里是**字符串脚本**而不是函数,所以它走 `ImageConfig.ModifyImage` 而不是回调句柄 —— 这一点最初写错过,补了一条用例钉住。确定性验证:源返回 4×2 的红蓝图 + 顺时针旋转脚本,取回后是 2×4 且红在上;脚本返回非图像时如实报错、不回落到原图。真实源侧 `hitomi`、`manhuagui` 实测通过(它们的图多为 avif/webp,不一定触发脚本)。
 
+**源账号登录:三种方式,之前一种都没接(2026-11-01,pin `896f647`)**:15 个官方源声明了 `account`,但有**三种**完全不同的登录方式,只认 `account.login` 会漏掉一半:
+
+| 方式 | 声明 | 实测 |
+| --- | --- | --- |
+| 账号密码 | `account.login(user, pwd)` | `picacg`(返回源原文 `Failed to login`)、`ccc` |
+| 网页内登录 | `account.loginWithWebview {url, checkStatus, onLoginSuccess}` | `nhentai` 只有这一种;`ccc`/`mycomic` 兼有 |
+| Cookie 字段 | `account.loginWithCookies {fields, validate(values)}` | `ehentai` `[ipb_member_id ipb_pass_hash igneous star]`、`mycomic` `[cf_clearance]` |
+
+桌面端现在在源设置面板里按声明画:密码方式给账号/密码/登录/登出;Cookie 方式按 `fields` 逐个给输入框 + 「校验并保存」,由源自己的 `validate` 判断并写入 Cookie(空值一律被源拒绝,不会静默通过);**只提供网页内登录的源**(`nhentai`)**明确显示「桌面端暂不支持」**,而不是给一个按不动的表单。`ehentai` 正是这种源 —— 它根本没有密码登录。
+
+源抛出的错误按原文显示:`picacg` 是 `Failed to login`,`ccc` 是 `No JavaScript UI handler provided`(它的登录要宿主提供 JS UI 会话,这是当前边界,不是客户端 bug)。活体测试 `TestLiveAccountStyles` 覆盖三种方式。
+
 **排行榜页:9 个官方源声明了它,之前一直没用(2026-11-01,pin `c22a944`)**:`enableRankingPage: true` 配 `categoryComics.ranking = {options: ["date-Recent", …], load: (option, page) => …}` 是源声明的**另一个独立入口**,不是分类维度。Core 的 `Category` 现在把它一起带出来(`ranking.options`,值/标签按同样的 `-` 拆分),并新增 `RankingComics` 调用 `categoryComics.ranking.load`;桌面端分类页多一行「排行」,选中后走同一套列表与分页(`catRank` 决定分页走排行还是走维度)。
 
 真实源验证:`nhentai` 五个选项**全部**返回 25 部 —— `date` 26307 页、`today/week/month` 各 20 页、`popular` 26307 页;界面截图里 `Popular Week` 选中后列表换成了真实周榜。活体测试 `TestLiveCategoryRanking` 覆盖这一条。

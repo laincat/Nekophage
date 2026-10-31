@@ -42,6 +42,20 @@ type manageState struct {
 	editingSetting string
 	editText       string
 
+	// A source may declare its own login, in one of three styles. Without these
+	// the panel could not tell such a source from one that needs no account.
+	account        core.AccountStyles
+	accountUser    string
+	accountPass    string
+	accountCookies []string
+	// accountFields holds the cookie names, read once when the panel opens: the
+	// declaration lives in JS, so reading it per frame would eval every draw.
+	accountFields []string
+	// accountEditing is the cookie field being typed into.
+	accountEditing int
+	accountBusy    bool
+	accountMessage string
+
 	// backupImport is an archive the user picked, waiting to be applied.
 	backupImport *archive.Backup
 	// backupCookies restores the official app's jar into source partitions.
