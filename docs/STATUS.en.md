@@ -191,6 +191,8 @@ That also fixed a blind spot in `cmd/uicheck`: its `-chapter` was gated on `n < 
 
 ### Two real patrols of both source sets (2026-11-01, two rounds)
 
+**Official sources re-checked (2026-11-01, with a caveat about rate limiting)**: running all 34 in one sweep gives **16 passing**, but **that number is not a verdict** — re-run on their own, `ykmh` (403) and `mycomic` (a Cloudflare challenge), both of which failed in the sweep, pass immediately, so a back-to-back full sweep trips site rate limiting and anti-bot checks. The rest were looked at one by one: official `manwaba` does not even declare `onImageLoad`, while vensrc's `manwaba_fixed` (which supplies `onResponse` to undo the site's scrambling) passes against the same client — the official source has not kept up; `copy_manga` **searches fine and answers 210 on details every time** (a different keyword returned 30 comics, details still 210), and the same headers and signature are accepted for search, so the site changed its policy for that endpoint rather than the client blocking itself. Whether a source should count as failing is decided by the classification above, not by a pass count.
+
 The official set (`venera-app/venera-configs`, 34 sources) passed 5 in the first round and **10 after the fixes above**: `copy_manga`, `copy_manga_multi_accounts`, `ehentai`, `goda`, `hcomic`, `hitomi`, `komiic`, `manhuagui`, `nhentai`, `wnacg`. The third-party set (`laincat/vensrc`, 24 in `index.json` plus 47 in `extended.json`, 71 after de-duplication) went from 31 to **34**.
 
 Every remaining failure was read, and none is this client's parsing:
