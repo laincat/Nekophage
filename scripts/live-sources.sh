@@ -39,8 +39,12 @@ for script in "$dir"/*.js; do
 	bad=0
 	round=1
 	while [ "$round" -le "$repeat" ]; do
+		# Anchored: -run is a prefix match, so an unanchored pattern also ran
+		# TestLiveSourceSettingsTakeEffect, whose subject is one source's own
+		# quality setting. A source whose setting is broken for its own reasons
+		# then failed the patrol, which measures the reading path.
 		if NK_LIVE_JS="$script" NK_LIVE_QUERY="$query" \
-			go test -run TestLiveSource -count=1 ./internal/library >"$out/$name.log" 2>&1; then
+			go test -run '^TestLiveSource$' -count=1 ./internal/library >"$out/$name.log" 2>&1; then
 			ok=$((ok + 1))
 		else
 			bad=$((bad + 1))
