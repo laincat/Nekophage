@@ -177,6 +177,22 @@ That also fixed a blind spot in `cmd/uicheck`: its `-chapter` was gated on `n < 
 
 **`modifyImage` is wired up (2026-11-01, pin `6aa9356`)**: Core adds `Runtime.ModifyImage` (decoded RGBA into a throwaway bitmap store, the source's script runs in its own runtime, the result bitmap comes back; decoding and encoding stay with the client), and the desktop client uses it on the image path: fetch → `onResponse` first if present → `modifyImage` decodes to RGBA, runs the script and re-encodes as PNG, with the content type changed to `image/png` to match. In the config `modifyImage` is a **string of JavaScript, not a function**, so it travels as `ImageConfig.ModifyImage` rather than as a callback handle — a mistake made and pinned down with a test. Deterministic check: a source returns a 4×2 red/blue picture plus a clockwise-rotate script, and what arrives is 2×4 with red on top; a script that returns no image reports the failure instead of falling back to the original. Against real sources `hitomi` and `manhuagui` pass (their images are mostly avif/webp, which need not trigger the script).
 
+**Patrol baseline (2026-11-01)**: `TestLiveSource` (search, details, chapters, images) ran over 34 official sources: **18 pass, 16 fail**. Every failure was run a second time, and `hcomic` and `ykmh` passed on the retry — a single round really is not a conclusion.
+
+The remaining 14 were each attributed, and **none is a client regression**:
+
+| Cause | Sources | Evidence |
+| --- | --- | --- |
+| Site blocks with Cloudflare / 403 / HTML | `manwaba`, `mh18`, `baozi`, `comic_walker`, `shonen_jump_plus` | `CloudflareException`, `Invalid status code: 403`, `Unexpected token < in JSON` |
+| Site times out or drops the connection | `baihehui`, `happy`, `hcomic` (first round) | `context deadline exceeded`, `Post … EOF` |
+| Needs an account | `picacg` | `Not logged in` |
+| Needs a server the user runs | `kavita`, `komga`, `lanraragi` | talks to `demo.kavita.org`, `Setting not found: default_username`, API 400 |
+| Site or source drift | `jcomic`, `jm` | below |
+
+`jcomic` is worth recording: search already returns a comic whose `id` is a **title slug** (`"Scarlet Prisoner"`) and whose chapter images are all empty strings — the site moved comic URLs to slugs and images to lazy loading, so a source reading `img.attributes["src"]` finds nothing. The client passes the `id` through unchanged and reports the empty string as `core: image URL is not http(s)`, which is right; what broke is between the source and the site. `jm` has the same shape: its `init` fetches a domain list, that file changed format, and `Cannot read properties of null (reading 'length')` comes from the source's own parse.
+
+So **no client behaviour changed this round**; the finding was recorded instead — the patrol now prints sources that need a user-run server on their own `SKIP (needs a server the user runs)` line instead of mixing them with real failures (`NK_LIVE_SERVER_SOURCES`, defaulting to `kavita komga lanraragi`).
+
 **A gate for "declared but not wired up" (2026-11-01)**: the `category`, `ranking`, `account`, `favorites` and `translation` gaps were all the same shape — the source declares it, the client cannot read it, and the only symptom is an empty screen or an English key, found by reading the contracts again by eye. `scripts/check-capabilities.sh` now lists, per capability, the Core entry point and the interface entry point, matched as **fixed strings** (a rename cannot keep passing on a prefix), and fails when one disappears; `scripts/check.sh` runs it.
 
 Checked negatively: renaming `favoritesView` and renaming `"favorites.loadComics"` each failed with the capability named; restoring returned `ok`. It guarantees the **path still exists**, not that the behaviour is right.

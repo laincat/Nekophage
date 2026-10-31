@@ -170,6 +170,22 @@ Core 同步到 `af4f1a0` 之后又跑了两条真实源:MangaDex(`one piece` —
 
 **`modifyImage` 已接上(2026-11-01,pin `6aa9356`)**:Core 新增 `Runtime.ModifyImage`(把解码后的 RGBA 放进一次性位图仓库、在独立运行时里跑源给的脚本、取回结果位图;解码与编码仍由客户端做),桌面端在图片路径里接上:取回 → 有 `onResponse` 先改写 → 有 `modifyImage` 就解码成 RGBA、跑脚本、编码回 PNG,内容类型随之改成 `image/png`。`modifyImage` 在配置里是**字符串脚本**而不是函数,所以它走 `ImageConfig.ModifyImage` 而不是回调句柄 —— 这一点最初写错过,补了一条用例钉住。确定性验证:源返回 4×2 的红蓝图 + 顺时针旋转脚本,取回后是 2×4 且红在上;脚本返回非图像时如实报错、不回落到原图。真实源侧 `hitomi`、`manhuagui` 实测通过(它们的图多为 avif/webp,不一定触发脚本)。
 
+**全量巡检基线(2026-11-01)**:34 个官方源跑 `TestLiveSource`(搜索 → 详情 → 章节 → 取图),**18 通过 / 16 失败**。失败的 16 个**全部复跑过一次**,其中 `hcomic`、`ykmh` 复跑即通过 —— 单轮结果确实不能当结论。
+
+其余 14 个逐个归因,**没有一个是客户端回归**:
+
+| 归因 | 源 | 证据 |
+| --- | --- | --- |
+| 站点 Cloudflare / 403 / 返回 HTML | `manwaba`、`mh18`、`baozi`、`comic_walker`、`shonen_jump_plus` | `CloudflareException`、`Invalid status code: 403`、`Unexpected token < in JSON` |
+| 站点超时或断连 | `baihehui`、`happy`、`hcomic`(首轮) | `context deadline exceeded`、`Post … EOF` |
+| 需要账号 | `picacg` | `Not logged in` |
+| 需要自建服务 | `kavita`、`komga`、`lanraragi` | 连 `demo.kavita.org`、`Setting not found: default_username`、API 400 |
+| 站点/源漂移 | `jcomic`、`jm` | 见下 |
+
+`jcomic` 值得记一笔:搜索返回的作品 `id` 已经是**标题式 slug**(`"Scarlet Prisoner"`),章节图片全是空串 —— 站点把作品 URL 改成了 slug、图片改成了懒加载,源按旧结构取 `img.attributes["src"]` 自然取不到。客户端把 `id` 原样传给源、把源给的空串报成 `core: image URL is not http(s)`,行为是对的,坏的是源与站点之间。`jm` 是同一个形状:它的 `init` 会去拉一个域名列表文件,那份文件的格式变了,`Cannot read properties of null (reading 'length')` 是源在解析时炸的。
+
+所以这轮**没有改客户端行为**,只把结论固化了:巡检里给需要自建服务的源单列一行 `SKIP (needs a server the user runs)`,不再和真失败混在一起(`NK_LIVE_SERVER_SOURCES` 覆盖,默认 `kavita komga lanraragi`)。
+
 **门禁:源声明了却没接上的能力,现在会失败(2026-11-01)**:`category`、`ranking`、`account`、`favorites`、`translation` 这几处缺口都是同一类问题 —— 源在脚本里声明,客户端读不到,症状只是一个空屏或一个英文键名,只能靠人反复重读契约去找。现在 `scripts/check-capabilities.sh` 按能力列出「Core 入口 + 界面入口」,用**固定字符串**匹配(改名后不会靠前缀继续通过),任一路径消失就失败,已接进 `scripts/check.sh`。
 
 负向验证:把 `favoritesView` 改名、把 `"favorites.loadComics"` 改名,脚本分别点名缺失的能力并非零退出;恢复后回到 `ok`。它只保证**路径还在**,不保证行为正确。

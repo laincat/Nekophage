@@ -30,7 +30,14 @@ mkdir -p "$out"
 passed=''
 failed=''
 flaky=''
+needs_server=''
 count=0
+
+# Sources that cannot pass here by nature: they talk to a server the user runs
+# (Kavita, Komga, LANraragi). Counting them beside a site that blocks us turned
+# a readable patrol into a wall of red, so they get their own line. Override
+# NK_LIVE_SERVER_SOURCES when such a server is configured on this machine.
+server_sources=${NK_LIVE_SERVER_SOURCES:-kavita komga lanraragi}
 for script in "$dir"/*.js; do
 	[ -f "$script" ] || continue
 	name=$(basename "$script" .js)
@@ -52,6 +59,15 @@ for script in "$dir"/*.js; do
 		round=$((round + 1))
 	done
 	printf '%-24s ' "$name"
+	case " $server_sources " in
+	*" $name "*)
+		if [ "$bad" -ne 0 ]; then
+			printf 'SKIP (needs a server the user runs; see %s)\n' "$out/$name.log"
+			needs_server="$needs_server $name"
+			continue
+		fi
+		;;
+	esac
 	if [ "$bad" -eq 0 ]; then
 		printf 'PASS\n'
 		passed="$passed $name"
@@ -70,6 +86,9 @@ if [ "$count" -eq 0 ]; then
 fi
 
 printf 'live-sources: %d source(s); passed:%s\n' "$count" "${passed:- none}"
+if [ -n "$needs_server" ]; then
+	printf 'live-sources: needs a server (not counted as a failure):%s\n' "$needs_server"
+fi
 if [ -n "$flaky" ]; then
 	printf 'live-sources: flaky (passed some runs, failed others):%s\n' "$flaky"
 fi
