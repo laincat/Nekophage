@@ -8,7 +8,7 @@
 
 | 部分 | 内容 |
 |---|---|
-| 装配 | Core 编译进同一进程;`internal/core` 提供运行时、注册表与漫画数据接口。2026-10-31 用**最新的 Core**(含 `magpieplugin`、`host/sse`、`mobile` 的 Magpie 接口)重新装配并全量跑过:`gofmt` 干净、`go vet ./...`、`go test ./...` 全过 —— 桌面端不接 AI,但 Core 新增的包不能把桌面端带坏。`build/core` 与 Core 工作树**逐文件一致**(`diff -rq` 无差异,不含 `.git`/`.github`/`apple`/`build`/测试与 `testdata`;`build/bin` 是 gomobile 工具链,9 MB,搬过来只是浪费)。当前工作树 = Core `c194f3b`,所以「用的是哪一版 Core」由 `diff` 与提交号回答,不由记忆回答。装配后跑 `go test -count=1 ./...` 与 `go test -race -count=1 ./...`,10 个有测试的包全过、无数据竞争(此前 race 只覆盖 `./internal/...`,与 `go test` 覆盖的包不是同一批,现已对齐)。另有 `-version` 现在同时给出自身提交与 **Core 提交**:后者由 `scripts/fetch-core.sh` 生成的 `corestamp.go` 写入,没有戳记时如实打印 `Core unknown`,而不是拿自身提交冒充 |
+| 装配 | Core 编译进同一进程;`internal/core` 提供运行时、注册表与漫画数据接口。2026-10-31 用**最新的 Core**(含 `magpieplugin`、`host/sse`、`mobile` 的 Magpie 接口)重新装配并全量跑过:`gofmt` 干净、`go vet ./...`、`go test ./...` 全过 —— 桌面端不接 AI,但 Core 新增的包不能把桌面端带坏。`build/core` 与 Core 工作树**逐文件一致**(`diff -rq` 无差异,不含 `.git`/`.github`/`apple`/`build`/测试与 `testdata`;`build/bin` 是 gomobile 工具链,9 MB,搬过来只是浪费)。当前工作树 = Core `cd167af`,所以「用的是哪一版 Core」由 `diff` 与提交号回答,不由记忆回答。装配后跑 `go test -count=1 ./...` 与 `go test -race -count=1 ./...`,10 个有测试的包全过、无数据竞争(此前 race 只覆盖 `./internal/...`,与 `go test` 覆盖的包不是同一批,现已对齐)。另有 `-version` 现在同时给出自身提交与 **Core 提交**:后者由 `scripts/fetch-core.sh` 生成的 `corestamp.go` 写入,没有戳记时如实打印 `Core unknown`,而不是拿自身提交冒充 |
 | 网络 | `internal/core/transport.go`:net/http,按分区取用 Cookie,重定向逐跳保存与发送 Cookie,单响应 64 MiB 上限;请求行不能承载的字节(空格、控制字符)自动转义 |
 | Cookie | `internal/cookies`:host-only 与域 Cookie、路径、Secure、过期;持久 Cookie 写入 `cookies.json` |
 | 存储 | `internal/store`:源数据、设置、插件记录;值是 Core 给的原文,大整数与键顺序不变 |
@@ -27,7 +27,7 @@
 
 **一条命令复跑全部真实源**:`NK_LIVE_DIR=/path/to/scripts scripts/live-sources.sh` 会对目录里每个 `.js` 跑一遍 `TestLiveSource`,逐个打印 PASS/FAIL,日志写到 `build/live/<源>.log`。一个源失败是一个结果,不是崩溃 —— 站点变了和客户端坏了要能分开。2026-10-31 实测 5 个脚本(comick、copy_manga、komiic、komiic2、manga_dex)全部 PASS。
 
-**2026-10-31 复跑四源**:Core 同步到 `c194f3b` 后,MangaDex、Komiic、Comick、拷贝漫画的 `TestLiveSource` 全部 PASS。Comick 这次暴露了测试里的一个假设:它取到的章节只有 1 张图,而用例固定要求 `page=3`,被阅读器正确地钳到 1,于是断言失败 —— 错的是用例不是代码,现在按 `min(3, len(images))` 断言。拷贝漫画此前报的 HTTP 210 已不复现,那是站点侧的临时行为,不是客户端回归。
+**2026-10-31 复跑四源**:Core 同步到 `cd167af` 后,MangaDex、Komiic、Comick、拷贝漫画的 `TestLiveSource` 全部 PASS。Comick 这次暴露了测试里的一个假设:它取到的章节只有 1 张图,而用例固定要求 `page=3`,被阅读器正确地钳到 1,于是断言失败 —— 错的是用例不是代码,现在按 `min(3, len(images))` 断言。拷贝漫画此前报的 HTTP 210 已不复现,那是站点侧的临时行为,不是客户端回归。
 
 | 源 | 结果 |
 |---|---|
