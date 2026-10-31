@@ -199,6 +199,18 @@ Three deliberate choices:
 
 The unit test pins the argument shape: a single-folder source must receive `null`, not an empty string; add and remove are both covered. The capture confirms the button and the folder picker render.
 
+**The image a source hands over (a captcha, a QR code) was dropped (2026-11-01)**: the second argument of `UI.showInputDialog(title, image, validate)` is a **picture** — a source uses it to show a captcha or a QR code. The desktop ignored it, so the field was missing something the source needed.
+
+The picture is fetched through the **source's own cover rules** (`onThumbnailLoad`), so the source's headers and any image rewriting apply here too. The bytes are kept and decoded by the dialog itself rather than in the main window's image cache: that cache is read by the main window's thread and written here, so sharing it would be a race.
+
+Three traps on the way, all worth recording:
+
+1. The first version wrote the bytes into the main window's cache and read them back there → a race, and the window did not repaint;
+2. With the bytes kept by the handler the picture still did not appear → the log showed the **paint did rerun and the bytes did arrive** (`picture=true`), so the problem was layout: a bare `Height(96)` inside a `Fill()` column can work out to no width, and the image vanished;
+3. An explicit `Width(200).Height(96)` fixed it, and the picture is visible in the capture.
+
+The picture is httpbin's test image rather than a real source's captcha, but fetching, authenticating, decoding and showing it are the same code a source drives.
+
 **The dialog window's layout has been looked at too (2026-11-01)**: the section above only showed that a callback completes, not **what the window looks like** — those windows in `jsui.go` were written from scratch with no picture behind them.
 
 The capture tool gained `-dialog`: it opens a real dialog through the same handler (two buttons), with auto-confirm off, photographs it and closes it. The first capture had the buttons jammed into the bottom-left corner with the content area unused; they now sit at the trailing edge, the way a desktop dialog does, and the second capture confirms the layout. The dialog is synthetic rather than one a source opened, but the window, the buttons and the callback path are the same code.

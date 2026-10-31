@@ -1,12 +1,14 @@
 package ui
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"os/exec"
 	"runtime"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	"github.com/egoist/mygo"
 	"github.com/egoist/mygo/ui"
@@ -185,13 +187,28 @@ func (h *JSHandler) ShowInputDialog(title, image string, validate func(string) s
 		return nil, nil
 	}
 	text := ""
+	// A source may hand over an image — a captcha, a QR code — and the field is
+	// useless without it. It is fetched through the source's own thumbnail rules,
+	// so its headers and any image rewriting apply here too.
+	// A source may hand over an image — a captcha, a QR code — and the field is
+	// useless without it. The bytes are fetched through the source's own
+	// thumbnail rules, so its headers and any image rewriting apply here too.
+	picture := &dialogPicture{}
+	if image != "" && h.app != nil {
+		picture.url = image
+	}
 	result := make(chan *string, 1)
 	var once sync.Once
 	finish := func(value *string) { once.Do(func() { result <- value }) }
-	h.openWindow(title, 420, 220, func(c *ui.Context, close func()) {
+	win := h.openWindow(title, 420, 220, func(c *ui.Context, close func()) {
 		ui.Column(c).Fill().Padding(20).Gap(12).Children(func() {
 			if title != "" {
 				ui.Text(c, title).FontSize(15).Bold()
+			}
+			if b := picture.bitmap(); b != nil {
+				// An explicit width: inside a filled column a height alone can
+				// work out to no width at all, and the image then vanishes.
+				ui.Image(c, b).Fit(ui.Contain).Width(200).Height(96).Radius(4)
 			}
 			ui.TextInput(c, &text).Grow(1)
 			// The source's validator decides; its message goes under the field.
@@ -213,7 +230,73 @@ func (h *JSHandler) ShowInputDialog(title, image string, validate func(string) s
 			})
 		})
 	}, func() { finish(nil) })
+	// The picture arrives after the window is up, and the window has to be told
+	// to paint again: the fetch does not touch this window.
+	if picture.url != "" {
+		go h.fetchDialogImage(picture, win)
+	}
 	return <-result, nil
+}
+
+// fetchDialogImage gets the picture a source asked to show and repaints the
+// dialog it belongs to.
+//
+// The bytes are kept by the handler rather than in the main window's image
+// cache: that cache is read by the main window's thread, and this one is
+// written here, so sharing it would be a race. The dialog decodes its own copy.
+func (h *JSHandler) fetchDialogImage(picture *dialogPicture, win *mygo.Window) {
+	if h.app == nil {
+		return
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	data, _, err := h.app.core.FetchThumbnail(ctx, h.app.currentKey(), picture.url, "jsinput")
+	if err == nil {
+		picture.set(data)
+	}
+	if win != nil && !win.IsDestroyed() {
+		win.Update(func() {})
+	}
+}
+
+// dialogPicture holds the image a source asked to show beside a field, and
+// decodes it once.
+type dialogPicture struct {
+	url string
+
+	mu      sync.Mutex
+	data    []byte
+	decoded ui.ImageSource
+}
+
+// set stores the downloaded bytes.
+func (p *dialogPicture) set(data []byte) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.data = data
+	p.decoded = nil
+}
+
+// bitmap decodes the bytes once, on the window's thread. It returns nil while
+// the download is still running or after a failure.
+func (p *dialogPicture) bitmap() ui.ImageSource {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if p.decoded != nil {
+		return p.decoded
+	}
+	if len(p.data) == 0 {
+		return nil
+	}
+	b, err := ui.DecodeBitmap(p.data)
+	if err != nil {
+		// A corrupt picture is remembered as a failure instead of being decoded
+		// again on every frame.
+		p.data = nil
+		return nil
+	}
+	p.decoded = b
+	return b
 }
 
 // ShowSelectDialog asks for one of a list and returns its index.
@@ -264,7 +347,7 @@ func (h *JSHandler) ShowSelectDialog(title string, options []string, initialInde
 // openWindow shows a window that draws through draw and closes through close.
 // onClosed runs when the user closes it without pressing anything, so the
 // source's promise settles instead of hanging.
-func (h *JSHandler) openWindow(title string, width, height int, draw func(c *ui.Context, close func()), onClosed func()) {
+func (h *JSHandler) openWindow(title string, width, height int, draw func(c *ui.Context, close func()), onClosed func()) *mygo.Window {
 	closed := atomic.Bool{}
 	var win *mygo.Window
 	closeFn := func() {
@@ -291,6 +374,7 @@ func (h *JSHandler) openWindow(title string, width, height int, draw func(c *ui.
 	})
 	win.Show()
 	win.Focus()
+	return win
 }
 
 // invokeSafely runs a dialog action's script callback.

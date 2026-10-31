@@ -40,6 +40,8 @@ func main() {
 	callback := flag.String("callback", "", "run one of the source's setting callbacks")
 	dialogShot := flag.Bool("dialog", false, "open a source dialog window and capture it")
 	dialogOut := flag.String("dialog-out", "", "where to write the dialog capture")
+	dialogInput := flag.Bool("dialog-input", false, "capture an input dialog instead of a confirm")
+	dialogImage := flag.String("dialog-image", "", "an image the input dialog asks to show")
 	exploreIndex := flag.Int("explore", 0, "which browse to open (0-based)")
 	explorePage := flag.Int("explore-page", 1, "which page of that browse")
 	shelfMode := flag.Bool("shelf", false, "capture the shelf instead of searching")
@@ -174,6 +176,10 @@ func main() {
 			// it before quitting.
 			if *dialogShot {
 				go func() {
+					if *dialogInput {
+						_, _ = jsui.ShowInputDialog("源需要你填一个值", *dialogImage, func(string) string { return "" })
+						return
+					}
 					_ = jsui.ShowDialog("来自源的确认", "源要执行一个操作,是否继续?",
 						[]js.DialogAction{
 							{Text: "确定", Style: "filled", Invoke: func() error { return nil }},
