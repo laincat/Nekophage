@@ -279,7 +279,7 @@ func (m *manageState) start(what string) { m.busy, m.errText, m.notice = what, "
 func (m *manageState) done(err error, notice string) {
 	m.busy = ""
 	if err != nil {
-		m.errText, m.notice = err.Error(), ""
+		m.errText, m.notice = explain(err), ""
 		return
 	}
 	m.errText = ""

@@ -141,7 +141,7 @@ func (a *App) keepPage(k reader.Keep) bool {
 		URL:          k.URL,
 	})
 	if err != nil {
-		a.setNotice("收藏本页失败:" + err.Error())
+		a.setNotice("收藏本页失败:" + explain(err))
 		return false
 	}
 	a.setNotice("已收藏第 " + itoa(k.Page) + " 页")
@@ -165,7 +165,7 @@ func (a *App) keepComic() {
 	}
 	if heldIn, held := a.shelf.Holds(key, comic.ID); held {
 		if err := a.shelf.Remove(heldIn, key, comic.ID); err != nil {
-			a.setNotice("取消收藏失败:" + err.Error())
+			a.setNotice("取消收藏失败:" + explain(err))
 			return
 		}
 		a.setNotice("已取消收藏")
@@ -173,7 +173,7 @@ func (a *App) keepComic() {
 		return
 	}
 	if _, err := a.shelf.Move(shelfComic(key, comic, d), folder); err != nil {
-		a.setNotice("收藏失败:" + err.Error())
+		a.setNotice("收藏失败:" + explain(err))
 		return
 	}
 	a.setNotice("已收藏到「" + folder + "」")
@@ -212,14 +212,14 @@ func (a *App) shelfDemo() {
 		return
 	}
 	if err := a.shelf.CreateFolder("以后看"); err != nil {
-		a.setNotice("新建失败:" + err.Error())
+		a.setNotice("新建失败:" + explain(err))
 		return
 	}
 	var moved bool
 	for _, f := range a.shelf.Folders() {
 		for _, it := range f.Items {
 			if _, err := a.shelf.Move(it, "以后看"); err != nil {
-				a.setNotice("移动失败:" + err.Error())
+				a.setNotice("移动失败:" + explain(err))
 				return
 			}
 			moved = true
@@ -230,7 +230,7 @@ func (a *App) shelfDemo() {
 		}
 	}
 	if err := a.shelf.RenameFolder("以后看", "以后再看"); err != nil {
-		a.setNotice("重命名失败:" + err.Error())
+		a.setNotice("重命名失败:" + explain(err))
 		return
 	}
 	a.setNotice("书架编辑自检完成")
@@ -264,7 +264,7 @@ func (a *App) shelfView(c *ui.Context, t *ui.Theme) {
 			disabled := strings.TrimSpace(a.folderNew) == ""
 			if ui.Button(c, "新建收藏夹").Disabled(disabled).Clicked() {
 				if err := a.shelf.CreateFolder(a.folderNew); err != nil {
-					a.setNotice("新建失败:" + err.Error())
+					a.setNotice("新建失败:" + explain(err))
 				} else {
 					a.favFolder = strings.TrimSpace(a.folderNew)
 					a.setNotice("已新建「" + a.favFolder + "」")
@@ -291,7 +291,7 @@ func (a *App) shelfView(c *ui.Context, t *ui.Theme) {
 					ui.TextInput(c, &a.renameTo).Width(180)
 					if ui.Button(c, "确定").Clicked() {
 						if err := a.shelf.RenameFolder(f.Name, a.renameTo); err != nil {
-							a.setNotice("重命名失败:" + err.Error())
+							a.setNotice("重命名失败:" + explain(err))
 						} else {
 							a.renaming = ""
 						}
@@ -311,7 +311,7 @@ func (a *App) shelfView(c *ui.Context, t *ui.Theme) {
 				}
 				if ui.Button(c, "删除").Clicked() {
 					if err := a.shelf.DeleteFolder(f.Name); err != nil {
-						a.setNotice("删除失败:" + err.Error())
+						a.setNotice("删除失败:" + explain(err))
 					} else {
 						a.setNotice("已删除「" + f.Name + "」")
 					}
@@ -354,7 +354,7 @@ func (a *App) historyRow(c *ui.Context, t *ui.Theme, h shelf.History) {
 		}
 		if ui.Button(c, "移除").Clicked() {
 			if err := a.shelf.ForgetHistory(h.Source, h.ID); err != nil {
-				a.setNotice("移除失败:" + err.Error())
+				a.setNotice("移除失败:" + explain(err))
 				return
 			}
 			a.win.Update(func() {})
@@ -388,7 +388,7 @@ func (a *App) favouriteRow(c *ui.Context, t *ui.Theme, folder string, it shelf.C
 			}
 			if ui.Select(c, &pick, names).Width(120).Changed() {
 				if _, err := a.shelf.Move(it, pick); err != nil {
-					a.setNotice("移动失败:" + err.Error())
+					a.setNotice("移动失败:" + explain(err))
 				} else {
 					a.movePick[name] = pick
 				}
@@ -400,7 +400,7 @@ func (a *App) favouriteRow(c *ui.Context, t *ui.Theme, folder string, it shelf.C
 		}
 		if ui.Button(c, "取消收藏").Clicked() {
 			if err := a.shelf.Remove(folder, it.Source, it.ID); err != nil {
-				a.setNotice("取消收藏失败:" + err.Error())
+				a.setNotice("取消收藏失败:" + explain(err))
 				return
 			}
 			a.win.Update(func() {})
@@ -464,7 +464,7 @@ func (a *App) pictureRow(c *ui.Context, t *ui.Theme, p shelf.ImageFavourite) {
 		}
 		if ui.Button(c, "移除").Clicked() {
 			if err := a.shelf.ForgetPage(p.Source, p.ComicID, p.URL); err != nil {
-				a.setNotice("移除失败:" + err.Error())
+				a.setNotice("移除失败:" + explain(err))
 				return
 			}
 			a.win.Update(func() {})
@@ -526,7 +526,7 @@ func (a *App) recentSearches(c *ui.Context, t *ui.Theme) {
 		}
 		if ui.Button(c, "清空").Clicked() {
 			if err := a.searches.Clear(); err != nil {
-				a.setNotice("清空失败:" + err.Error())
+				a.setNotice("清空失败:" + explain(err))
 				return
 			}
 			a.win.Update(func() {})

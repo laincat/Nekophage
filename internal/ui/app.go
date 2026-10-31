@@ -210,7 +210,7 @@ func (a *App) Run() error {
 		})
 		if sh, err := shelf.Open(a.core.DataDir()); err != nil {
 			a.mu.Lock()
-			a.notice = "读取书架失败:" + err.Error()
+			a.setNotice("读取书架失败:" + explain(err))
 			a.mu.Unlock()
 		} else {
 			a.shelf = sh
@@ -477,7 +477,7 @@ func (a *App) searchPage(key, query string, page int) {
 			defer a.mu.Unlock()
 			a.busy = ""
 			if err != nil {
-				a.errText = err.Error()
+				a.errText = explain(err)
 				return
 			}
 			if page <= 1 {
@@ -504,7 +504,7 @@ func (a *App) searchPage(key, query string, page int) {
 				first := a.results[0]
 				if a.shelf != nil {
 					if _, err := a.shelf.Add(shelf.DefaultFolder, shelfComic(key, first, core.Details{})); err != nil {
-						a.notice = err.Error()
+						a.setNotice(explain(err))
 					}
 				}
 			}
@@ -547,7 +547,7 @@ func (a *App) openComic(c core.Comic) {
 			defer a.mu.Unlock()
 			a.busy = ""
 			if err != nil {
-				a.errText = err.Error()
+				a.errText = explain(err)
 				return
 			}
 			a.detail = d
@@ -1054,7 +1054,7 @@ func (a *App) loadExplorePages() {
 			defer a.mu.Unlock()
 			a.exploreBusy = false
 			if err != nil {
-				a.errText = err.Error()
+				a.errText = explain(err)
 				return
 			}
 			a.explorePages = pages
@@ -1092,7 +1092,7 @@ func (a *App) loadExplore(key string, index, page int) {
 			defer a.mu.Unlock()
 			a.exploreBusy = false
 			if err != nil {
-				a.errText = err.Error()
+				a.errText = explain(err)
 				return
 			}
 			a.explore = res
@@ -1292,7 +1292,7 @@ func (a *App) detailsView(c *ui.Context, t *ui.Theme, busy bool) {
 								a.saveSettings(key, query)
 								if _, held := a.shelf.Holds(key, comic.ID); held {
 									if _, err := a.shelf.Move(shelfComic(key, comic, d), sel); err != nil {
-										a.setNotice("移动失败:" + err.Error())
+										a.setNotice("移动失败:" + explain(err))
 									}
 									a.win.Update(func() {})
 								}

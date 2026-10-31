@@ -52,7 +52,7 @@ func (a *App) openSourceSettings(key string) {
 			m := &a.manage
 			m.settingsBusy = false
 			if err != nil {
-				m.settingsErr = err.Error()
+				m.settingsErr = explain(err)
 				return
 			}
 			m.settings, m.settingValues = list, values
@@ -67,7 +67,7 @@ func (a *App) saveSetting(key, settingKey string, value json.RawMessage) {
 		a.manageWin.Update(func() {
 			m := &a.manage
 			if err != nil {
-				m.settingsErr = "保存失败:" + err.Error()
+				m.settingsErr = "保存失败:" + explain(err)
 				return
 			}
 			m.settingsErr = ""
@@ -192,7 +192,7 @@ func (a *App) settingRow(c *ui.Context, t *ui.Theme, s core.SourceSetting) {
 					text := m.editText
 					if s.Validator != "" {
 						if err := checkPattern(s.Validator, text); err != nil {
-							m.settingsErr = err.Error()
+							m.settingsErr = explain(err)
 							a.manageWin.Update(func() {})
 							return
 						}
