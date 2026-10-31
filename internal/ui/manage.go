@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"net/http"
 	"strings"
 	"time"
 
@@ -14,6 +15,7 @@ import (
 	"github.com/laincat/nekophage/internal/archive"
 	"github.com/laincat/nekophage/internal/core"
 	"github.com/laincat/nekophage/internal/shelf"
+	"github.com/laincat/veneracat-core/backup"
 	"github.com/laincat/veneracat-core/subscription"
 )
 
@@ -41,8 +43,11 @@ type manageState struct {
 
 	// backupImport is an archive the user picked, waiting to be applied.
 	backupImport *archive.Backup
-	backupSum    archive.Summary
-	backupBusy   bool
+	// backupCookies restores the official app's jar into source partitions.
+	// Off by default: they are credentials.
+	backupCookies bool
+	backupSum     archive.Summary
+	backupBusy    bool
 }
 
 // openManage shows the window, creating it the first time.
@@ -295,6 +300,9 @@ func (a *App) backupSection(c *ui.Context, t *ui.Theme) {
 			if ui.Button(c, "导入 .venera 备份").Disabled(m.backupBusy || m.busy != "").Clicked() {
 				a.pickBackup()
 			}
+			// Asked before the file is read, because the plan is built with or
+			// without cookies. Off by default: they are credentials.
+			ui.Checkbox(c, &m.backupCookies, "同时恢复登录状态(Cookie)")
 			if m.backupBusy {
 				ui.Spinner(c)
 				ui.Text(c, "正在读取备份…").FontSize(12).TextColor(t.TextMuted)
@@ -304,6 +312,7 @@ func (a *App) backupSection(c *ui.Context, t *ui.Theme) {
 	}
 
 	sum := m.backupSum
+	b := m.backupImport
 	ui.Column(c).Padding(8, 0).Gap(2).Children(func() {
 		ui.Text(c, "备份内容").FontSize(13).Bold()
 		ui.Textf(c, "漫画源 %d 个(其中带数据 %d)", sum.Sources, sum.WithData).FontSize(12)
@@ -315,7 +324,13 @@ func (a *App) backupSection(c *ui.Context, t *ui.Theme) {
 		for _, w := range sum.Warnings {
 			ui.Text(c, w).FontSize(11).TextColor(t.TextMuted)
 		}
-		ui.Text(c, "会导入漫画源脚本、源数据、阅读历史、收藏、搜索历史与图片收藏;设置与 Cookie 还只读。").FontSize(11).TextColor(t.TextMuted)
+		if m.backupCookies && len(b.Plan.Cookies) > 0 {
+			ui.Textf(c, "会把 %d 条登录状态写入 %s(每条 cookie 只在该源访问同名域名时送出)",
+				len(b.Plan.Cookies), strings.Join(b.Plan.CookieTargets, "、")).FontSize(11).TextColor(t.TextMuted)
+		} else if len(b.Content.Cookies) > 0 {
+			ui.Textf(c, "备份里有 %d 条登录状态,当前不导入。", len(b.Content.Cookies)).FontSize(11).TextColor(t.TextMuted)
+		}
+		ui.Text(c, "会导入漫画源脚本、源数据、阅读历史、收藏、搜索历史与图片收藏;设置还只读。").FontSize(11).TextColor(t.TextMuted)
 		if sum.History > 0 || sum.FavoriteItems > 0 {
 			ui.Textf(c, "其中可还原:阅读记录 %d 条、收藏 %d 部(其余因来源未识别暂时跳过)", sum.History, sum.FavoriteItems).FontSize(11).TextColor(t.TextMuted)
 		}
@@ -349,7 +364,7 @@ func (a *App) pickBackup() {
 		for _, s := range a.lib.Sources() {
 			known = append(known, s.Key)
 		}
-		b, err := archive.Read(ctx, paths[0], known)
+		b, err := archive.Read(ctx, paths[0], known, archive.Options{Cookies: a.manage.backupCookies})
 		a.manageWin.Update(func() {
 			m := &a.manage
 			m.backupBusy = false
@@ -440,6 +455,15 @@ func (a *App) applyBackup() {
 			}
 		}
 
+		cookieRows := 0
+		if b.Plan != nil && len(b.Plan.Cookies) > 0 && len(b.Plan.CookieTargets) > 0 {
+			jar := a.lib.Jar()
+			for _, partition := range b.Plan.CookieTargets {
+				jar.Import(partition, toNetCookies(b.Plan.Cookies))
+				cookieRows += len(b.Plan.Cookies)
+			}
+		}
+
 		searched := 0
 		if a.searches != nil && len(b.Content.SearchHistory) > 0 {
 			n, err := a.searches.Merge(b.Content.SearchHistory)
@@ -471,12 +495,33 @@ func (a *App) applyBackup() {
 			if firstErr != nil {
 				m.done(firstErr, "")
 			} else {
-				m.done(nil, fmt.Sprintf("已导入 %d 个源、%d 项源数据、%d 条阅读记录、%d 部收藏、%d 条搜索历史、%d 张图片",
-					sources, fields, recorded, kept, searched, pages))
+				notice := fmt.Sprintf("已导入 %d 个源、%d 项源数据、%d 条阅读记录、%d 部收藏、%d 条搜索历史、%d 张图片",
+					sources, fields, recorded, kept, searched, pages)
+				if cookieRows > 0 {
+					notice += fmt.Sprintf("、%d 条登录状态", cookieRows)
+				}
+				m.done(nil, notice)
 			}
 			a.refreshSources()
 		})
 	}()
+}
+
+// toNetCookies turns a backup's cookie rows into the shape the jar imports.
+//
+// Expiry is milliseconds since the epoch in the backup and a time here; a row
+// without one is a session cookie and stays without one.
+func toNetCookies(rows []backup.Cookie) []*http.Cookie {
+	out := make([]*http.Cookie, 0, len(rows))
+	for _, row := range rows {
+		c := &http.Cookie{Name: row.Name, Value: row.Value, Domain: row.Domain, Path: row.Path,
+			Secure: row.Secure, HttpOnly: row.HTTPOnly}
+		if row.Expires != nil && *row.Expires > 0 {
+			c.Expires = time.UnixMilli(*row.Expires)
+		}
+		out = append(out, c)
+	}
+	return out
 }
 
 // mustPages reads the backup's kept pages, reporting a problem through the

@@ -27,6 +27,7 @@ func main() {
 	file := flag.String("file", "", "path to a .venera backup")
 	dir := flag.String("dir", "", "profile directory to import into")
 	apply := flag.Bool("apply", false, "apply the import, not just read it")
+	withCookies := flag.Bool("cookies", false, "also restore the backup's cookies into per-source partitions")
 	flag.Parse()
 	if *file == "" || *dir == "" {
 		fmt.Fprintln(os.Stderr, "importcheck: -file and -dir are required")
@@ -51,7 +52,7 @@ func main() {
 	for _, s := range lib.Sources() {
 		known = append(known, s.Key)
 	}
-	b, err := archive.Read(ctx, *file, known)
+	b, err := archive.Read(ctx, *file, known, archive.Options{Cookies: *withCookies})
 	if err != nil {
 		fail(err)
 	}

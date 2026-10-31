@@ -72,6 +72,8 @@ Core 同步到 `af4f1a0` 之后又跑了两条真实源:MangaDex(`one piece` —
 
 书架用真实源验证:打开「我的女友老師」第 03 话后,`shelf.json` 记下源、id、标题、作者、封面、章节与时间;书架页显示封面、「第03话 · 刚刚」。
 
+**登录状态(Cookie)导入**:官方 App 只有一个 cookie jar,这里每个源一个分区。导入界面上有「同时恢复登录状态(Cookie)」复选框(默认关闭),勾选后 Core 的 `PlanBackup`/`Plan` 会给出 `cookieTargets` —— 优先取「备份里有、本机也装了」的源,没有交集则退化为全部已装分区 —— 客户端据此把 cookie 写进各自分区,不重建共享 jar。域名不是主机(例如写进 `https://` 的脏行)会被丢弃;每条 cookie 只在该源访问同名域名时送出,所以送给不访问该域的源等于没送。
+
 备份导入用三个 `.venera` 各自验证:`backup-test`(源 1、数据 2、搜索历史 2)、`backup-shelf`(历史 1、收藏夹 1 个含 1 部、搜索历史 1)、`backup-pages`(图片收藏 1 条,落盘 2 张:图片收藏与集数行各带一页)。最初用含真实 `copy_manga.js` 的 `.venera` 验证:预览显示源 1 个、带数据 2 个、搜索历史 2 条;导入后 `copy_manga` 以正常流程装成 1.4.3,4 项源数据写回,大整数 `12345678901234567890` 原样保留。
 
 分类浏览在三个源上都通过:MangaDex 显示 Popular 分区与带封面的列表,拷贝漫画显示「推荐」「热门」两个分区,Komiic 的分页型 browse 第 1、2 页内容不同,翻页生效。阅读器窗口确实在 WebView 里运行:页面标题为漫画名,生成 53 个 figure,图片解码成功(第一张 757×1200),`currentSrc` 指向 `nkreader://`(Windows 上是 `http://nkreader.localhost`)的取图地址。重开同一章会回到上次的位置:滚到 1200 后重新加载,`scrollY` 仍是 1200。 Comick 的另一次检查记录了 51 个 figure、51 张图、其中 4 张解码成功,首图 750×1194,`currentSrc` 指向 `http://nkreader.localhost/img?source=comick&…`。

@@ -44,7 +44,7 @@ func venera(t *testing.T, extra ...[2]string) string {
 
 func TestReadSummarizeAndSplitData(t *testing.T) {
 	path := venera(t)
-	b, err := Read(context.Background(), path, nil)
+	b, err := Read(context.Background(), path, nil, Options{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -98,10 +98,10 @@ func TestReadRejectsGarbage(t *testing.T) {
 	if err := os.WriteFile(path, []byte("this is not a zip"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := Read(context.Background(), path, nil); err == nil {
+	if _, err := Read(context.Background(), path, nil, Options{}); err == nil {
 		t.Fatal("garbage accepted")
 	}
-	if _, err := Read(context.Background(), filepath.Join(t.TempDir(), "missing.venera"), nil); err == nil {
+	if _, err := Read(context.Background(), filepath.Join(t.TempDir(), "missing.venera"), nil, Options{}); err == nil {
 		t.Fatal("missing file accepted")
 	}
 }

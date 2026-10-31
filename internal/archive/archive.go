@@ -28,15 +28,25 @@ type Backup struct {
 	warnings []string
 }
 
-// Selection is what an import takes. Image favourites, settings and cookies
-// are read but not applied yet, so they are not in it.
-func Selection() backup.Selection {
-	return backup.Selection{History: true, Favorites: true, Sources: true, SourceData: true}
+// Selection is what an import takes. Image favourites and settings are read but
+// not applied yet, so they are not in it. Cookies are off by default: they are
+// credentials, and the caller has to ask.
+func Selection(includeCookies bool) backup.Selection {
+	return backup.Selection{History: true, Favorites: true, Sources: true, SourceData: true,
+		Cookies: includeCookies}
+}
+
+// Options is what an import takes beyond the file itself.
+type Options struct {
+	// Cookies restores the official app's single jar into per-source
+	// partitions, which Core names. Off unless the user asks.
+	Cookies bool
 }
 
 // Read parses the archive at path. knownKeys are the sources already
-// installed; they help resolve the type hashes in history and favourites.
-func Read(ctx context.Context, path string, knownKeys []string) (*Backup, error) {
+// installed; they resolve the type hashes in history and favourites, and they
+// are also the partitions a restored cookie may go into.
+func Read(ctx context.Context, path string, knownKeys []string, opts Options) (*Backup, error) {
 	f, err := os.Open(path)
 	if err != nil {
 		return nil, err
@@ -55,10 +65,13 @@ func Read(ctx context.Context, path string, knownKeys []string) (*Backup, error)
 	if err != nil {
 		return nil, fmt.Errorf("archive: %w", err)
 	}
-	plan, err := content.Plan(Selection())
+	plan, err := content.Plan(Selection(opts.Cookies))
 	if err != nil {
 		return nil, fmt.Errorf("archive: %w", err)
 	}
+	// The rule lives in Core so both clients answer "which partitions" the same
+	// way; without it a restore would have no home for the cookies.
+	plan.ResolveCookieTargets(knownKeys)
 	return &Backup{Path: path, Content: content, Plan: plan}, nil
 }
 

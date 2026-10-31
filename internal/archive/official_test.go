@@ -111,6 +111,32 @@ func official(t *testing.T) string {
 		}
 		add(name, b)
 	}
+	// The official app's single jar, as a backup carries it.
+	cookieDB := filepath.Join(dir, "cookie.db")
+	db, err = sql.Open("sqlite", cookieDB)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.Exec(`create table cookies (name text, value text, domain text, path text,
+		expires integer, secure integer, httpOnly integer)`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.Exec(`insert into cookies values('sid','secret','.wnacg.com','/',1900000000000,1,1)`); err != nil {
+		t.Fatal(err)
+	}
+	// A row that could never be sent anywhere, to prove it is dropped rather
+	// than restored as a cookie that never matches.
+	if _, err := db.Exec(`insert into cookies values('junk','x','https://wnacg.com','/',0,0,0)`); err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Close(); err != nil {
+		t.Fatal(err)
+	}
+	cookieBytes, err := os.ReadFile(cookieDB)
+	if err != nil {
+		t.Fatal(err)
+	}
+	add("cookie.db", cookieBytes)
 	add("appdata.json", []byte(`{"settings":{},"searchHistory":[]}`))
 	add("comic_source/wnacg.js", []byte(`class W extends ComicSource { key = 'wnacg' }`))
 	if err := w.Close(); err != nil {
@@ -125,7 +151,7 @@ func official(t *testing.T) string {
 
 func TestPositionsAndFavouritesResolveSources(t *testing.T) {
 	path := official(t)
-	b, err := Read(context.Background(), path, nil)
+	b, err := Read(context.Background(), path, nil, Options{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -165,7 +191,7 @@ func TestPositionsAndFavouritesResolveSources(t *testing.T) {
 // TestApplyIntoAnEmptyShelf writes a backup into a fresh shelf, the way the
 // import window does.
 func TestApplyIntoAnEmptyShelf(t *testing.T) {
-	b, err := Read(context.Background(), official(t), nil)
+	b, err := Read(context.Background(), official(t), nil, Options{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -202,8 +228,31 @@ func TestApplyIntoAnEmptyShelf(t *testing.T) {
 	}
 }
 
+func TestCookiesAreOnlyReadWhenAsked(t *testing.T) {
+	// The default import leaves credentials behind. Asking for them must name the
+	// partitions Core picked, and never anything else.
+	plain, err := Read(context.Background(), official(t), []string{"wnacg"}, Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(plain.Plan.Cookies) != 0 || len(plain.Plan.CookieTargets) != 0 {
+		t.Fatalf("default import carried cookies: %+v", plain.Plan.Cookies)
+	}
+
+	asked, err := Read(context.Background(), official(t), []string{"wnacg"}, Options{Cookies: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(asked.Plan.Cookies) == 0 {
+		t.Fatal("asked for cookies and got none")
+	}
+	if len(asked.Plan.CookieTargets) != 1 || asked.Plan.CookieTargets[0] != "wnacg" {
+		t.Fatalf("targets = %v", asked.Plan.CookieTargets)
+	}
+}
+
 func TestKeptPagesComeFromTheEpisodesColumn(t *testing.T) {
-	b, err := Read(context.Background(), official(t), nil)
+	b, err := Read(context.Background(), official(t), nil, Options{})
 	if err != nil {
 		t.Fatal(err)
 	}

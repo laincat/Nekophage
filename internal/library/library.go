@@ -14,6 +14,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/laincat/nekophage/internal/cookies"
 	"github.com/laincat/nekophage/internal/core"
 	"github.com/laincat/veneracat-core/plugin"
 	"github.com/laincat/veneracat-core/subscription"
@@ -58,6 +59,10 @@ func (l *Library) Restore(ctx context.Context) (map[string]error, error) {
 // directly (a tool, a future import path), and the interface must not show a
 // stale list.
 func (l *Library) Sources() []plugin.Record { return l.core.Plugins() }
+
+// Jar is where source cookies live, one partition per source. A backup import
+// needs it to restore sign-ins without inventing a shared jar.
+func (l *Library) Jar() *cookies.Jar { return l.core.Jar() }
 
 // IsInstalled reports whether key is installed.
 func (l *Library) IsInstalled(key string) bool {
