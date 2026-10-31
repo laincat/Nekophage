@@ -45,6 +45,7 @@ go test ./...              # unit and end-to-end tests
 | `internal/cookies` | Cookie jars isolated per source |
 | `internal/store` | Source data, settings and plugin records on disk |
 | `internal/library` | Installs, updates and removes sources; reads indexes |
+| `internal/archive` | reads official `.venera` backups and turns them into a local import plan |
 | `internal/reader` | The reader page and the image service |
 | `internal/browser` | The verification window |
 | `internal/ui` | The main window: sources, search, details, the reader window |

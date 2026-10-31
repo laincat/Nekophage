@@ -51,3 +51,10 @@ CGO_ENABLED=0 GOOS=darwin  go build ./...
 ```
 
 Set `GOTMPDIR` and `GOCACHE` when Go's temporary files and cache belong elsewhere.
+
+## Run the checks before committing — do not pipe them
+
+`bash scripts/check-docs.sh | tail -1 && git commit ...` looks like a gate, but the exit
+status is `tail`'s: a failing check commits anyway. That is how a stray file once reached
+the repository root. Run the script directly, use `set -o pipefail`, or run it and commit
+as two separate steps.
