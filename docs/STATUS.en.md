@@ -2,7 +2,7 @@
 
 English | [简体中文](STATUS.md)
 
-Updated 2026-10-30. Every result below comes from **Windows** on this machine, with real comic sources and the real network.
+Updated 2026-10-31. Every result below comes from **Windows** on this machine, with real comic sources and the real network. That day's additions are three: a real bug in redirect cookies on the transport (it read the wrong field), Chinese error text under the same rule the iOS client uses, and `live-sources.sh` gaining repeat runs and a `FLAKY` class.
 
 ## Implemented
 
