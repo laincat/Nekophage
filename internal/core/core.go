@@ -9,6 +9,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"image"
+	"image/png"
 	"net/http"
 	"net/url"
 	"os"
@@ -21,6 +23,7 @@ import (
 
 	"github.com/laincat/nekophage/internal/cookies"
 	"github.com/laincat/nekophage/internal/store"
+	coreimage "github.com/laincat/veneracat-core/comic/image"
 	"github.com/laincat/veneracat-core/comic/js"
 	"github.com/laincat/veneracat-core/host"
 	"github.com/laincat/veneracat-core/plugin"
@@ -636,6 +639,9 @@ type ImageRequest struct {
 	// that only names an address leaves both empty.
 	Handle    string
 	Callbacks []string
+	// ModifyImage is the source's pixel-buffer script, when it supplied one.
+	// It is a string of JavaScript, run by Core over the decoded image.
+	ModifyImage string
 }
 
 // HasCallback reports whether the config carries name.
@@ -682,6 +688,7 @@ func (c *Core) ImageRequest(ctx context.Context, key, url, comicID, chapterID st
 	}
 	req.Handle = cfg.Handle
 	req.Callbacks = cfg.Callbacks
+	req.ModifyImage = cfg.ModifyImage
 	return req, nil
 }
 
@@ -747,8 +754,18 @@ func (c *Core) doImage(ctx context.Context, key string, req ImageRequest) ([]byt
 				if aerr == nil {
 					// The bytes are whatever the source produced now, so the
 					// server's label no longer describes them.
-					return got, "", nil
+					data, ctype = got, ""
 				}
+			}
+			if req.ModifyImage != "" {
+				// A source may ask for a pixel pass: jm reorders the blocks of a
+				// long strip, and several sources rotate a page. The result is
+				// re-encoded, so the server's label no longer applies.
+				fixed, merr := c.modifyImage(ctx, key, req.ModifyImage, data)
+				if merr != nil {
+					return nil, "", merr
+				}
+				return fixed, "image/png", nil
 			}
 			return data, ctype, nil
 		}
@@ -1016,3 +1033,47 @@ func platformName() string {
 
 // DefaultUserAgent is a browser-like agent. Sites block unknown agents.
 const DefaultUserAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36"
+
+// maxModifyPixels bounds a bitmap handed to a source's modifyImage script.
+// Decoding a very large image just to reorder it costs far more memory than
+// the reader will ever show, so a bigger one is passed through untouched.
+const maxModifyPixels = 64 << 20
+
+// modifyImage runs a source's pixel-buffer script and returns PNG bytes.
+//
+// The script works on RGBA and Core only moves pixels; decoding the fetched
+// bytes and encoding the result happen here, which is what the comic/image
+// package leaves to the client.
+func (c *Core) modifyImage(ctx context.Context, key, script string, data []byte) ([]byte, error) {
+	img, _, err := image.Decode(bytes.NewReader(data))
+	if err != nil {
+		return nil, fmt.Errorf("core: modifyImage: %w", err)
+	}
+	bounds := img.Bounds()
+	w, h := bounds.Dx(), bounds.Dy()
+	if w <= 0 || h <= 0 || int64(w)*int64(h) > maxModifyPixels {
+		return nil, fmt.Errorf("core: modifyImage: %dx%d is out of range", w, h)
+	}
+	pix := make([]byte, w*h*4)
+	for y := 0; y < h; y++ {
+		for x := 0; x < w; x++ {
+			r, g, b, a := img.At(bounds.Min.X+x, bounds.Min.Y+y).RGBA()
+			i := (y*w + x) * 4
+			pix[i], pix[i+1], pix[i+2], pix[i+3] = byte(r>>8), byte(g>>8), byte(b>>8), byte(a>>8)
+		}
+	}
+	rt, err := c.reg.Comic(key)
+	if err != nil {
+		return nil, err
+	}
+	out, err := rt.ModifyImage(ctx, script, coreimage.Bitmap{W: w, H: h, Pix: pix})
+	if err != nil {
+		return nil, err
+	}
+	rgba := &image.RGBA{Pix: out.Pix, Stride: out.W * 4, Rect: image.Rect(0, 0, out.W, out.H)}
+	var buf bytes.Buffer
+	if err := png.Encode(&buf, rgba); err != nil {
+		return nil, fmt.Errorf("core: modifyImage: %w", err)
+	}
+	return buf.Bytes(), nil
+}
