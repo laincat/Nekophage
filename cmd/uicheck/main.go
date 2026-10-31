@@ -33,6 +33,7 @@ func main() {
 	wait := flag.Duration("wait", 10*time.Second, "how long the search may take")
 	openFirst := flag.Bool("open", false, "open the first result before capturing")
 	browse := flag.Bool("browse", false, "capture the browse view instead of searching")
+	categoryShot := flag.Bool("category", false, "capture the source's category page")
 	exploreIndex := flag.Int("explore", 0, "which browse to open (0-based)")
 	explorePage := flag.Int("explore-page", 1, "which page of that browse")
 	shelfMode := flag.Bool("shelf", false, "capture the shelf instead of searching")
@@ -110,7 +111,7 @@ func main() {
 	app.SetDevOptions(ui.DevOptions{Query: *query, OpenFirst: *openFirst, Browse: *browse,
 		ExploreIndex: *exploreIndex, ExplorePage: *explorePage, Shelf: *shelfMode, OpenChapter: *chapter, ShelfDemo: *shelfDemo, ScrollPercent: *scrollPercent,
 		AdvanceChapter: *advance, AutoNext: *autoNext, Filters: *filters, Filter: *filterPick,
-		SearchAll: *searchAll, OpenLast: *openLast,
+		SearchAll: *searchAll, OpenLast: *openLast, Category: *categoryShot,
 		KeepPage: *keepPage, Favourite: *favourite, OpenSettings: *settingsShot, BackupCookies: *backupCookies,
 		SetSetting: *setSetting, AI: *aiShot, AITest: *aiTest, AIPrompt: *aiPrompt, AIModel: *aiModel})
 

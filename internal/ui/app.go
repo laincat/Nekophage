@@ -71,13 +71,27 @@ type App struct {
 
 	grid ui.GridState
 
-	// browse: mode 0 searches, mode 1 browses a source's explore pages.
+	// browse: mode 0 searches, mode 1 browses a source's explore pages, mode 3
+	// browses its category page.
 	mode         int
 	explorePages []core.ExplorePage
 	exploreIndex int
 	explore      core.ExploreResult
 	explorePage  int
 	exploreBusy  bool
+	// category: a source's own category page. Each value of each part is its
+	// own entry, because that is what the loader takes — a name and the
+	// parameter it maps to — not one combination of every part.
+	category   core.Category
+	catLoaded  bool
+	catPart    int
+	catValue   int
+	catPage    int
+	catMax     int
+	catComics  []core.Comic
+	catOptions []string
+	catBusy    bool
+	catGen     generation
 
 	// chapterQuery filters the chapter list of the open comic.
 	chapterQuery string
@@ -171,6 +185,9 @@ type DevOptions struct {
 	// checkbox ticked, so a capture shows the state the checkbox reports rather
 	// than only that it renders.
 	BackupCookies bool
+	// Category opens the source's category page before capturing, so the
+	// tools can show it without a human clicking 分类.
+	Category bool
 	// Filters opens the source's search filters before capturing.
 	Filters bool
 	// SearchAll starts with every source selected.
@@ -319,6 +336,9 @@ func (a *App) Run() error {
 					a.devSetSetting(key, spec)
 				}
 			}()
+		}
+		if a.dev.Category {
+			a.setMode(3)
 		}
 		if a.dev.Filters {
 			a.mu.Lock()
@@ -979,6 +999,8 @@ func (a *App) view(c *ui.Context) {
 			a.browseView(c, t)
 		case a.mode == 2:
 			a.shelfView(c, t)
+		case a.mode == 3:
+			a.categoryView(c, t)
 		default:
 			a.resultsView(c, t, busy == "search")
 		}
@@ -1012,6 +1034,9 @@ func (a *App) header(c *ui.Context, t *ui.Theme, sources []plugin.Record, option
 		mode := a.mode
 		if ui.Segmented(c, &mode, "搜索", "浏览", "书架").Width(200).Label("模式").Changed() {
 			a.setMode(mode)
+		}
+		if ui.Button(c, "分类").Clicked() {
+			a.setMode(3)
 		}
 		if mode == 0 {
 			if ui.SearchField(c, &a.query).Width(280).Submitted() {
@@ -1195,15 +1220,190 @@ func (a *App) resultsView(c *ui.Context, t *ui.Theme, busy bool) {
 	})
 }
 
+// loadCategoryDecl reads the current source's category page and shows its
+// first entry. A source without one leaves the mode alone: the button is not
+// drawn for it.
+func (a *App) loadCategoryDecl(key string) {
+	a.mu.Lock()
+	a.catBusy, a.errText = true, ""
+	ticket := a.catGen.next()
+	a.mu.Unlock()
+	go func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+		defer cancel()
+		cat, err := a.core.CategoryPage(ctx, key)
+		a.win.Update(func() {
+			a.mu.Lock()
+			if !a.catGen.current(ticket) {
+				a.mu.Unlock()
+				return
+			}
+			a.catBusy = false
+			if err != nil {
+				a.errText = explain(err)
+				a.mu.Unlock()
+				return
+			}
+			a.category = cat
+			a.catLoaded = true
+			a.catPart, a.catValue, a.catPage, a.catMax = 0, 0, 1, 0
+			a.catComics = nil
+			// The options start from what the source declared, one value per
+			// group, exactly like a search's filters.
+			a.catOptions = nil
+			for _, g := range cat.Options {
+				a.catOptions = append(a.catOptions, g.Default)
+			}
+			a.mu.Unlock()
+			if len(cat.Parts) > 0 && len(cat.Parts[0].Categories) > 0 {
+				a.loadCategoryPage(key, 0, 0, 1)
+			}
+		})
+	}()
+}
+
+// loadCategoryPage loads one entry of the category page.
+func (a *App) loadCategoryPage(key string, part, value, page int) {
+	a.mu.Lock()
+	if part < 0 || part >= len(a.category.Parts) {
+		a.mu.Unlock()
+		return
+	}
+	categories := a.category.Parts[part].Categories
+	if value < 0 || value >= len(categories) {
+		a.mu.Unlock()
+		return
+	}
+	p := a.category.Parts[part]
+	name := p.Name
+	param := categories[value]
+	// A source may map each value onto its own parameter; a part without that
+	// map takes the value itself.
+	if len(p.Params) == len(p.Categories) {
+		param = p.Params[value]
+	}
+	options := a.catOptions
+	a.catBusy, a.errText = true, ""
+	a.catPart, a.catValue, a.catPage = part, value, page
+	ticket := a.catGen.next()
+	a.mu.Unlock()
+	go func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
+		defer cancel()
+		res, err := a.core.CategoryComics(ctx, key, name, param, options, page)
+		a.win.Update(func() {
+			a.mu.Lock()
+			defer a.mu.Unlock()
+			if !a.catGen.current(ticket) {
+				return
+			}
+			a.catBusy = false
+			if err != nil {
+				a.errText = explain(err)
+				return
+			}
+			a.catComics, a.catMax = res.Comics, res.MaxPage
+		})
+	}()
+}
+
+// categoryView shows a source's category page: its parts, its options, then the
+// comics the chosen entry returned.
+func (a *App) categoryView(c *ui.Context, t *ui.Theme) {
+	a.mu.Lock()
+	cat, loaded, busy := a.category, a.catLoaded, a.catBusy
+	part, value, page, maxPage := a.catPart, a.catValue, a.catPage, a.catMax
+	comics := a.catComics
+	key := a.currentKey()
+	a.mu.Unlock()
+
+	if !loaded {
+		ui.Row(c).Padding(16).Gap(10).AlignItems(ui.Center).Children(func() {
+			ui.Spinner(c)
+			ui.Text(c, "正在读取分类…").TextColor(t.TextMuted)
+		})
+		return
+	}
+	if len(cat.Parts) == 0 {
+		ui.Column(c).Fill().Center().Children(func() {
+			ui.Text(c, "这个源没有分类页。").TextColor(t.TextMuted)
+		})
+		return
+	}
+	if cat.Title != "" {
+		ui.Text(c, cat.Title).FontSize(14).Bold().Padding(10, 16)
+	}
+	// One row per part. Each value is its own entry, not a filter to combine:
+	// the loader takes one name and one parameter.
+	for i, p := range cat.Parts {
+		i, p := i, p
+		ui.Row(c).Padding(6, 16).Gap(6).Wrap().AlignItems(ui.Center).Children(func() {
+			ui.Text(c, p.Name).FontSize(12).TextColor(t.TextMuted).Width(64)
+			for j, name := range p.Categories {
+				j, name := j, name
+				if i == part && j == value {
+					if ui.PrimaryButton(c, name).Clicked() {
+						a.loadCategoryPage(key, i, j, 1)
+					}
+					continue
+				}
+				if ui.Button(c, name).Clicked() {
+					a.loadCategoryPage(key, i, j, 1)
+				}
+			}
+		})
+	}
+	ui.Divider(c)
+
+	if busy {
+		ui.Row(c).Padding(16).Gap(10).AlignItems(ui.Center).Children(func() {
+			ui.Spinner(c)
+			ui.Text(c, "正在加载…").TextColor(t.TextMuted)
+		})
+		return
+	}
+	if len(comics) == 0 {
+		ui.Column(c).Fill().Center().Children(func() {
+			ui.Text(c, "这个分类没有内容。").TextColor(t.TextMuted)
+		})
+		return
+	}
+	ui.Scroll(c).Grow(1).Padding(12, 16).Children(func() {
+		for _, comic := range comics {
+			a.browseRow(c, t, key, comic)
+		}
+		if maxPage > 0 {
+			ui.Row(c).Padding(8, 0).Gap(10).AlignItems(ui.Center).Children(func() {
+				ui.Textf(c, "第 %d / %d 页", page, maxPage).FontSize(12).TextColor(t.TextMuted)
+				ui.Spacer(c)
+				if page > 1 {
+					if ui.Button(c, "上一页").Clicked() {
+						a.loadCategoryPage(key, part, value, page-1)
+					}
+				}
+				if page < maxPage {
+					if ui.Button(c, "下一页").Clicked() {
+						a.loadCategoryPage(key, part, value, page+1)
+					}
+				}
+			})
+		}
+	})
+}
+
 // setMode switches between searching and browsing.
 func (a *App) setMode(mode int) {
 	a.mu.Lock()
 	a.mode = mode
 	a.open = false
 	need := mode == 1 && len(a.explorePages) == 0
+	needCategory := mode == 3 && !a.catLoaded
 	a.mu.Unlock()
 	if need {
 		a.loadExplorePages()
+	}
+	if needCategory {
+		a.loadCategoryDecl(a.currentKey())
 	}
 }
 
