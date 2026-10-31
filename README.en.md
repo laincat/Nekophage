@@ -18,7 +18,7 @@ Logic comes from [VeneraCat Core](https://github.com/laincat/VeneraCat-Core), co
 - **Kept pages**: keep the page you are reading with one click, see them as thumbnails on the shelf, and jump back to that chapter.
 - **Shelf**: reading history and favourites; where you stopped is kept with the page and a percentage. Opening a chapter remembers where you are, the details screen keeps a comic in the folder you pick, and 继续 goes straight back to that chapter; folders can be created, renamed and deleted, and comics moved between them.
 - **Backup import**: reads an official `.venera` backup, previews it, then imports what is supported — source scripts, installed through the normal flow so nothing from the backup runs unchecked, and their data, kept exactly as written.
-- **AI (Magpie plugins)**: **not integrated on the desktop today**; the evaluation — effort, trade-offs, files — is in [docs/MAGPIE-DESKTOP.en.md](docs/MAGPIE-DESKTOP.en.md), and it concludes that "integrate or not" has to be decided before any work starts.
+- **Magpie plugins and routing (planned)**: initially connect to the locally installed Magpie and reuse its provider/other plugins and model-group routing. Accounts and rules stay in Magpie; Nekophage handles connections, task mappings and calls. Windows/macOS first, with Linux/Web interfaces reserved. Not implemented; see [docs/MAGPIE-DESKTOP.en.md](docs/MAGPIE-DESKTOP.en.md) for scope and acceptance.
 - **Workbench**: a later module, modelled on Magpie's built-in module switches; see [docs/ARCHITECTURE.en.md](docs/ARCHITECTURE.en.md).
 
 ## Status

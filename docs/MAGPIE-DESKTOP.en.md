@@ -1,77 +1,84 @@
-# Magpie on the desktop: an evaluation
+# Magpie on desktop: reuse the local installation
 
 English | [简体中文](MAGPIE-DESKTOP.md)
 
-Date: 2026-10-31. **This is an evaluation only; no code was changed.** "Magpie" here means the Magpie plugin system (provider plugins), which is unrelated to comic source plugins. The desktop client has neither today.
+This is an evaluation, with no implementation changes. The user has chosen to use the locally installed Magpie initially. Windows/macOS are the primary platforms; Linux/Web retain interfaces only. The goal remains provider and other plugin reuse and routing across providers/models by requirements, difficulty, subscription expiry and allowance.
 
-## Conclusion
+## Initial architecture and responsibilities
 
-**Not recommended right now.** The desktop client is a reader, and the cost of Magpie sits in three places — credential storage, a conversation UI, and the install/sign-in flow — none of which the reader needs. If AI is wanted on the desktop, take **route B (template packages only)**: OpenAI-compatible and Anthropic Messages. Route C, matching iOS feature for feature, costs roughly twice as much, and what it adds is community-package support — of which exactly two packages currently run.
+Nekophage acts as a client of Magpie's existing local gateway. Magpie continues to own plugins, runtime, provider accounts, login/refresh, the model catalog and routing. The initial integration does not rebuild a plugin host or duplicate provider secrets in Nekophage.
 
-## What already exists
-
-| Capability | State |
+| Part | Responsibility |
 |---|---|
-| Package loading, relative modules, refusing Node dependencies | In Core; compiles into the desktop binary as-is |
-| Authorisation (device code / API key), refresh, usage, check-in, options | In Core |
-| Three inbound dialects (chat/responses/messages), streaming chunks, cancellation, retry rules | In Core |
-| Per-source cookie partitions and the transport | Already in the desktop client (`internal/cookies`, `internal/core`) |
-| Package store, secret store, conversation UI, install entry point | **Nothing exists on the desktop** |
+| Nekophage | Connection settings, connectivity/capability checks, model or group selection, tasks, streamed results/cancellation and Chinese diagnostics |
+| Local Magpie | Original plugin execution/management, provider login/refresh, account selection, supported strategies/groups/fallback, usage and route records |
+| Operating system | Normal user installation and startup of Magpie; Nekophage initially does not manage its installation, updates or process lifetime |
 
-Core's entry point is small: `magpieplugin.Load(bundle)` yields a `Loader`, `Loader.NewInstance(opts)` yields one `Instance` per account, and the host calls `Authorize`/`Poll`/`Chat`/`Usage`. The host implements two interfaces — `Host.Do(ctx, req)` to send one request, and `AuthStore.Get/Set` to keep credentials per provider. iOS's `mobile/magpie.go` is ~500 lines because it crosses the gomobile boundary with JSON; **the desktop calls the Go API directly and does not need that layer.**
+Keep the MyGo main UI. Plugin pages, panels and menu interactions initially stay in Magpie's own UI. Calling plugin-backed capabilities through the gateway does not embed those interfaces in Nekophage. Plugin tools require checking the exposed MCP/tool APIs and permissions separately; not every plugin is a model endpoint.
 
-## Files that would change
+iOS still needs in-app Magpie plugins, accounts and routing across providers, running independently rather than becoming a desktop-gateway client; full routing and compatibility across plugin categories remain unfinished. Desktop reuse does not reduce that iOS goal or require a desktop Magpie. Linux/Web may later implement the same connection interfaces; browser cross-origin behaviour, deployment and credentials are outside initial acceptance.
+
+## Checked interfaces and unverified details
+
+The following comes from local reference source, not a connection test against the user's installed version. Actual interfaces and capabilities must follow probing results.
+
+| Item | Reference implementation | Integration |
+|---|---|---|
+| Address | Default `127.0.0.1:3425`, changeable through settings or `MAGPIE_ADDR` | Default to `http://127.0.0.1:3425`, allow a custom port and normalise paths to avoid duplicate `/v1` |
+| Catalog | `GET /v1/models` | Read exposed model/group IDs and preserve them; do not turn groups back into individual providers |
+| Inference | `POST /v1/chat/completions`, `/v1/responses`, `/v1/messages` | Select and verify one protocol for initial tasks; separately test tool, reasoning and image fidelity |
+| Local identity | Reference source has local tokens `magpie` and `magpie-<agent>` | Verify against the actual version; a local identifier is neither a provider secret nor a credential for secure remote access |
+| Status/records | Reference has `/v1/magpie/*` usage/routing APIs | Optional, version-probed capabilities; initially use Magpie's UI rather than depending on private GUI `/api/*` endpoints |
+
+Connect locally by default. Remote addresses require sharing settings, a real gateway key and transport security and are not enabled implicitly. Only if a gateway key is configured should Windows DPAPI/macOS Keychain store it; provider credentials remain Magpie's. Do not read private Magpie configuration or secret files to bypass public interfaces.
+
+## Connecting requirements to routing
+
+Nekophage sends tasks to the configured model or group; Magpie performs its supported selection and failure handling. Avoid independent retries/provider switching on both sides that duplicate requests or charges.
+
+| Need | Initial approach | Boundary to verify |
+|---|---|---|
+| Task requirements | Map task types to Magpie models/groups or select explicitly | Actual catalog and requests establish capabilities, context and tool support |
+| Difficulty | Map simple/normal/complex tiers to existing groups; call a group already configured with classifier rules | Do not assume every version automatically detects difficulty; complex classification stays managed in Magpie |
+| Quota/availability | Reuse Magpie's existing allowance, cooldown, fallback and account policies | Unknown quota is not unlimited; exact strategies depend on the installation and plugin reports |
+| Subscription expiry | Check whether the installation already has the required policy or a suitable strategy plugin | Displayed expiry does not establish expiry-first routing; token expiry, resets, expiring credits and subscription ends differ |
+| Plugin extensions | Install/enable in Magpie and use its gateway/MCP or its own UI | Not every plugin feature automatically appears inside Nekophage |
+
+For example, map complex tasks to a strong-model group whose ordering is configured in Magpie. If consuming usable allowance from expiring subscriptions first is required but absent in the installation, scope a later strategy plugin/upstream extension instead of silently building another router in the initial adapter. Nekophage must not switch models after output and splice answers. Cancellation closes the current request and must be verified to stop upstream work through Magpie.
+
+## Proposed files
+
+These are planned paths, not implementations created this turn.
 
 | File | Action | Content |
 |---|---|---|
-| `internal/magpie/providers.go` | new | Provider records, package directory scan, enable/disable |
-| `internal/magpie/package.go` | new | zip/dir → `Bundle` → cached `Loader` (unpack limits come from Core) |
-| `internal/magpie/runner.go` | new | `Instance` lifetime, `Chat` events onto a channel for the UI, cancellation |
-| `internal/magpie/signin.go` | new | Device-code two-phase and immediate API-key sign-in, matching iOS |
-| `internal/magpie/usage.go` | new | Normalised usage (`null` means unreported, not zero) |
-| `internal/magpie/options.go` | new | `provider|option` switches; untouched keys keep the package defaults |
-| `internal/magpie/auth_windows.go` | new | DPAPI-encrypted file |
-| `internal/magpie/auth_unix.go` | new | 0600 file; prefer secret-service on Linux when present |
-| `internal/ui/magpie.go` | new | Provider list, install entry point, usage and options panels |
-| `internal/ui/magpie_chat.go` | new | Conversation window (MyGo has `TextInput` and `Scroll`) |
-| `internal/ui/app.go` | modify | Entry point for the Magpie window and its lifetime |
-| `main.go` | modify | Wire store/auth/host, reusing `internal/core`'s transport |
-| `docs/STATUS.md`, `README.md` | modify | Record the decision either way |
+| `internal/magpie/client.go` | New | Connection interface, address/version/capability info, replaceable by future platform implementations |
+| `internal/magpie/config.go` | New | Local address, protocol, model/group and task-tier mappings, without provider accounts |
+| `internal/magpie/models.go` | New | `/v1/models` parsing/refresh, preserving model/group IDs |
+| `internal/magpie/request.go`, `stream.go` | New | Requests, SSE, cancellation, timeouts, pre/post-output errors and field fidelity |
+| `internal/magpie/errors.go` | New | Chinese diagnostics for unavailable service, wrong address, denied access, missing model and interrupted streams |
+| `internal/magpie/secret*.go` | Conditional | DPAPI/Keychain only when a gateway key needs storage |
+| `internal/ui/magpie.go` | New | Connection settings/tests, model/group selection, task mappings and management entry |
+| `internal/ui/app.go`, `main.go` | Modify | Client wiring, AI feature entry points and request cleanup on exit |
+| Related `_test.go`, bilingual README/STATUS | New/modify | Fake-gateway contract tests, actual Windows/macOS installations and usage instructions |
 
-## Effort
+Initially no new Core routing package, Bun IPC, plugin installer, provider login or full routing editor is needed. The previous 28–55-day self-hosted runtime/router estimate no longer applies to this delivery. Such a design remains a separate future evaluation if independence from an external Magpie installation becomes necessary.
 
-| Part | Estimate | Basis |
+## Effort and acceptance
+
+Roughly **4–8 development days** for basic connection support and one actual task entry point, not a delivery commitment. Excludes new AI product features, missing subscription policies, all MCP/plugin-page integration and waits for account authorisation. A protocol unable to preserve required tools/multimodal fields needs a separate estimate extension.
+
+| Stage | Estimate | Acceptance |
 |---|---|---|
-| Logic (providers/package/runner/signin/usage/options) | 700–900 lines of Go | ~930 lines of Swift on iOS for the same modules, minus the cross-language encoding |
-| Credential storage (with platform branches) | 150–250 lines | Two platform implementations plus migration and fallback notes |
-| UI (list, install, sign-in, chat, usage) | 900–1200 lines of MyGo | ~785 lines of SwiftUI across five views on iOS |
-| Tests | 400–600 lines | Package refusal, authorisation state machine, streaming and cancellation, credential storage |
+| Probe local installation | 0.5–1 day | Confirm actual address, version/probeable capabilities, models/groups and authentication behaviour |
+| Client and contract tests | 1.5–3 days | Discovery, requests, streaming and cancellation, including unavailable/denied/interrupted cases |
+| Settings and task mapping | 1–2 days | Persist settings, select groups and send simple/complex tasks to intended groups without duplicating routing |
+| Windows/macOS verification | 1–2 days | Real requests from Nekophage, compared with Magpie's selected providers, route records and cancellation |
 
-Roughly **2200–3000 lines** in total, documentation aside. No Core changes are needed.
+Acceptance includes actual selection across providers/accounts and fallback, not merely a successful `/v1/models`. Billable requests use user-selected models/accounts; credentials never enter logs. If installed but stopped, diagnose startup/address requirements instead of reinstalling, upgrading or registering a persistent service.
 
-## Three routes and their trade-offs
+## Subsequent boundaries
 
-| Route | Scope | Cost |
-|---|---|---|
-| A: do not integrate | The desktop stays a reader | No AI on the desktop; zero maintenance |
-| B: template packages only | OpenAI-compatible plus Anthropic Messages; users install their own equivalents | Narrow coverage, but the dialect is declared by the package rather than hard-coded in the host |
-| C: match iOS | Community packages and capability detection included | Nearly twice the cost, while most community packages still cannot run because of Node dependencies |
+The initial local-installation approach is selected; do not ask again whether to embed Bun or build a host. Before implementation, inspect/probe the actual environment and ask only for connection details that cannot be found. Plugins, accounts and routing rules stay managed in Magpie. After actual validation, consider status panels, MCP adapters, subscription expiry strategies or bundled deployment separately.
 
-## Risks
-
-| Risk | Detail |
-|---|---|
-| Credentials at rest | Windows has DPAPI; on Linux without secret-service only 0600 permissions remain, and the UI has to say so |
-| Streaming UI | MyGo is immediate-mode, so `Chat` events must be pulled onto the UI thread — the same "pull, do not push" lesson iOS learned |
-| Community expectations | Users will expect "install and it works", while most packages are refused at load time; the error must name the missing module |
-| Licensing | Magpie itself is MIT, but third-party packages carry their own licences; not bundling them keeps the risk lowest |
-| Maintenance surface | A second UI and state machine parallel to iOS: every Magpie behaviour change has to be made twice |
-
-## Recommendation
-
-Choose between **A and B** first, rather than starting from C:
-
-- If the desktop has no near-term need for AI — take A, write "the desktop does not integrate Magpie" into `docs/OPEN-QUESTIONS.md`, and revisit later;
-- If the desktop should talk to the user's own gateway — take B, build `providers.go` + `runner.go` + one conversation window, and get "install → API-key sign-in → streaming reply" working with the two template packages before adding usage and options.
-
-Either way, **whether reference packages ship inside the client** is a separate decision (Core's `docs/OPEN-QUESTIONS.md`, item 4): bundling makes the feature work out of the box and takes on the responsibility of distributing third-party code with every release.
+Reference source: [gateway routing](https://github.com/yetone/magpie/blob/main/docs/subsystems/gateway-routing.md), [plugin runtime](https://github.com/yetone/magpie/blob/main/docs/subsystems/plugin-runtime.md). This evaluation checks a local reference snapshot, not the installed version.
