@@ -32,6 +32,13 @@ func (a *App) openSourceSettings(key string) {
 	go func() {
 		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 		defer cancel()
+		translations, terr := a.core.Translations(ctx, key)
+		if terr != nil {
+			translations = nil
+		}
+		a.manageWin.Update(func() {
+			a.manage.translations = translations
+		})
 		styles := a.core.AccountSupport(ctx, key)
 		fields, ferr := a.core.AccountCookieFields(ctx, key)
 		if ferr != nil {
@@ -314,6 +321,11 @@ func (a *App) settingRow(c *ui.Context, t *ui.Theme, s core.SourceSetting) {
 	if title == "" {
 		title = s.Key
 	}
+	// A source may declare a key and leave the readable text to its translation
+	// table, which is why ehentai's panel used to read "domain" and "ehevent".
+	if text, ok := m.translations[title]; ok && text != "" {
+		title = text
+	}
 	ui.Row(c).Gap(10).AlignItems(ui.Center).Children(func() {
 		ui.Text(c, title).FontSize(12).TextColor(t.TextMuted)
 		switch s.Type {
@@ -338,6 +350,12 @@ func (a *App) settingRow(c *ui.Context, t *ui.Theme, s core.SourceSetting) {
 			if len(labels) == 0 {
 				ui.Text(c, "（没有选项）").FontSize(11).TextColor(t.TextMuted)
 				return
+			}
+			// Option text may be a key too.
+			for i, label := range labels {
+				if text, ok := m.translations[label]; ok && text != "" {
+					labels[i] = text
+				}
 			}
 			pick := labels[max(0, index)]
 			if ui.Select(c, &pick, labels).Width(160).Changed() {

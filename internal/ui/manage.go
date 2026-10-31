@@ -44,6 +44,11 @@ type manageState struct {
 
 	// A source may declare its own login, in one of three styles. Without these
 	// the panel could not tell such a source from one that needs no account.
+	// translations holds the UI strings the source declares for this locale.
+	// A source writes `title: "domain"` and supplies the readable text here;
+	// without it the panel shows the raw key.
+	translations map[string]string
+
 	account        core.AccountStyles
 	accountUser    string
 	accountPass    string

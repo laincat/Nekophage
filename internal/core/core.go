@@ -809,6 +809,18 @@ func (c *Core) CategoryComics(ctx context.Context, key, category, param string, 
 	return parsePage(raw)
 }
 
+// Translations reads the UI strings a source declares for this client's locale.
+//
+// A source writes `title: "domain"` and supplies the readable text in its
+// translation table; without it the settings panel shows the raw key.
+func (c *Core) Translations(ctx context.Context, key string) (map[string]string, error) {
+	rt, err := c.reg.Comic(key)
+	if err != nil {
+		return nil, err
+	}
+	return rt.Translations(ctx, key)
+}
+
 // AccountStyles says how a source logs in. Three styles exist in the official
 // sources: a password (account.login), a host webview
 // (account.loginWithWebview) and a set of cookies the user pastes in

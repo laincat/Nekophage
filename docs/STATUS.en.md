@@ -177,6 +177,10 @@ That also fixed a blind spot in `cmd/uicheck`: its `-chapter` was gated on `n < 
 
 **`modifyImage` is wired up (2026-11-01, pin `6aa9356`)**: Core adds `Runtime.ModifyImage` (decoded RGBA into a throwaway bitmap store, the source's script runs in its own runtime, the result bitmap comes back; decoding and encoding stay with the client), and the desktop client uses it on the image path: fetch → `onResponse` first if present → `modifyImage` decodes to RGBA, runs the script and re-encodes as PNG, with the content type changed to `image/png` to match. In the config `modifyImage` is a **string of JavaScript, not a function**, so it travels as `ImageConfig.ModifyImage` rather than as a callback handle — a mistake made and pinned down with a test. Deterministic check: a source returns a 4×2 red/blue picture plus a clockwise-rotate script, and what arrives is 2×4 with red on top; a script that returns no image reports the failure instead of falling back to the original. Against real sources `hitomi` and `manhuagui` pass (their images are mostly avif/webp, which need not trigger the script).
 
+**The interface text a source declares was showing keys (2026-11-01, pin `239221b`)**: `ehentai`'s settings say `title: "domain"` and keep the readable text in its own `translation` table — seven sources ship one. Without reading it the panel showed `domain`, `ehevent` and `hvevent`, which is exactly what the account capture in the previous round displayed. Core now picks the table by the client's locale: the exact locale first, then the same language (a table written as `zh_CN` still answers a `zh_TW` client), then English and Chinese. The desktop uses it for setting titles and option text, and the capture confirms 域名, 触发黎明事件 and 提示HV遭遇战.
+
+Cookie field names (`ipb_member_id` and the like) are **not** translated: those are cookie names, not interface text.
+
 **Source accounts: three ways to log in, none of them wired up (2026-11-01, pin `896f647`)**: fifteen official sources declare an `account`, but in **three** different styles, so reading only `account.login` missed half of them:
 
 | Style | Declaration | Measured |
