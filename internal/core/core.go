@@ -707,6 +707,68 @@ func (c *Core) ImageRequest(ctx context.Context, key, url, comicID, chapterID st
 	return req, nil
 }
 
+// CategoryPart is one dimension of a source's category page.
+type CategoryPart struct {
+	Name       string
+	Type       string
+	ItemType   string
+	Categories []string
+	// Params maps Categories by index; empty means the value is the parameter.
+	Params []string
+}
+
+// Category is a source's category page: a title, what to choose and the options
+// its loader takes.
+type Category struct {
+	Title   string
+	Parts   []CategoryPart
+	Options []SearchOptionGroup
+}
+
+// CategoryPage reads a source's category declaration. A source without one
+// answers an empty Category, and the interface offers no category entry.
+func (c *Core) CategoryPage(ctx context.Context, key string) (Category, error) {
+	rt, err := c.reg.Comic(key)
+	if err != nil {
+		return Category{}, err
+	}
+	decl, err := rt.Category(ctx, key)
+	if err != nil {
+		return Category{}, err
+	}
+	out := Category{Title: decl.Title}
+	for _, g := range decl.Options {
+		out.Options = append(out.Options, SearchOptionGroup{Label: g.Label, Type: g.Type, Values: g.Values,
+			Labels: g.Labels, Default: g.Default, DefaultValues: g.DefaultValues})
+	}
+	for _, p := range decl.Parts {
+		out.Parts = append(out.Parts, CategoryPart{
+			Name: p.Name, Type: p.Type, ItemType: p.ItemType,
+			Categories: p.Categories, Params: p.Params,
+		})
+	}
+	return out, nil
+}
+
+// CategoryComics loads one page of a source's category page.
+//
+// category is the part's name as the source declared it, param the parameter
+// that value maps to, and options one chosen value per group of the category's
+// optionList.
+func (c *Core) CategoryComics(ctx context.Context, key, category, param string, options []string, page int) (Page, error) {
+	if options == nil {
+		options = []string{}
+	}
+	if page < 1 {
+		page = 1
+	}
+	raw, err := c.Call(ctx, key, "categoryComics.load", category, param, options, page)
+	if err != nil {
+		return Page{}, err
+	}
+	return parsePage(raw)
+}
+
 // ErrNoTagAction reports a source that does not say what a tapped tag means.
 var ErrNoTagAction = errors.New("core: source does not handle tag taps")
 
