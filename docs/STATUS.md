@@ -468,6 +468,8 @@ Cookie 字段名(`ipb_member_id` 等)**不翻译**:那是 Cookie 名,不是界�
 
 另外两端都补了:登出与登录反馈不再只出现在密码方式下(`ehentai` 这类纯 Cookie 源原本算出了「这组 Cookie 不能用」却从不显示,也点不到登出)。
 
+桌面视觉证据(2026-11-01):`ui-webview-login.png` 的 `nhentai` 设置区同时画出「在网页里登录」与「登出」;`ui-webview-ehentai.png` 的 `ehentai` 设置区同时画出网页登录、四个 Cookie 输入框、「校验并保存」与「登出」;`ui-callback-wnacg.png` 的 `wnacg` 设置区按源自己的 `buttonText` 画出 `Refresh`。三张图都在 `E:/Temp/nkprobe/`,由 `cmd/uicheck -settings` 在真实源上捕获。
+
 **排行榜页:9 个官方源声明了它,之前一直没用(2026-11-01,pin `c22a944`)**:`enableRankingPage: true` 配 `categoryComics.ranking = {options: ["date-Recent", …], load: (option, page) => …}` 是源声明的**另一个独立入口**,不是分类维度。Core 的 `Category` 现在把它一起带出来(`ranking.options`,值/标签按同样的 `-` 拆分),并新增 `RankingComics` 调用 `categoryComics.ranking.load`;桌面端分类页多一行「排行」,选中后走同一套列表与分页(`catRank` 决定分页走排行还是走维度)。
 
 真实源验证:`nhentai` 五个选项**全部**返回 25 部 —— `date` 26307 页、`today/week/month` 各 20 页、`popular` 26307 页;界面截图里 `Popular Week` 选中后列表换成了真实周榜。活体测试 `TestLiveCategoryRanking` 覆盖这一条。

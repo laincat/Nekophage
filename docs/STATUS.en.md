@@ -473,6 +473,8 @@ Two things that are easy to get wrong are pinned separately:
 
 Both clients also stopped hiding logout and the login answer behind the password style: a cookie-only source like `ehentai` computed "these cookies are not usable" and never showed it, and had no way to log out.
 
+Desktop visual evidence (2026-11-01): `ui-webview-login.png` shows 在网页里登录 and 登出 together in `nhentai`'s settings; `ui-webview-ehentai.png` shows in-page login, four cookie fields, 校验并保存 and 登出 together in `ehentai`'s; `ui-callback-wnacg.png` shows `Refresh` from `wnacg`'s own `buttonText`. All three live under `E:/Temp/nkprobe/`, captured by `cmd/uicheck -settings` against the real sources.
+
 **A ranking page: nine official sources declare one, and it was unreachable (2026-11-01, pin `c22a944`)**: `enableRankingPage: true` with `categoryComics.ranking = {options: ["date-Recent", …], load: (option, page) => …}` is a separate entry a source offers, not a category dimension. Core's `Category` now reports it as `ranking.options` (value and label split on the same `-`), and `RankingComics` calls `categoryComics.ranking.load`; the desktop's category screen grows a 排行 row that reuses the same list and pager, with `catRank` deciding which loader a page belongs to.
 
 Verified on the live source: all five `nhentai` options answer 25 comics — `date` over 26307 pages, `today`/`week`/`month` over 20 each, `popular` over 26307 — and the capture shows the list switching to the real weekly ranking once Popular Week is chosen. `TestLiveCategoryRanking` covers it.
