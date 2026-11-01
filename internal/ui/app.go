@@ -1844,6 +1844,26 @@ func (a *App) loadExplorePages() {
 	}()
 }
 
+// CategoryForCheck reports what the category page is showing: how many parts it
+// offers, the first part's name and how many values it lists, and how many comics
+// the current choice returned.
+//
+// The contract has two halves — `category` for the parts and `categoryComics` for
+// the options and the loader — so a page can draw its choosers and never load
+// anything. Counting comics is how that shows up.
+func (a *App) CategoryForCheck() (parts, values, page, comics int, errText string) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	parts = len(a.category.Parts)
+	if parts > 0 {
+		values = len(a.category.Parts[0].Categories)
+	}
+	page = a.catPage
+	comics = len(a.catComics)
+	// The category page shares the app's single error line with every other view.
+	return parts, values, page, comics, a.errText
+}
+
 // BrowseForCheck reports what the browse view is showing: how many sections the
 // source declares, how many chips the view draws for them, and how many comics the
 // current section holds.

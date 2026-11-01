@@ -88,6 +88,9 @@ if [ -n "${NK_PROBE_SRC:-}" ]; then
 	# Reading writes the shelf and the shelf reads it back; the file says which comic,
 	# chapter and page, so this is not a picture comparison.
 	run "reading lands on the shelf" 		"$out/shelf-probe.log" sh scripts/shelf-probe.sh "$NK_PROBE_SRC"
+	# The category contract has two halves, and a page that draws its choosers
+	# without loading anything is the failure this one exists to name.
+	run "the category page draws and loads" 		"$out/category-probe.log" sh scripts/category-probe.sh "$NK_PROBE_SRC"
 else
 	printf 'SKIP  comment thread (set NK_PROBE_SRC to a source script)
 '

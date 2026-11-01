@@ -590,7 +590,7 @@ Cookie 字段名(`ipb_member_id` 等)**不翻译**:那是 Cookie 名,不是界�
 | `manwaba` | 封面「不是图片」 | **实测**:取回那张 13328 字节的封面,`Content-Type: image/jpeg` 但首字节是 `aa254a…` 而不是 `ffd8`,即站点返回的是加密/混淆字节。客户端拒绝把它当图片是对的 |
 | `mh1234` | `Cannot read properties of null` | 源脚本解析站点结构时期望的元素不存在,属源侧脆弱 |
 
-## 窗口检查现在有十一项(2026-11-01,Core `d81445f`)
+## 窗口检查现在有十二项(2026-11-01,Core `d81445f`)
 
 `sh scripts/desktop-probes.sh` 一次跑完所有需要真窗口的检查,八项全过(三项按环境变量决定是否参与):
 
@@ -605,6 +605,7 @@ PASS  the reader decodes a served page           (只给 NK_PROBE_SRC 时的离�
 PASS  a comment thread the source answers        (NK_PROBE_SRC=测试源)
 PASS  the browse chips follow the sections       (NK_PROBE_SRC=测试源)
 PASS  reading lands on the shelf                 (NK_PROBE_SRC=测试源,离线)
+PASS  the category page draws and loads          (NK_PROBE_SRC=测试源)
 PASS  every callback the official sources declare  (NK_OFFICIAL_SRC)
 PASS  what every source's own tags mean            (NK_OFFICIAL_SRC)
 ```
@@ -710,6 +711,9 @@ NK_OFFICIAL_SRC=/path/to/official-srcs NK_PROBE_SRC=/path/to/source.js NK_FAV_SR
 ```
 
 评论线程那项是这一轮补的:客户端对真实源的评论早就跑过,但那条路要网络和登录。给它一个自带回答的源脚本(例如 iOS 仓库里的 `UITests/Fixtures/callback_probe.js`),这项在任何机器上都能跑,检查的是评论界面本身有没有把作者、正文和按钮画出来。
+
+
+分类页那项证明的是**两半契约**同时成立:`category` 给出可选项,`categoryComics` 给出加载器。三种输入实测过——完整声明 `parts=1 values=2 comics=1` 通过;只有 `parts` 没有加载器时 `comics=0` 并以 `source does not define this function` 失败;完全没声明时以「offers no category parts」失败。画出选择器却加载不出内容,正是它要区分的那种「看起来像站点空了」的故障。
 
 `NKDEBUG=1` 会打印封面下载与解码的日志。
 

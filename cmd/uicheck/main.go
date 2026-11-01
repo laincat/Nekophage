@@ -167,6 +167,14 @@ func main() {
 				log.Printf("capture: %s (%d bytes)", *out, len(data))
 			}
 			shotErr = inspect(data)
+			if *categoryShot {
+				// Two halves have to agree: the parts are drawn from `category`, the
+				// results come from `categoryComics`. Counting both is how a page that
+				// draws choosers and loads nothing becomes visible.
+				parts, values, page, comics, errText := app.CategoryForCheck()
+				log.Printf("category: parts=%d values=%d page=%d comics=%d err=%q",
+					parts, values, page, comics, errText)
+			}
 			if *browse {
 				// The chips are drawn only when a source offers more than one
 				// section, so the count is reported rather than inferred from a
