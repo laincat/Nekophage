@@ -597,6 +597,16 @@ That repository is **not a theme plugin** — it is a complete Android client wh
 | `manwaba` | the cover "is not an image" | **Measured**: the 13328-byte cover comes back with `Content-Type: image/jpeg` but starts with `aa254a…` rather than `ffd8`, so the site serves encrypted bytes. Refusing to treat that as a picture is right |
 | `mh1234` | `Cannot read properties of null` | The script expects an element the site no longer has, which is the source being brittle |
 
+## All twelve pass, none skipped (2026-11-01)
+
+One full run with all four environment variables set (`NK_OFFICIAL_SRC` + `NK_PROBE_SRC` + `NK_FAV_SRC` + `NK_READ_SRC`):
+
+```
+exit=0   PASS=12   FAIL=0   SKIP=0
+```
+
+That says more than "each check passes on its own": **the new checks do not interfere with each other** — declaring a category did not change the browse chip count, the runner-style loopback page did not disturb the comment thread, and the real-source reader and the served-page reader each ran their own way. Running them one at a time could not show that.
+
 ## Twelve window checks (2026-11-01, Core `d81445f`)
 
 `sh scripts/desktop-probes.sh` runs every check that needs a real window; all eight passed in one run, with three of them taking part only when the environment says so:

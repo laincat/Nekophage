@@ -590,6 +590,16 @@ Cookie 字段名(`ipb_member_id` 等)**不翻译**:那是 Cookie 名,不是界�
 | `manwaba` | 封面「不是图片」 | **实测**:取回那张 13328 字节的封面,`Content-Type: image/jpeg` 但首字节是 `aa254a…` 而不是 `ffd8`,即站点返回的是加密/混淆字节。客户端拒绝把它当图片是对的 |
 | `mh1234` | `Cannot read properties of null` | 源脚本解析站点结构时期望的元素不存在,属源侧脆弱 |
 
+## 十二项全部通过,无一跳过(2026-11-01)
+
+四个环境变量全给(`NK_OFFICIAL_SRC` + `NK_PROBE_SRC` + `NK_FAV_SRC` + `NK_READ_SRC`)的一次完整运行:
+
+```
+exit=0   PASS=12   FAIL=0   SKIP=0
+```
+
+这比「各项分别通过」更有意义:**新增的检查之间没有互相干扰**——分类声明没有改变分区标签的计数,runner 式的 loopback 供图没有影响评论线程,真实源阅读器与离线阅读器各跑各的。逐项冒烟证明不了这一点。
+
 ## 窗口检查现在有十二项(2026-11-01,Core `d81445f`)
 
 `sh scripts/desktop-probes.sh` 一次跑完所有需要真窗口的检查,八项全过(三项按环境变量决定是否参与):
