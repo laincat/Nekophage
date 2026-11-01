@@ -812,6 +812,7 @@ GOOS=darwin GOARCH=arm64  go build ./...   exit 0
 ```
 
 **This is portability, not execution**: the window layer needs GTK/WebKit runtime libraries, and nothing built here has been started on Linux. So "works on Linux" still has no evidence, while "does not compile on Linux" can now be ruled out.
+This machine also has nothing that could run it (checked 2026-11-01): `wsl.exe` exists but **no distribution is installed**, and `docker` is absent. Closing that gap needs a Linux environment installed first, which is a system change and was not made unasked.
 
 ## Next
 
