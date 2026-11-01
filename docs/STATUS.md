@@ -453,9 +453,20 @@ Cookie 字段名(`ipb_member_id` 等)**不翻译**:那是 Cookie 名,不是界�
 | 网页内登录 | `account.loginWithWebview {url, checkStatus, onLoginSuccess}` | `nhentai` 只有这一种;`ccc`/`mycomic` 兼有 |
 | Cookie 字段 | `account.loginWithCookies {fields, validate(values)}` | `ehentai` `[ipb_member_id ipb_pass_hash igneous star]`、`mycomic` `[cf_clearance]` |
 
-桌面端现在在源设置面板里按声明画:密码方式给账号/密码/登录/登出;Cookie 方式按 `fields` 逐个给输入框 + 「校验并保存」,由源自己的 `validate` 判断并写入 Cookie(空值一律被源拒绝,不会静默通过);**只提供网页内登录的源**(`nhentai`)**明确显示「桌面端暂不支持」**,而不是给一个按不动的表单。`ehentai` 正是这种源 —— 它根本没有密码登录。
+桌面端现在在源设置面板里按声明画:密码方式给账号/密码/登录/登出;Cookie 方式按 `fields` 逐个给输入框 + 「校验并保存」,由源自己的 `validate` 判断并写入 Cookie(空值一律被源拒绝,不会静默通过);**只提供网页内登录的源**(`nhentai`)当时只能显示「桌面端暂不支持」,而不是给一个按不动的表单。`ehentai` 正是这种源 —— 它根本没有密码登录。**这一条后来补上了**,见下面的「网页内登录」一节。
 
 源抛出的错误按原文显示:`picacg` 是 `Failed to login`,`ccc` 是 `No JavaScript UI handler provided`(它的登录要宿主提供 JS UI 会话,这是当前边界,不是客户端 bug)。活体测试 `TestLiveAccountStyles` 覆盖三种方式。
+
+**网页内登录:5 个官方源用源自己的页面登录,客户端原本只能显示「暂不支持」(2026-11-01,pin `466b26f`)**:`nhentai`、`ehentai`、`ccc`、`mycomic`、`manga_dex` 都声明 `account.loginWithWebview {url, checkStatus, onLoginSuccess}`。三个部分都不能跨语言边界传:`checkStatus`/`onLoginSuccess` 是函数,所以 Core 用 handle 命名它们,客户端把 handle 传回来。桌面端在源设置里给出「在网页里登录」,窗口是挑战页用的同一个 WebView,源的 `checkStatus(url, title)` 决定何时算登录完成,完成后再跑 `onLoginSuccess`。
+
+两条容易写错的地方已单独固定:
+
+1. **交接触发顺序**:`ehentai` 的 `onLoginSuccess` 通过 `Network.getCookies("https://forums.e-hentai.org")` **从源分区读回** Cookie 再写进 `.exhentai.org`,所以必须先存 Cookie 再调回调。正反两向都测了(存了就有、不存就空)。
+2. **Cookie 归属**:登录页会加载第三方,把整个浏览器存储倒进源分区等于让源背上它没要求的登录态。现在只留登录站点自己的 Cookie(浏览器规则:前导点=该域及子域、无点=精确匹配),并且**开始页和结束页两个域都算**(`manga_dex` 从 `forums.mangadex.org` 登录后落在 `mangadex.org`),同时命中的只存一次。
+
+`mycomic` 的登录页当场被判为"已完成",这不是缺陷:它的"登录"本质是过 Cloudflare 挑战,落在真实页面即为成功。
+
+另外两端都补了:登出与登录反馈不再只出现在密码方式下(`ehentai` 这类纯 Cookie 源原本算出了「这组 Cookie 不能用」却从不显示,也点不到登出)。
 
 **排行榜页:9 个官方源声明了它,之前一直没用(2026-11-01,pin `c22a944`)**:`enableRankingPage: true` 配 `categoryComics.ranking = {options: ["date-Recent", …], load: (option, page) => …}` 是源声明的**另一个独立入口**,不是分类维度。Core 的 `Category` 现在把它一起带出来(`ranking.options`,值/标签按同样的 `-` 拆分),并新增 `RankingComics` 调用 `categoryComics.ranking.load`;桌面端分类页多一行「排行」,选中后走同一套列表与分页(`catRank` 决定分页走排行还是走维度)。
 

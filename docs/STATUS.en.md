@@ -462,6 +462,17 @@ The desktop panel now draws what the source declares: a password style gets acco
 
 Errors are shown in the source's own words: `picacg` answers `Failed to login`, `ccc` answers `No JavaScript UI handler provided`, because its login wants a JS UI session from the host — a current boundary, not a client bug. `TestLiveAccountStyles` covers all three styles.
 
+**In-page login: five official sources log in on their own site and the client could only say "not supported" (2026-11-01, pin `466b26f`)**: `nhentai`, `ehentai`, `ccc`, `mycomic` and `manga_dex` all declare `account.loginWithWebview {url, checkStatus, onLoginSuccess}`. None of the three parts crosses the language boundary as it stands: `checkStatus` and `onLoginSuccess` are functions, so Core names them with a handle and the client passes that handle back. The desktop panel offers 在网页里登录; the window is the same WebView the challenge flow uses, the source's own `checkStatus(url, title)` decides when the login is finished, and `onLoginSuccess` runs after.
+
+Two things that are easy to get wrong are pinned separately:
+
+1. **Handover order**: `ehentai`'s `onLoginSuccess` reads its forum cookies back through `Network.getCookies("https://forums.e-hentai.org")` and writes them to `.exhentai.org`, so the client must store the cookies before running the callback. Both directions are tested — stored, and nothing stored.
+2. **Which cookies belong to the source**: a login page also loads third parties, and copying the whole browser store into the source's partition would make their cookies part of a login the source never asked for. Only the login site's cookies are kept, by the browser's own rule (leading dot: the host and its subdomains; no dot: that exact host), and **both the starting and the finishing host count** (`manga_dex` opens `forums.mangadex.org` and lands on `mangadex.org`), with a cookie that matches either stored once.
+
+`mycomic`'s login page counts as finished immediately, which is not a defect: its "login" is passing the Cloudflare challenge, so a real page is success.
+
+Both clients also stopped hiding logout and the login answer behind the password style: a cookie-only source like `ehentai` computed "these cookies are not usable" and never showed it, and had no way to log out.
+
 **A ranking page: nine official sources declare one, and it was unreachable (2026-11-01, pin `c22a944`)**: `enableRankingPage: true` with `categoryComics.ranking = {options: ["date-Recent", …], load: (option, page) => …}` is a separate entry a source offers, not a category dimension. Core's `Category` now reports it as `ranking.options` (value and label split on the same `-`), and `RankingComics` calls `categoryComics.ranking.load`; the desktop's category screen grows a 排行 row that reuses the same list and pager, with `catRank` deciding which loader a page belongs to.
 
 Verified on the live source: all five `nhentai` options answer 25 comics — `date` over 26307 pages, `today`/`week`/`month` over 20 each, `popular` over 26307 — and the capture shows the list switching to the real weekly ranking once Popular Week is chosen. `TestLiveCategoryRanking` covers it.
