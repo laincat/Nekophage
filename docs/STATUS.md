@@ -620,6 +620,7 @@ PASS  what every source's own tags mean            (NK_OFFICIAL_SRC)
 | 源 | 结果 | 归因 |
 |---|---|---|
 | `manhuagui` | 详情 210 页,阅读器 `figures=210 images=210 decoded=4 first=1520x1300`,图片经阅读器代理取回 | 通过 |
+| `komiic` | 同为 `figures=210 images=210 decoded=4 first=1520x1300`(HTML 抓取源与 API 源各一,结果一致) | 通过 |
 | `copy_manga` | 详情阶段 `Invalid status code: 210` | **站点侧**(该站此前也用 210 回应,不是客户端或源脚本的回归) |
 
 `decoded=4` 不等于只渲染 4 页:阅读器按需解码,这是「屏幕上此刻解码出来的页数」。窗口截图里没有 web 层,所以判断依据是日志里这行数字,不是图。
@@ -744,8 +745,10 @@ NK_NO_RACE=1 → PASS  go test (no race detector)
 
 `cmd/seedgen` 直接把文件字节塞进记录的 `body`,于是**同一份夹具**在 Windows(CRLF)和 macOS(LF)上生成出不同 md5 的种子。后果不是理论问题:验证机拿到的是另一个哈希,「种子与树一致」这句话就没法用哈希回答,只能靠人去比内容——而这次就是这么绕进去的。
 
-现在生成前把 `
-` 与孤立 `` 统一成 `
+现在生成前把 `
+
+` 与孤立 `
+` 统一成 `
 `:
 
 ```

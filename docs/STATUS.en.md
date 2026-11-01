@@ -627,6 +627,7 @@ The comment check was first written as "the capture has content, so it passed" �
 | Source | Result | Attribution |
 |---|---|---|
 | `manhuagui` | details list 210 chapters; reader reports `figures=210 images=210 decoded=4 first=1520x1300`, with images fetched through the reader's own proxy | passes |
+| `komiic` | the same numbers (`figures=210 images=210 decoded=4 first=1520x1300`) — one HTML-scraping source and one API source agreeing | passes |
 | `copy_manga` | `Invalid status code: 210` while loading details | **the site** (it has answered 210 before; not a client or source-script regression) |
 
 `decoded=4` does not mean only four pages rendered: the reader decodes as it goes, so that is how many were decoded at that moment. The window capture does not include the web layer, so the evidence is that log line rather than the image.
@@ -760,8 +761,10 @@ The desktop now follows the same rule (`len(pages) > 1`, divider included). Both
 
 `cmd/seedgen` put the file's bytes straight into a record's `body`, so **the same fixture** produced a seed with a different md5 on Windows (CRLF) and on macOS (LF). That is not theoretical: the verification machine received a different hash, so "the seed matches the tree" could not be answered with a hash — it had to be compared by eye, which is exactly how this went wrong.
 
-It now turns `
-` and lone `` into `
+It now turns `
+
+` and lone `
+` into `
 ` before installing:
 
 ```
