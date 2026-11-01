@@ -64,6 +64,11 @@ need "translations" internal/core/core.go 'func (c *Core) Translations(ctx conte
 need "translated titles" internal/ui/settings.go 'm.translations[title]'
 need "setting callback" internal/core/core.go 'settings."+settingKey+".callback'
 need "source UI handler" internal/ui/jsui.go 'func (h *JSHandler) ShowDialog(title, content string, actions []js.DialogAction) error'
+# One WebView cookie store serves every source, so login and verification must
+# take the same lock: two windows that each clear the store erase the other's
+# cookies, and a source then reads another source's login.
+need "browser store lock" internal/browser/browser.go 'browserStoreMu.Lock()'
+need "browser store lock" internal/browser/login.go 'browserStoreMu.Lock()'
 # A declaration that is data rather than a function: favorites.multiFolder
 # decides whether a folder id is expected at all, and Call cannot reach it.
 need "data declarations" internal/core/core.go 'rt.Value(ctx, key, "favorites.multiFolder")'

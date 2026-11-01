@@ -55,9 +55,15 @@ func (l *LoginWindow) Run(ctx context.Context) (int, error) {
 		return 0, errors.New("browser: this source has no browser login")
 	}
 
-	// A page must start from a clean store, or it inherits the last one's
-	// cookies and the login it should earn is never earned.
-	_ = mygo.Cookies.Clear()
+	// Login and verification share the WebView store across all sources.
+	browserStoreMu.Lock()
+	defer browserStoreMu.Unlock()
+
+	// Refuse to open a page if the previous browser session cannot be cleared.
+	if err := mygo.Cookies.Clear(); err != nil {
+		return 0, err
+	}
+	defer func() { _ = mygo.Cookies.Clear() }()
 
 	state := &loginState{done: make(chan struct{})}
 	win := mygo.NewWindow(mygo.WindowOptions{
@@ -77,7 +83,6 @@ func (l *LoginWindow) Run(ctx context.Context) (int, error) {
 
 	stored, err := l.watch(ctx, decl, state)
 	win.Close()
-	_ = mygo.Cookies.Clear()
 	return stored, err
 }
 

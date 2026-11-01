@@ -30,8 +30,10 @@ import (
 // sees another source's login.
 type Verifier struct {
 	jar *cookies.Jar
-	mu  sync.Mutex
 }
+
+// browserStoreMu serializes every use of the shared WebView cookie store.
+var browserStoreMu sync.Mutex
 
 // NewVerifier builds a Verifier over the app's cookie jars.
 func NewVerifier(jar *cookies.Jar) *Verifier { return &Verifier{jar: jar} }
@@ -42,12 +44,15 @@ func (v *Verifier) Verify(ctx context.Context, ch *host.Challenge) (*host.Cleara
 	if ch == nil || ch.URL == "" {
 		return nil, errors.New("browser: challenge without a URL")
 	}
-	v.mu.Lock()
-	defer v.mu.Unlock()
+	browserStoreMu.Lock()
+	defer browserStoreMu.Unlock()
 
 	// A page must start from a clean store, or it inherits the last one's
 	// clearance and the cookie it should set is never set.
-	_ = mygo.Cookies.Clear()
+	if err := mygo.Cookies.Clear(); err != nil {
+		return nil, err
+	}
+	defer func() { _ = mygo.Cookies.Clear() }()
 
 	s := &challenge{ch: ch, jar: v.jar, done: make(chan struct{})}
 	win := mygo.NewWindow(mygo.WindowOptions{
@@ -67,7 +72,6 @@ func (v *Verifier) Verify(ctx context.Context, ch *host.Challenge) (*host.Cleara
 
 	clearance, err := s.watch(ctx)
 	win.Close()
-	_ = mygo.Cookies.Clear()
 	return clearance, err
 }
 
