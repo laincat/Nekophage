@@ -679,7 +679,7 @@ go run ./cmd/readercheck -script ... -query ... -scan     # 逐章页数,找有�
 
 # 打开主窗口做一次真实搜索并保存截图;加 -open 会先打开第一个结果
 # -favourite 先把第一个结果收藏,用来核对结果网格的「已在书架」标记
-go run ./cmd/uicheck -script /path/to/manga_dex.js -query "one piece" -open -out window.png
+go run ./cmd/uicheck -script /path/to/manga_dex.js -query "one piece" -open -out build/uicheck.png
 
 # 人机验证:窗口本身,以及 Core 的整条 403→验证→重试 链路(本地伪造站点)
 go run ./cmd/verifycheck -local

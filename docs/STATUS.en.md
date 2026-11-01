@@ -686,7 +686,7 @@ go run ./cmd/readercheck -script ... -query ... -scan     # page counts per chap
 
 # open the main window, run a real search and save a capture; -open opens the
 # first result first
-go run ./cmd/uicheck -script /path/to/manga_dex.js -query "one piece" -open -out window.png
+go run ./cmd/uicheck -script /path/to/manga_dex.js -query "one piece" -open -out build/uicheck.png
 
 # verification: the window alone, and Core's whole challenge flow (a local
 # site that answers like Cloudflare)

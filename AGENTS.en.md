@@ -47,7 +47,7 @@ sh scripts/check-partitions.sh
 NK_LIVE_JS=/path/to/manga_dex.js NK_LIVE_QUERY="one piece" go test -run TestLiveSource -v ./internal/library
 go run ./cmd/readercheck -script ... -query ... -out reader.png        # the reader
 go run ./cmd/readercheck -script ... -query ... -layout               # two pages, right to left
-go run ./cmd/uicheck -script ... -query ... -open -out window.png
+go run ./cmd/uicheck -script ... -query ... -open -out build/uicheck.png   # no -out means no file
 go run ./cmd/verifycheck -e2e
 ```
 
