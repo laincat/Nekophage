@@ -608,6 +608,7 @@ PASS  closing a source dialog releases its caller
 PASS  a closed window still takes updates and page reads
 PASS  the favourites the source keeps are listed (NK_FAV_SRC=the test source)
 PASS  the reader decodes a real chapter          (NK_READ_SRC=manhuagui)
+PASS  the reader decodes a served page           (the offline form, when only NK_PROBE_SRC is set)
 PASS  a comment thread the source answers        (NK_PROBE_SRC=the test source)
 PASS  the browse chips follow the sections       (NK_PROBE_SRC=the test source)
 PASS  every callback the official sources declare  (NK_OFFICIAL_SRC)

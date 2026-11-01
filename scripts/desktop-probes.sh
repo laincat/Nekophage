@@ -68,8 +68,13 @@ fi
 # not a picture.
 if [ -n "${NK_READ_SRC:-}" ]; then
 	run "the reader decodes a real chapter" 		"$out/reader-probe.log" sh scripts/reader-probe.sh
+elif [ -n "${NK_PROBE_SRC:-}" ]; then
+	# No real source was named, so serve the page from loopback instead: the same
+	# trick, port and fixture the iOS interface tests use. This still proves an
+	# image decoded into a picture, it just does not prove a site serves one.
+	NK_READ_SRC=$NK_PROBE_SRC NK_READ_SERVE=18731 		run "the reader decodes a served page" 		"$out/reader-probe.log" sh scripts/reader-probe.sh
 else
-	printf 'SKIP  reader decode (set NK_READ_SRC to a source script)
+	printf 'SKIP  reader decode (set NK_READ_SRC, or NK_PROBE_SRC for a served page)
 '
 fi
 
