@@ -21,16 +21,18 @@ import (
 	"time"
 
 	"github.com/egoist/mygo"
+	"github.com/egoist/mygo/ui"
 	"github.com/laincat/nekophage/internal/browser"
 	"github.com/laincat/nekophage/internal/core"
 	"github.com/laincat/veneracat-core/host"
 )
 
 func main() {
-	mode := flag.String("mode", "clear", "clear or dismiss")
+	mode := flag.String("mode", "clear", "clear, dismiss or live")
+	live := flag.String("url", "", "the real page to try in live mode")
 	flag.Parse()
 	switch *mode {
-	case "clear", "dismiss":
+	case "clear", "dismiss", "live", "inspect":
 	default:
 		fmt.Println("FAIL unknown mode:", *mode)
 		os.Exit(1)
@@ -68,16 +70,78 @@ func main() {
 	}
 	defer c.Close()
 
+	if *mode == "inspect" {
+		// What the window actually shows, which decides whether a site has a
+		// challenge to clear at all rather than one the client cannot judge.
+		if *live == "" {
+			fmt.Println("FAIL inspect mode needs -url")
+			os.Exit(1)
+		}
+		report := make(chan string, 1)
+		mygo.App.WhenReady(func() {
+			go func() {
+				win := mygo.NewWindow(mygo.WindowOptions{Title: "inspect", Width: 520, Height: 780,
+					Content: ui.View(func(c *ui.Context) { ui.Text(c, "inspect") })})
+				view, err := win.NewWebView(mygo.WebViewOptions{URL: *live})
+				if err != nil {
+					report <- "FAIL open: " + err.Error()
+					mygo.App.Quit()
+					return
+				}
+				win.Show()
+				time.Sleep(9 * time.Second)
+				page := view.Page()
+				title, _ := page.Eval("document.title")
+				html, _ := page.Eval("document.documentElement.outerHTML")
+				body, _ := html.(string)
+				short := body
+				if len(short) > 160 {
+					short = short[:160]
+				}
+				listed, _ := mygo.Cookies.List(mygo.CookieFilter{URL: *live})
+				names := make([]string, 0, len(listed))
+				for _, ck := range listed {
+					names = append(names, ck.Name)
+				}
+				report <- fmt.Sprintf("title=%v cookies=%v html=%q", title, names, short)
+				win.Close()
+				mygo.App.Quit()
+			}()
+		})
+		if err := mygo.App.Run(); err != nil {
+			fmt.Println("FAIL app:", err)
+			os.Exit(1)
+		}
+		fmt.Println("INSPECT", <-report)
+		return
+	}
+
 	partition := core.ComicPartition("probe")
+	page := srv.URL + "/challenge"
+	done := host.DoneRule{
+		AbsentMarkers:   []string{"just-a-moment-checking"},
+		RequiredCookies: []string{"cf_clearance"},
+	}
+	if *mode == "live" {
+		// A real interstitial: the markers a Cloudflare challenge page carries,
+		// and the cookie it sets when it passes. Whether it passes at all is what
+		// this mode is asking.
+		if *live == "" {
+			fmt.Println("FAIL live mode needs -url")
+			os.Exit(1)
+		}
+		page = *live
+		done = host.DoneRule{
+			AbsentMarkers:   []string{"Just a moment", "Checking your browser", "cf-browser-verification", "__cf_chl_"},
+			RequiredCookies: []string{"cf_clearance"},
+		}
+	}
 	verifier := browser.NewVerifier(c.Jar())
 	ch := &host.Challenge{
 		Kind:      host.ChallengeCloudflare,
-		URL:       srv.URL + "/challenge",
+		URL:       page,
 		Partition: partition,
-		Done: host.DoneRule{
-			AbsentMarkers:   []string{"just-a-moment-checking"},
-			RequiredCookies: []string{"cf_clearance"},
-		},
+		Done:      done,
 	}
 
 	result := make(chan error, 1)
@@ -85,6 +149,9 @@ func main() {
 	mygo.App.WhenReady(func() {
 		go func() {
 			bound := 40 * time.Second
+			if *mode == "live" {
+				bound = 60 * time.Second
+			}
 			if *mode == "dismiss" {
 				// The window is closed by the person giving up, which the probe
 				// stands in for with the deadline.
@@ -104,7 +171,21 @@ func main() {
 	}
 
 	err = <-result
-	got := c.Jar().Get(partition, srv.URL+"/")
+	target := srv.URL + "/"
+	if *mode == "live" {
+		target = *live
+	}
+	got := c.Jar().Get(partition, target)
+
+	if *mode == "live" {
+		if err != nil {
+			fmt.Println("NOTE live page did not clear:", err)
+			fmt.Println("NOTE cookies seen:", len(got))
+			os.Exit(2)
+		}
+		fmt.Println("PASS live challenge cleared; cookies:", len(got), "ua:", clearance.UserAgent)
+		return
+	}
 
 	if *mode == "dismiss" {
 		if err == nil {

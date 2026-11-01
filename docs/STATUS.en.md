@@ -580,7 +580,10 @@ That repository is **not a theme plugin** — it is a complete Android client wh
 
 ## Not verified
 
-- **A live Cloudflare challenge**: none could be reproduced. 18comic.vip answers 403 to a command-line client but opens in WebView2 without setting `cf_clearance`, so the current rule cannot call it passed; whether such a site lets the client in after verification needs another sample.
+- **A live Cloudflare challenge**: none could be reproduced. On 2026-11-01 `cmd/challengeprobe -mode inspect` (new) looked at what the window actually holds, so the two sites are no longer guesses:
+  - `18comic.vip`: the window holds the **ordinary site** (title 免費A漫 - 禁漫天堂, cookies `yuo1`/`AVS`/`ipcountry`/`theme` and others), **no challenge page at all**, therefore no `cf_clearance`. So "cannot be judged passed" does not mean the client fails to see a cookie: this kind of site has **no challenge to pass**. The done rule wants `cf_clearance`, the page never needs one, and the client can only wait out the deadline.
+  - `mangadex.org`: the only cookie is `MD-Edge-ID` and the page pulls a `gstatic` reCAPTCHA, which confirms an **edge 302 plus reCAPTCHA** rather than a Cloudflare clearance, and the current `DoneRule` (markers absent plus `cf_clearance` present) cannot describe it.
+  - Both ended `-mode live` with `context deadline exceeded` and zero cookies, matching what inspect saw. The **locally reproducible loop** (a page writes `cf_clearance`, the window calls it passed, the cookie reaches the partition, the page's real User-Agent comes back) runs as `clear` in `scripts/challenge-probe.sh`; what is still missing is a successful sample on a **real site**.
 - **macOS and Linux**: cross-compile and `go vet` both pass (`GOOS=darwin GOARCH=arm64`, `GOOS=linux GOARCH=amd64`, rechecked 2026-10-31), but neither is **run**. Compiling is not opening a window: that layer needs each platform's own system libraries, so a real run still has to happen on those machines.
 - **Video sources**: Core supports them, the desktop app does not wire them yet; `browser.Sniffer` returns "unsupported" for now.
 - **The workbench**: not started; see [ARCHITECTURE.en.md](ARCHITECTURE.en.md).
