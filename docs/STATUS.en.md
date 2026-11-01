@@ -708,6 +708,19 @@ The comment thread is the one added this round: the client has driven real sourc
 
 `NKDEBUG=1` prints cover download and decode lines.
 
+## A single-browse source no longer draws a one-chip row (2026-11-01)
+
+The same state used to look different on the two clients: iOS draws no section row when a source has one browse and no category (`BrowseView.swift:50`), while the desktop always drew one — a row holding a single chip that is permanently selected, which reads as noise.
+
+The desktop now follows the same rule (`len(pages) > 1`, divider included). Both cases were checked by capture:
+
+| Source | Result |
+|---|---|
+| one declared browse | no chip row, straight to `Solo Comic` and `第 1 / 1 页` |
+| two declared browses | both chips, `Probe Shelf` selected, `Probe Second` switchable |
+
+`go vet` and `go test ./internal/ui` pass. This kind of difference does not announce itself; it only shows up when both clients are given the same input.
+
 ## Cross-compilation: all three targets build (2026-11-01)
 
 "compile and run on macOS and Linux" has been on the next list for a while with only macOS evidence from the Mac worker. This round settles the "does not compile" half:

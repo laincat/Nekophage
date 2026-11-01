@@ -1906,26 +1906,32 @@ func (a *App) browseView(c *ui.Context, t *ui.Theme) {
 
 	// The tabs of the browses the source offers. A source has a handful of
 	// them, so a row is enough and costs less room than a scrolling strip.
-	ui.Row(c).Padding(8, 16).Gap(6).AlignItems(ui.Center).Children(func() {
-		for i, p := range pages {
-			label := p.Title
-			if label == "" {
-				label = "分类 " + itoa(i+1)
-			}
-			if i == index {
-				// The chosen browse reads as the filled one; clicking it
-				// loads it again, which is what a reader expects.
-				if ui.PrimaryButton(c, label).Clicked() {
+	//
+	// A source with a single browse gets no row: one chip that is always chosen
+	// says nothing, and the iOS client already hides it in that case, so the two
+	// clients now read the same way.
+	if len(pages) > 1 {
+		ui.Row(c).Padding(8, 16).Gap(6).AlignItems(ui.Center).Children(func() {
+			for i, p := range pages {
+				label := p.Title
+				if label == "" {
+					label = "分类 " + itoa(i+1)
+				}
+				if i == index {
+					// The chosen browse reads as the filled one; clicking it
+					// loads it again, which is what a reader expects.
+					if ui.PrimaryButton(c, label).Clicked() {
+						a.loadExplore(key, i, 1)
+					}
+					continue
+				}
+				if ui.Button(c, label).Clicked() {
 					a.loadExplore(key, i, 1)
 				}
-				continue
 			}
-			if ui.Button(c, label).Clicked() {
-				a.loadExplore(key, i, 1)
-			}
-		}
-	})
-	ui.Divider(c)
+		})
+		ui.Divider(c)
+	}
 
 	if busy {
 		ui.Row(c).Padding(16).Gap(10).AlignItems(ui.Center).Children(func() {
