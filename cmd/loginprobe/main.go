@@ -34,6 +34,14 @@ import (
 func main() {
 	mode := flag.String("mode", "ok", "ok, timeout or failcallback")
 	flag.Parse()
+	// An unknown mode would otherwise fall through to the ordinary path and report
+	// a pass for a case nobody asked about.
+	switch *mode {
+	case "ok", "timeout", "failcallback":
+	default:
+		fmt.Println("FAIL unknown mode:", *mode)
+		os.Exit(1)
+	}
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/login", func(w http.ResponseWriter, r *http.Request) {
