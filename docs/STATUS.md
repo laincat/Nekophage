@@ -613,6 +613,18 @@ PASS  what every source's own tags mean            (NK_OFFICIAL_SRC)
 
 评论那一项先被写成「截图有内容就算过」,拿一个**不声明评论**的源一跑也 PASS 了——空线程和真线程的截图只差几百字节。改成向窗口要 `count / author / body / err` 之后,同一个源立刻报出 `count=0 err="源返回错误:core: wnacg keeps no comments"`。这类假阳性只有负向验证能发现。
 
+## 阅读器解码现在也能离线跑(2026-11-01)
+
+真实源那次要网络、要站点配合。现在 `cmd/readercheck` 多了 `-serve PORT`:在本机 loopback 上回一张运行时画出来的 PNG,夹具的章节指向 `http://127.0.0.1:18731/page.png`,于是**不联网也能证明「图片真的解码成图」**:
+
+```
+go run ./cmd/readercheck -script UITests/Fixtures/callback_probe.js -query probe -serve 18731
+→ page title=Probe Comic figures=1 images=1 decoded=1 first=8x8
+→ the reader rendered 1 of 1 pages
+```
+
+探针里用 `NK_READ_SERVE=18731 sh scripts/reader-probe.sh` 即可。这和 iOS 界面测试用的是同一个端口与同一个夹具,两端因此可以用同一份输入检查同一件事。
+
 ## 阅读器在新 pin 上重测(2026-11-01,Core `d81445f`)
 
 `go run ./cmd/readercheck` 对真实源各跑一次,归因分开记:

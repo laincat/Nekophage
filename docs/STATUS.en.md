@@ -620,6 +620,18 @@ The reader is the one that needs a real **decoder**: a source can return plausib
 
 The comment check was first written as "the capture has content, so it passed" — and it passed against a source that **declares no comments**, because an empty thread and a real one capture to within a few hundred bytes of each other. Asking the window for `count / author / body / err` instead made the same source report `count=0 err="源返回错误:core: wnacg keeps no comments"` immediately. That kind of false positive only shows up if the check is run against a case that should fail.
 
+## The reader's decode can run offline now (2026-11-01)
+
+The real-source run needs the network and a site that cooperates. `cmd/readercheck` gained `-serve PORT`: it answers on loopback with a PNG drawn at runtime, and the fixture's chapter points at `http://127.0.0.1:18731/page.png`, so **an image really decoding into a picture can be shown without a network**:
+
+```
+go run ./cmd/readercheck -script UITests/Fixtures/callback_probe.js -query probe -serve 18731
+→ page title=Probe Comic figures=1 images=1 decoded=1 first=8x8
+→ the reader rendered 1 of 1 pages
+```
+
+In the probe suite use `NK_READ_SERVE=18731 sh scripts/reader-probe.sh`. It is the same port and the same fixture the iOS interface tests use, so both clients can be checked on one input.
+
 ## The reader, re-run on the new pin (2026-11-01, Core `d81445f`)
 
 `go run ./cmd/readercheck` against two real sources, with the attribution kept separate:

@@ -25,8 +25,17 @@ mkdir -p "$out"
 log=$out/reader.log
 shot=$out/reader.png
 
+# NK_READ_SERVE=18731 serves one PNG on loopback, for a source whose chapter points
+# at 127.0.0.1 — the same trick the iOS interface tests use. That makes the decode
+# check runnable with no site at all.
+serve=""
+if [ -n "${NK_READ_SERVE:-}" ]; then
+	serve="-serve ${NK_READ_SERVE}"
+fi
+
 rc=0
-go run ./cmd/readercheck -script "$src" -query "$query" -out "$shot" >"$log" 2>&1 || rc=$?
+# shellcheck disable=SC2086 # serve is either empty or one flag and its value
+go run ./cmd/readercheck -script "$src" -query "$query" $serve -out "$shot" >"$log" 2>&1 || rc=$?
 
 if [ $rc -ne 0 ]; then
 	# The last real log line, not the go run wrapper's "exit status 1":
