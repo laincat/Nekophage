@@ -26,6 +26,14 @@ func main() {
 				Title: "update probe", Width: 360, Height: 200,
 				Content: ui.View(func(c *ui.Context) { ui.Text(c, "probe") }),
 			})
+			// A page too: the login and challenge windows poll the page on a
+			// timer, and the last tick can land after the window is gone.
+			view, err := win.NewWebView(mygo.WebViewOptions{URL: "about:blank"})
+			if err != nil {
+				done <- "FAIL could not open a page: " + err.Error()
+				mygo.App.Quit()
+				return
+			}
 			win.Show()
 			time.Sleep(time.Second)
 			win.Close()
@@ -36,12 +44,17 @@ func main() {
 				defer close(finished)
 				win.Update(func() {})
 				win.Update(func() {})
+				// What the poll does: read the page after it may be gone.
+				page := view.Page()
+				if page != nil {
+					_, _ = page.Eval("document.title")
+				}
 			}()
 			select {
 			case <-finished:
-				done <- "PASS Update returned after the window closed"
+				done <- "PASS Update and page reads returned after the window closed"
 			case <-time.After(5 * time.Second):
-				done <- "FAIL Update blocked after the window closed"
+				done <- "FAIL a window call blocked after the window closed"
 			}
 			mygo.App.Quit()
 		}()

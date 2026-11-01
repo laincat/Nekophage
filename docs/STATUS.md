@@ -613,7 +613,7 @@ sh scripts/challenge-probe.sh
 go run ./cmd/cbprobe /path/to/source.js - --all
 NK_OFFICIAL_SRC=/path/to/official-srcs sh scripts/callback-probe.sh
 
-# 源对话框被用户关掉后调用方是否释放;窗口关掉后 Update 是否仍安全
+# 源对话框被用户关掉后调用方是否释放;窗口关掉后 Update 与页面读取是否仍安全
 go run ./cmd/dialogprobe
 go run ./cmd/updateprobe
 ```

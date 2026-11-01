@@ -624,7 +624,7 @@ sh scripts/challenge-probe.sh
 go run ./cmd/cbprobe /path/to/source.js - --all
 NK_OFFICIAL_SRC=/path/to/official-srcs sh scripts/callback-probe.sh
 
-# closing a source's dialog releases its caller; updating a closed window is safe
+# closing a source's dialog releases its caller; a closed window still takes updates and page reads
 go run ./cmd/dialogprobe
 go run ./cmd/updateprobe
 ```
