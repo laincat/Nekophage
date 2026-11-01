@@ -11,6 +11,7 @@ import (
 	"errors"
 	"log"
 	"net/http"
+	"net/url"
 	"os"
 	"strings"
 	"sync"
@@ -128,6 +129,29 @@ func (c *challenge) check() (string, []*http.Cookie, bool) {
 		return "", nil, false
 	}
 	html, _ := raw.(string)
+	// A rule with nothing to check is never satisfied: an empty group means "no
+	// condition", not "vacuously true", so a rule written for a cookie-based
+	// challenge must not pass just because a URL-based one has no markers.
+	if c.ch.Done.Empty() {
+		return "", nil, false
+	}
+	if len(c.ch.Done.RequiredQueryParams) > 0 {
+		rawURL, err := page.Eval("location.href")
+		if err != nil {
+			return "", nil, false
+		}
+		href, _ := rawURL.(string)
+		u, err := url.Parse(href)
+		if err != nil {
+			return "", nil, false
+		}
+		q := u.Query()
+		for _, want := range c.ch.Done.RequiredQueryParams {
+			if want == "" || q.Get(want) == "" {
+				return "", nil, false
+			}
+		}
+	}
 	for _, marker := range c.ch.Done.AbsentMarkers {
 		if marker != "" && strings.Contains(html, marker) {
 			return "", nil, false

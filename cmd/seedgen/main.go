@@ -19,6 +19,7 @@ import (
 	"strings"
 
 	"github.com/laincat/nekophage/internal/core"
+	"github.com/laincat/veneracat-core/plugin"
 )
 
 // normaliseNewlines makes CRLF and lone CR into LF, so the bytes a seed carries
@@ -26,6 +27,15 @@ import (
 func normaliseNewlines(text string) string {
 	text = strings.ReplaceAll(text, "\r\n", "\n")
 	return strings.ReplaceAll(text, "\r", "\n")
+}
+
+// pluginType reads the kind from the script, the way Core's loader does: the
+// seed builder is given files, not types.
+func pluginType(script string) plugin.Type {
+	if strings.Contains(script, "extends VideoSource") {
+		return plugin.TypeVideoJS
+	}
+	return plugin.TypeComic
 }
 
 func main() {
@@ -53,7 +63,8 @@ func main() {
 		// bytes as one built on another. Without this the same fixture produced a
 		// different md5 per host, which turns "the seed matches the tree" into a
 		// question nobody can answer from a hash.
-		rec, err := c.Install(ctx, normaliseNewlines(string(body)), "file", "")
+		text := normaliseNewlines(string(body))
+		rec, err := c.InstallTyped(ctx, pluginType(text), text, "file", "")
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "%s: %v\n", filepath.Base(path), err)
 			os.Exit(1)

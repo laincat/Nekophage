@@ -207,7 +207,15 @@ func logLine(level, title, content string) {
 
 // Install installs a comic source script.
 func (c *Core) Install(ctx context.Context, body, origin, indexURL string) (*plugin.Record, error) {
-	return c.reg.Install(ctx, plugin.TypeComic, body, origin, indexURL, "")
+	return c.InstallTyped(ctx, plugin.TypeComic, body, origin, indexURL)
+}
+
+// InstallTyped installs a plugin whose kind the caller already knows. The
+// client always knows it — it asks the user which file they picked — while a
+// seed builder only has the file, so it says so here rather than guessing in
+// the interface.
+func (c *Core) InstallTyped(ctx context.Context, typ plugin.Type, body, origin, indexURL string) (*plugin.Record, error) {
+	return c.reg.Install(ctx, typ, body, origin, indexURL, "")
 }
 
 // Replace updates an installed source.

@@ -55,15 +55,13 @@ internal/ui            主窗口:源、搜索(含来源筛选、多源合并搜�
 - 验证窗口共用浏览器的默认数据存储,所以同一时间只允许一个验证窗口,打开前和关闭后都清空,页面之间不互相污染。
 - 源不可信:脚本在独立引擎里运行(Core 保证),网页只在阅读器和验证窗口里出现,不加载源的任意 HTML 到主界面。
 
-## 挑战完成规则:一个待决的设计(2026-11-01)
+## 挑战完成规则(2026-11-01 已实现)`
 
-现在的 `host.DoneRule` 只有两个条件:某些标记从 HTML 里消失、某些 Cookie 必须存在。它对 Cloudflare 那类「拿到 `cf_clearance`」有效,但 **MangaDex 不是那一类**——实测(2026-11-01):`GET api.mangadex.org/manga` 返回 `302` 到 `/edge/challenge?src=<原路径>`,挑战页做纯 JS 的 proof-of-work,解出后 `location.replace` 回原地址并带上 `powblock=<nonce>&pbchal=<token>`。**通行凭据在 URL 参数里,不在 Cookie 里。**
+`host.DoneRule` 有三组条件:某些标记从 HTML 里消失、某些 Cookie 必须存在、**URL 必须带上指名的查询参数**。**有内容的组全部满足**才算通过;一组都没有时永远不通过——空组表示「没有这个条件」,不是「自动成立」。
 
-所以现状是:真人在 WebView 里打开会自动通过,客户端却因为没有「URL 带参数」这个条件而永远判定不了,只能等到超时。
+三组并存是因为两类挑战的凭据形状不同。Cloudflare 拿到的是 `cf_clearance` Cookie。MangaDex 实测(2026-11-01):`GET api.mangadex.org/manga` 返回 `302` 到 `/edge/challenge?src=<原路径>`,挑战页做纯 JS 的 proof-of-work,解出后 `location.replace` 回原地址并带上 `powblock=<nonce>&pbchal=<token>`——**凭据在 URL 参数里,不在 Cookie 里**,所以只有 Cookie 的规则对它只能等超时。
 
-一个最小改动:给 `DoneRule` 增加一个可选的「URL 必须包含某些查询参数」条件,与现有两个条件**并集**判断(任一满足即完成)。实现上只是读 `webView.url` 的 query,不需要新的 challenge kind,也不需要放宽 Cookie 条件;风险是判断放宽后可能把「挑战失败但仍带参数」误判为通过,所以参数名应当由 Core 按站点给出,并由客户端把**命中的参数名**写进日志。
-
-没有实现它:这是产品决定,需要先确认「允许把 URL 参数当作通行凭据」是否符合各站点条款。记录在这里,是因为这条链路已经查到可以直接照着做的程度。
+Core 的 `challenge.DetectEdge` 认出这一类(302 的 body 或挑战页自身都带标记),`challenge.EdgeDone()` 给出完成规则;客户端只是读当前 URL 的 query 与上面三组比对,判断逻辑在桌面的 `internal/browser` 与 iOS 的 `ChallengeRule` 各一份,语义由 Core 的 `DoneRule` 注释与单测固定。
 
 ## 制作台(后续模块)
 
