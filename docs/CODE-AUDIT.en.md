@@ -25,6 +25,8 @@ Baselines: Core `469edfc`, Nekularity `b294f04`, Nekophage `2e5b32f`. Line count
 | P2 | The image cache had no capacity bound, growing for the whole session | Extracted `imageCache`: 400 downloads and 160 bitmaps, oldest evicted first; failures and corrupt images count too and are not retried per frame; five cases cover de-duplication, decode reuse, failure memory and both bounds |
 | P2 | A stale search reply could replace a newer screen | `generation` tickets: a new search/detail/browse advances it, and a reply whose ticket is stale is dropped; pagination joins the current ticket without advancing, so an in-flight page is not discarded; three cases include concurrency, and a deliberately broken implementation fails them |
 | P3 | Request bytes became a string and then a reader | Use bytes.NewReader to avoid the full conversion |
+| P2 | A source's setting callback that returns nothing made the panel print the JSON literal `null` as if the source had said it | `CallSettingCallback` normalises `null` to an empty answer, so the panel's existing 已完成 wording applies; `LoginAccount` had the same problem and was fixed with it; a unit test pins it and removing the normalisation reports `void callback = \"null\"` |
+| P2 | Core and the desktop each carry a copy of "read a source's answer as text", so fixing one does nothing | **Structural risk, demonstrated this round**: with the fix only in Core the desktop still printed `null`, because `internal/core` has its own implementation of the same path. Both now apply one rule, and every other `json.Unmarshal(raw…)` site in `internal/core` was read: they decode into structs or bools, so no other path hands a protocol literal to the interface |
 
 ## Architecture conclusions
 
