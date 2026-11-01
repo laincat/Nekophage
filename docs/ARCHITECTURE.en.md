@@ -55,6 +55,16 @@ Images never pass through base64 or a data URI in memory: the web engine asks fo
 - Verification windows share the browser's default data store, so only one runs at a time and the store is cleared before a page loads and after the window closes.
 - Sources are untrusted: their scripts run in their own engine (Core guarantees that), and a source's HTML only ever appears in the reader and verification windows, never in the main window.
 
+## How a challenge is called finished: one open decision (2026-11-01)
+
+`host.DoneRule` has two conditions today: some markers are gone from the HTML, and some cookies must be present. That fits Cloudflare, where passing means holding `cf_clearance`. **MangaDex is not that shape.** Measured on 2026-11-01: `GET api.mangadex.org/manga` answers `302` to `/edge/challenge?src=<original path>`, the challenge page runs a pure-JavaScript proof of work, and on success it `location.replace`s back to the original address carrying `powblock=<nonce>&pbchal=<token>`. **Its clearance lives in URL parameters, not in a cookie.**
+
+So a person opening that page in the WebView passes automatically, while the client can never call it finished and waits out the deadline.
+
+The smallest change that would work: give `DoneRule` an optional "the URL must carry these query parameters" condition and treat the three as a union — any one satisfied means done. Implementation is reading the query out of `webView.url`; no new challenge kind and no loosening of the cookie condition. The risk is that a failed challenge which still carries the parameters would read as passed, so the parameter names should come from Core per site, and the client should log which one matched.
+
+It is not implemented: this is a product decision, and it needs a ruling on whether accepting a URL parameter as clearance is compatible with the sites' terms. It is written down because the chain has been traced far enough to build from.
+
 ## Workbench (a later module)
 
 The workbench is phase two: edit themes, comic sources and feature plugins, package a publishable directory, and produce `index.json` and an installable package. It follows Magpie's built-in modules:
