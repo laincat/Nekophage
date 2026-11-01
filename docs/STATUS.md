@@ -692,6 +692,24 @@ NK_OFFICIAL_SRC=/path/to/official-srcs NK_PROBE_SRC=/path/to/source.js NK_READ_S
 
 `NKDEBUG=1` 会打印封面下载与解码的日志。
 
+## 源收藏也有了可复跑的检查(2026-11-01)
+
+评论那次假阳性给了教训,所以这项一开始就**问窗口内容**:`uicheck -favorites` 现在多打一行
+
+```
+favorites: count=1 first="Probe Comic" err=""
+```
+
+`scripts/favorites-probe.sh` 以 `count>0` 且标题非空为通过条件,失败时把源给的错误原样打出来。三种输入:
+
+| 源 | 结果 | 归因 |
+|---|---|---|
+| 测试源(声明 `favorites`) | `count=1 first="Probe Comic"` | 通过 |
+| `manhuagui` | `count=0`,错误「请先登录漫画柜账号」 | **需要登录** |
+| `komiic` | `count=0`,错误 `Cannot read properties of null (reading '0')` | **源脚本侧** |
+
+收藏声明在**顶层 `favorites` 块**而不是 `comic` 里,写错位置只会得到空页面——这正是必须问内容、不能看截图的原因。
+
 ## 门禁默认带竞态检测(2026-11-01)
 
 `scripts/check.sh` 里的 `go test` 一直是普通模式,而这个客户端恰恰在后台 goroutine 里加载评论、浏览和图片,界面同时在读同一份状态——正是竞态检测该管的地方。现在默认 `-race`:

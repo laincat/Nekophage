@@ -708,6 +708,24 @@ The comment thread is the one added this round: the client has driven real sourc
 
 `NKDEBUG=1` prints cover download and decode lines.
 
+## Source favourites have a repeatable check too (2026-11-01)
+
+The comment thread's false positive taught the lesson, so this one asks the view for its contents from the start. `uicheck -favorites` now also prints
+
+```
+favorites: count=1 first="Probe Comic" err=""
+```
+
+`scripts/favorites-probe.sh` passes on `count>0` with a non-empty title and prints the source's own error when it fails. Three inputs:
+
+| Source | Result | Attribution |
+|---|---|---|
+| the test source (declares `favorites`) | `count=1 first="Probe Comic"` | passes |
+| `manhuagui` | `count=0`, error 请先登录漫画柜账号 | **needs a login** |
+| `komiic` | `count=0`, error `Cannot read properties of null (reading '0')` | **the source script** |
+
+Favourites are declared in a **top-level `favorites` block**, not inside `comic`, and putting them in the wrong place yields an empty page — which is exactly why the check has to read contents rather than a capture.
+
 ## The gate runs with the race detector by default (2026-11-01)
 
 `go test` in `scripts/check.sh` was plain mode, and this client loads comments, browses and images on background goroutines while the interface reads the same state — exactly what the detector exists for. It is now `-race` by default:

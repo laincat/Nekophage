@@ -11,6 +11,21 @@ import (
 // loadFavorites reads the capabilities and, if needed, the folder list before
 // loading comics. Source errors remain visible so users can distinguish an
 // empty list from an expired session.
+// FavoritesForCheck reports what the source's favourites view holds: how many
+// comics, the first one's title, and any error it is showing.
+//
+// A capture cannot tell a listing from an empty page — that is the lesson the
+// comment check already paid for — so a check asks the view instead.
+func (a *App) FavoritesForCheck() (count int, first string, errText string) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	count = len(a.favComics)
+	if count > 0 {
+		first = a.favComics[0].Title
+	}
+	return count, first, a.favErr
+}
+
 func (a *App) loadFavorites(key string) {
 	if key == "" {
 		return

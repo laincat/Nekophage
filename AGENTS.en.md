@@ -62,6 +62,7 @@ On their own:
 ```sh
 sh scripts/reader-probe.sh          # needs NK_READ_SRC: a real chapter, real decode, decoded>0
 sh scripts/comment-probe.sh /path/to/source.js   # a comment thread; asks the window for count/author/body
+sh scripts/favorites-probe.sh /path/to/source.js # source favourites; contents again, not a capture
 ```
 
 Two of those criteria were learned the hard way and should not be changed back. **Comments** cannot be judged by capture size: an empty thread and a real one differ by a few hundred bytes, and that used to pass against a source that keeps no comments. **The reader** has to require `decoded>0`, because a source can return plausible byte counts that are not a picture. Both were validated against a case that must fail.

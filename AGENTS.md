@@ -63,6 +63,7 @@ NK_OFFICIAL_SRC=/path/to/official-srcs NK_PROBE_SRC=/path/to/source-with-comment
 ```sh
 sh scripts/reader-probe.sh          # 需要 NK_READ_SRC:真章节真解码,decoded>0 才算过
 sh scripts/comment-probe.sh /path/to/source.js   # 评论线程;向窗口要 count/author/body,不比截图
+sh scripts/favorites-probe.sh /path/to/source.js # 源自己的收藏;同样问内容,不问截图
 ```
 
 两处判据是踩出来的,别改回去:**评论**不能按截图大小判断(空线程与真线程只差几百字节,曾因此对不声明评论的源误报通过);**阅读器**必须要求 `decoded>0`(源可以返回看着合理的字节数而那并不是图片)。两者都做过负向验证。

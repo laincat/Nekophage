@@ -155,6 +155,12 @@ func main() {
 				log.Printf("capture: %s (%d bytes)", *out, len(data))
 			}
 			shotErr = inspect(data)
+			if *favorites {
+				// The same lesson as the comment thread: a listing and an empty
+				// page capture to nearly the same size, so ask the view.
+				count, first, errText := app.FavoritesForCheck()
+				log.Printf("favorites: count=%d first=%q err=%q", count, first, errText)
+			}
 			// The sources window is a window of its own; catching it needs
 			// its own capture.
 			if *settingsShot && *settingsOut != "" {

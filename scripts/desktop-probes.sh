@@ -5,6 +5,7 @@
 #   NK_OFFICIAL_SRC=/path/to/official-srcs sh scripts/desktop-probes.sh
 #   NK_PROBE_SRC=/path/to/source.js sh scripts/desktop-probes.sh
 #   NK_READ_SRC=/path/to/source.js sh scripts/desktop-probes.sh
+#   NK_FAV_SRC=/path/to/source.js sh scripts/desktop-probes.sh
 #
 # These are the checks a headless CI cannot do: a WebView login, a challenge page,
 # a source's own dialog, closing a window mid-wait, and the callbacks the official
@@ -52,6 +53,15 @@ run "closing a source dialog releases its caller" \
 go build -o "$out/updateprobe" ./cmd/updateprobe
 run "a closed window still takes updates and page reads" \
 	"$out/update.log" "$out/updateprobe"
+
+# The list a source keeps on its own side. It is asked for its contents rather
+# than judged by a capture, for the same reason as the comment thread.
+if [ -n "${NK_FAV_SRC:-}" ]; then
+	run "the favourites the source keeps are listed" 		"$out/favorites-probe.log" sh scripts/favorites-probe.sh
+else
+	printf 'SKIP  source favourites (set NK_FAV_SRC to a source script)
+'
+fi
 
 # Pages that actually decode, which is the one thing about images that cannot be
 # answered without a decoder: a source can return plausible byte counts that are
