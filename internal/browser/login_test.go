@@ -65,3 +65,19 @@ func TestLoginWindowReadsTheDeclaration(t *testing.T) {
 		t.Errorf("done: %v", err)
 	}
 }
+
+// Closing the login window is the user giving up, and must end the wait rather
+// than leave the panel spinning while a destroyed page is polled for "logged in".
+func TestLoginWindowClosedByUserEndsTheWait(t *testing.T) {
+	l := &LoginWindow{key: "nhentai", partition: "comic:nhentai"}
+	state := &loginState{done: make(chan struct{}), closed: true}
+	state.once.Do(func() { close(state.done) })
+
+	stored, err := l.watch(context.Background(), core.WebviewLogin{}, state)
+	if err == nil {
+		t.Fatalf("closing the window reported success with %d cookie(s)", stored)
+	}
+	if stored != 0 {
+		t.Errorf("stored %d cookie(s) after the user closed the window", stored)
+	}
+}

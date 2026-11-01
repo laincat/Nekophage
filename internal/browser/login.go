@@ -80,6 +80,10 @@ func (l *LoginWindow) Run(ctx context.Context) (int, error) {
 		return 0, err
 	}
 	state.win, state.web = win, view
+	// Closing the window is the user giving up. Without this the poll keeps
+	// asking a destroyed page whether it is logged in, and the panel's busy
+	// spinner never clears.
+	win.OnClosed(func() { state.once.Do(func() { state.closed = true; close(state.done) }) })
 	win.Show()
 	win.Focus()
 
@@ -94,6 +98,9 @@ type loginState struct {
 	web  *mygo.WebView
 	once sync.Once
 	done chan struct{}
+	// closed records that the user closed the window rather than saying they
+	// finished, so the caller can report it instead of storing half a login.
+	closed bool
 }
 
 func (s *loginState) draw(c *ui.Context) {
@@ -116,6 +123,9 @@ func (l *LoginWindow) watch(ctx context.Context, decl core.WebviewLogin, state *
 		case <-ctx.Done():
 			return 0, ctx.Err()
 		case <-state.done:
+			if state.closed {
+				return 0, errors.New("browser: the login window was closed before the source agreed")
+			}
 			// The user says they are logged in even though checkStatus never
 			// agreed; the cookies are still worth keeping.
 			return l.store(decl, "")
