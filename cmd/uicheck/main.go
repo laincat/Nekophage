@@ -155,6 +155,14 @@ func main() {
 				log.Printf("capture: %s (%d bytes)", *out, len(data))
 			}
 			shotErr = inspect(data)
+			if *browse {
+				// The chips are drawn only when a source offers more than one
+				// section, so the count is reported rather than inferred from a
+				// picture that has the right shape either way.
+				sections, chips, comics, errText := app.BrowseForCheck()
+				log.Printf("browse: sections=%d chips=%d comics=%d err=%q",
+					sections, chips, comics, errText)
+			}
 			if *favorites {
 				// The same lesson as the comment thread: a listing and an empty
 				// page capture to nearly the same size, so ask the view.

@@ -1844,6 +1844,26 @@ func (a *App) loadExplorePages() {
 	}()
 }
 
+// BrowseForCheck reports what the browse view is showing: how many sections the
+// source declares, how many chips the view draws for them, and how many comics the
+// current section holds.
+//
+// Chips are drawn only when there is more than one section, so this is also how a
+// check can tell that rule from a screenshot that merely looks right.
+func (a *App) BrowseForCheck() (sections, chips, comics int, errText string) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	sections = len(a.explorePages)
+	chips = sections
+	if sections <= 1 {
+		chips = 0
+	}
+	for _, part := range a.explore.Sections {
+		comics += len(part.Comics)
+	}
+	return sections, chips, comics, a.errText
+}
+
 // loadExplore loads one browse page. cursor is the token a browse that pages by
 // token handed back last time; "" starts at the beginning.
 func (a *App) loadExplore(key string, index, page int) {
