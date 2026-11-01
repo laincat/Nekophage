@@ -26,6 +26,7 @@
 | P2 | 过期搜索结果覆盖新页面 | `generation` 票据:新搜索/详情/浏览递增,回包票据不是最新就丢弃;翻页沿用当前票据而不递增,避免把仍在前一页的请求判成过期;3 条用例含并发,错误实现的反向验证通过 |
 | P3 | 请求 body 从 bytes 转 string 再变 reader | 改 bytes.NewReader,避免该次完整转换 |
 | P2 | 源的设置回调没有返回值时,面板把 JSON 字面量 `null` 当成源说的话显示 | `CallSettingCallback` 把 `null` 归一化为空串,面板已有的「已完成」随之生效;`LoginAccount` 同一类问题一并修;单测钉住,去掉归一化会报 `void callback = "null"` |
+| P2 | 源声明的每个回调共用一条结果文本,按其中一个按钮后所有回调行都显示它的答案 | `manage` 改为按设置项保存答案(`callbackMsgs map[string]string`),只在自己那一行显示;截图对比确认只按 `quiet` 时 `Run` 行不再跟着显示「已完成」 |
 | P2 | Core 与桌面各有一份「把源的回答当文本」的实现,只改一边不会生效 | **结构性风险,本轮实证**:把修复只放进 Core 后桌面仍然显示 `null`,因为 `internal/core` 有自己的同类实现。现在两端规则一致,并把 `internal/core` 里其余 `json.Unmarshal(raw…)` 站点逐个看过:其余都解到结构体或布尔,没有再把协议字面量直接交给界面的路径 |
 
 ## 三项目框架结论

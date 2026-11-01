@@ -215,7 +215,10 @@ func (a *App) loginWithCookies(key string, values []string) {
 // callSettingCallback asks the source to run one of its own callbacks.
 func (a *App) callSettingCallback(key, settingKey string) {
 	a.manage.callbackBusy = settingKey
-	a.manage.callbackMsg = ""
+	if a.manage.callbackMsgs == nil {
+		a.manage.callbackMsgs = map[string]string{}
+	}
+	delete(a.manage.callbackMsgs, settingKey)
 	a.manageWin.Update(func() {})
 	go func() {
 		ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
@@ -224,15 +227,18 @@ func (a *App) callSettingCallback(key, settingKey string) {
 		a.manageWin.Update(func() {
 			m := &a.manage
 			m.callbackBusy = ""
+			if m.callbackMsgs == nil {
+				m.callbackMsgs = map[string]string{}
+			}
 			switch {
 			case err != nil:
 				// The source's own words: "no network", "Login expired", or
 				// whatever it chose.
-				m.callbackMsg = explain(err)
+				m.callbackMsgs[settingKey] = explain(err)
 			case answer == "":
-				m.callbackMsg = "已完成"
+				m.callbackMsgs[settingKey] = "已完成"
 			default:
-				m.callbackMsg = answer
+				m.callbackMsgs[settingKey] = answer
 			}
 		})
 	}()
@@ -479,8 +485,8 @@ func (a *App) settingRow(c *ui.Context, t *ui.Theme, s core.SourceSetting) {
 					ui.Text(c, "正在执行…").FontSize(11).TextColor(t.TextMuted)
 				})
 			}
-			if m.callbackMsg != "" {
-				ui.Text(c, m.callbackMsg).FontSize(11).TextColor(t.TextMuted).Selectable()
+			if msg := m.callbackMsgs[s.Key]; msg != "" {
+				ui.Text(c, msg).FontSize(11).TextColor(t.TextMuted).Selectable()
 			}
 		default:
 			ui.Textf(c, "%s", rawText(current)).FontSize(11).TextColor(t.TextMuted).SingleLine()

@@ -403,10 +403,11 @@ func (a *App) Run() error {
 			go func() {
 				// The source must be installed and its declaration read first.
 				time.Sleep(3 * time.Second)
-				ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
-				defer cancel()
-				answer, err := a.core.CallSettingCallback(ctx, a.currentKey(), cb)
-				log.Printf("nekophage: callback %s -> %q err=%v", cb, answer, err)
+				// The same entry the button uses, so a capture shows the panel the
+				// user would see: the press state, then what the source answered.
+				// Reaching Core directly would prove the source runs and skip the
+				// part this tool exists to photograph.
+				a.callSettingCallback(a.currentKey(), cb)
 			}()
 		}
 		if rank := a.dev.Rank; rank != "" {

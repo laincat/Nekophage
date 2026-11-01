@@ -65,7 +65,9 @@ type manageState struct {
 	// across the boundary, but the source can run it, so the panel offers a
 	// button and shows what it said.
 	callbackBusy string
-	callbackMsg  string
+	// Answers are per setting: one message for the whole panel would show the
+	// result of a press next to every callback the source declares.
+	callbackMsgs map[string]string
 
 	// backupImport is an archive the user picked, waiting to be applied.
 	backupImport *archive.Backup
