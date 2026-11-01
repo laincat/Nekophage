@@ -126,6 +126,8 @@ Core 同步到 `af4f1a0` 之后又跑了两条真实源:MangaDex(`one piece` —
 
 **AI 窗口对真实 Magpie 的界面证据(2026-11-01)**:`cmd/uicheck` 新增 `-ai` / `-ai-test` / `-ai-model` / `-ai-prompt` / `-ai-out`,可以打开 AI 窗口(它是独立窗口,需要单独截屏)并走一遍真实流程。实跑结果:地址 `http://127.0.0.1:3425`、`Magpie 可用,共 53 个模型或路由组`、目录列出 `group/laincat`、`group/laincat-subagent`、`auto/gpt-6-luna`、`auto/deepseek-v4.1-flash`、`auto/minimax-m3`、`auto/deepseek-v4-pro` 等;选 `group/laincat` 后发送,窗口里出现真实流式回答「我收到了你的消息。」。截图 `ui-ai-magpie.png`(目录)与 `ui-ai-answer2.png`(回答)保留在证据目录。
 
+**同一个 AI 窗口在 Core `d81445f` 上重测(2026-11-01)**:`uicheck -ai -ai-test -ai-model group/laincat -ai-prompt …` 连到本机 Magpie(`127.0.0.1:3425`,53 个模型或路由组),界面出现真实的流式回答「我在验证结果是否符合你的要求，以及关键行为是否按预期工作。」。用的是真模型、真流式,不是假服务。
+
 **检查工具报的源接口版本和 App 不一致(2026-11-01)**:`main.go` 的 `sourceVersion` 提到 1.6.3 之后,`cmd/uicheck`、`cmd/readercheck`、`cmd/importcheck`、`cmd/verifycheck` 还各自写死 `AppVersion: "1.6.0"`。后果很具体:卡在 1.6.3 的两个源(`cxc`、`mangabz`)在 App 里能装,在检查工具里被版本门槛拒掉 —— **工具对产品下的结论是错的**,而这正是我这轮踩过的坑。现在这个数字只有一份:`internal/sourceapi.Level`,App 与四个工具的 `AppVersion` 都引用它,`main.go` 的 `sourceVersion` 也只是它的别名。
 
 **真实 Magpie 安装版已连通(2026-11-01)**:此前「对真实 Magpie 发起请求」一直是待验证项。本机 `magpie-windows-amd64.exe` 正在运行,网关监听的 `127.0.0.1:3425` 与 `internal/magpie.DefaultAddr` 一致(同一进程另外在 3430 提供需要登录 cookie 的 Web UI)。新增的 `internal/magpie/live_test.go` 用 `NK_MAGPIE_LIVE=1` 才跑,对真实网关上做完整一条:**53 个模型**(首个 `group/laincat`)、真实补全、`chat` / `responses` / `messages` 三种协议各走一遍流式,三条回复都精确等于 `ready`。这条证据同时说明目录读取、协议选择、SSE 解析、流结束判定在这台机器上是通的。
