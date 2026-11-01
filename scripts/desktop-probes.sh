@@ -3,6 +3,7 @@
 #
 #   sh scripts/desktop-probes.sh
 #   NK_OFFICIAL_SRC=/path/to/official-srcs sh scripts/desktop-probes.sh
+#   NK_PROBE_SRC=/path/to/source.js sh scripts/desktop-probes.sh
 #
 # These are the checks a headless CI cannot do: a WebView login, a challenge page,
 # a source's own dialog, closing a window mid-wait, and the callbacks the official
@@ -50,6 +51,15 @@ run "closing a source dialog releases its caller" \
 go build -o "$out/updateprobe" ./cmd/updateprobe
 run "a closed window still takes updates and page reads" \
 	"$out/update.log" "$out/updateprobe"
+
+# A thread the source answers, in a window, with no network: the comment screen is
+# the one part of the source contract a capture tool can drive on its own.
+if [ -n "${NK_PROBE_SRC:-}" ]; then
+	run "a comment thread the source answers" 		"$out/comments.log" sh scripts/comment-probe.sh "$NK_PROBE_SRC"
+else
+	printf 'SKIP  comment thread (set NK_PROBE_SRC to a source script)
+'
+fi
 
 if [ -n "${NK_OFFICIAL_SRC:-}" ]; then
 	run "every callback the official sources declare" \

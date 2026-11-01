@@ -30,7 +30,7 @@ func main() {
 	script := flag.String("script", "", "source script to install")
 	script2 := flag.String("script2", "", "a second source script to install")
 	query := flag.String("query", "", "search keyword")
-	out := flag.String("out", "window.png", "where to write the capture")
+	out := flag.String("out", "", "where to write the capture; nothing is written when empty")
 	wait := flag.Duration("wait", 10*time.Second, "how long the search may take")
 	openFirst := flag.Bool("open", false, "open the first result before capturing")
 	browse := flag.Bool("browse", false, "capture the browse view instead of searching")
@@ -140,7 +140,10 @@ func main() {
 		go func() {
 			time.Sleep(*wait)
 			data, err := app.Window().CapturePage()
-			if err == nil {
+			// A default file name here would leave a window.png in whatever
+			// directory the tool was started from, which is how one ended up
+			// committed. Nothing is written unless a path was asked for.
+			if err == nil && *out != "" {
 				err = os.WriteFile(*out, data, 0o644)
 			}
 			if err != nil {
@@ -148,7 +151,9 @@ func main() {
 				mygo.App.Quit()
 				return
 			}
-			log.Printf("capture: %s (%d bytes)", *out, len(data))
+			if *out != "" {
+				log.Printf("capture: %s (%d bytes)", *out, len(data))
+			}
 			shotErr = inspect(data)
 			// The sources window is a window of its own; catching it needs
 			// its own capture.
