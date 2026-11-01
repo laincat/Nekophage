@@ -646,7 +646,10 @@ NK_OFFICIAL_SRC=/path/to/official-srcs sh scripts/callback-probe.sh
 # press one tag on the detail page and see what the source's onClickTag makes of it
 go run ./cmd/uicheck -script /path/to/source.js -query keyword -open -tag 'Genre|probe' -out tag.png
 
-# check a source script's reading contract: install, search, details, tag action —
+# check a source script's reading contract: install, search, details, and every tag
+# group's action — a source can map one namespace to a search and another to a
+# category, so pressing only the first group says little
+
 # the source the interface tests ship has to pass this first
 go run ./cmd/comicprobe /path/to/source.js keyword
 

@@ -75,20 +75,35 @@ func main() {
 	}
 	fmt.Printf("info: title %q, tags %d, chapters %d\n", details.Title, len(details.Tags), len(details.Chapters))
 
-	if len(details.Tags) == 0 || len(details.Tags[0].Values) == 0 {
+	if len(details.Tags) == 0 {
 		fmt.Println("FAIL no tags, so the tag row the interface draws is empty")
 		os.Exit(1)
 	}
-	group, value := details.Tags[0].Name, details.Tags[0].Values[0]
 
-	action, err := c.ClickTag(ctx, rec.Key, group, value)
-	if err != nil {
-		fmt.Println("FAIL clickTag:", err)
+	// Every group, not just the first: a source answers null for the namespaces it
+	// does not handle, so pressing one group says nothing about the others. A
+	// source may map one namespace to a search and another to a category, and both
+	// branches of the client's tag handling deserve a run.
+	handled := 0
+	for _, tagGroup := range details.Tags {
+		if len(tagGroup.Values) == 0 {
+			continue
+		}
+		value := tagGroup.Values[0]
+		action, err := c.ClickTag(ctx, rec.Key, tagGroup.Name, value)
+		switch {
+		case err != nil:
+			fmt.Printf("  %-10s %-14q -> %v\n", tagGroup.Name, value, err)
+		case action.Action == "":
+			fmt.Printf("  %-10s %-14q -> not handled by the source\n", tagGroup.Name, value)
+		default:
+			handled++
+			fmt.Printf("  %-10s %-14q -> %s %q\n", tagGroup.Name, value, action.Action, action.Keyword)
+		}
+	}
+	if handled == 0 {
+		fmt.Println("FAIL no tag group was handled, so a tap would do nothing anywhere")
 		os.Exit(1)
 	}
-	if action.Action == "" {
-		fmt.Println("FAIL the source declared no action for tag", group, value)
-		os.Exit(1)
-	}
-	fmt.Printf("PASS tag %q/%q -> %s %q\n", group, value, action.Action, action.Keyword)
+	fmt.Println("PASS tag taps reach the source's rule:", handled, "of", len(details.Tags), "group(s)")
 }

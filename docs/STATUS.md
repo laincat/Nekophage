@@ -635,7 +635,9 @@ NK_OFFICIAL_SRC=/path/to/official-srcs sh scripts/callback-probe.sh
 # 按下详情页上的一个标签,看源自己的 onClickTag 把它解释成什么(-open 打开第一个结果)
 go run ./cmd/uicheck -script /path/to/source.js -query 关键词 -open -tag '类型|热血' -out tag.png
 
-# 校验一个源脚本的阅读契约:安装→搜索→详情→标签动作(界面测试用的自带源先过这关)
+# 校验一个源脚本的阅读契约:安装→搜索→详情→**逐个标签组**的标签动作
+# 一个源对不同命名空间可以分别给「搜索」「分类」或不处理,只看第一个组会误判
+
 go run ./cmd/comicprobe /path/to/source.js 关键词
 
 # 源对话框被用户关掉后调用方是否释放;窗口关掉后 Update 与页面读取是否仍安全
