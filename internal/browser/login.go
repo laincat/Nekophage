@@ -92,6 +92,9 @@ func (l *LoginWindow) Run(ctx context.Context) (int, error) {
 	return stored, err
 }
 
+// errNoCookiesYet reports a page that agreed but has not set its cookies yet.
+var errNoCookiesYet = errors.New("browser: no cookies yet")
+
 // loginState is the window's close button.
 type loginState struct {
 	win  *mygo.Window
@@ -128,7 +131,11 @@ func (l *LoginWindow) watch(ctx context.Context, decl core.WebviewLogin, state *
 			}
 			// The user says they are logged in even though checkStatus never
 			// agreed; the cookies are still worth keeping.
-			return l.store(decl, "")
+			stored, err := l.store(decl, "")
+			if errors.Is(err, errNoCookiesYet) {
+				return 0, errors.New("browser: the page set no cookies to keep")
+			}
+			return stored, err
 		case <-ticker.C:
 			page := state.web.Page()
 			rawURL, err := page.Eval("location.href")
@@ -153,8 +160,15 @@ func (l *LoginWindow) watch(ctx context.Context, decl core.WebviewLogin, state *
 			if !done {
 				continue
 			}
-			if stored, err := l.store(decl, pageURL); err == nil {
+			stored, err := l.store(decl, pageURL)
+			if err == nil {
 				return stored, nil
+			}
+			if !errors.Is(err, errNoCookiesYet) {
+				// The cookies are in, so this is the source's own callback
+				// failing. Reporting it now beats a deadline the user cannot
+				// explain.
+				return stored, err
 			}
 			// A source may say "logged in" a moment before the cookies settle;
 			// keep polling rather than failing the login.
@@ -193,7 +207,9 @@ func (l *LoginWindow) store(decl core.WebviewLogin, pageURL string) (int, error)
 		}
 	}
 	if len(out) == 0 {
-		return 0, errors.New("browser: the page set no cookies to keep")
+		// Not a failure yet: a page can say "logged in" a moment before its
+		// cookies settle, so the caller keeps polling.
+		return 0, errNoCookiesYet
 	}
 	l.jar.Import(l.partition, out)
 	// The source may need to read its own cookie to finish: ehentai copies it to

@@ -4,18 +4,25 @@ package main
 // chain runs without a person: window, WebView, polling, the source's own
 // checkStatus, the cookie import and onLoginSuccess.
 //
-//	go run ./cmd/loginprobe
+//	go run ./cmd/loginprobe -mode ok|timeout|failcallback
 //
 // The page logs itself in after a moment, which is what a real site does when the
-// user finishes typing; nothing here replaces the human, it only proves the client
-// moves when the source says the login happened.
+// user finishes typing. Modes:
+//
+//	ok            the ordinary path
+//	timeout       a page the source never accepts, where the wait has to end
+//	              without storing half a login
+//	failcallback  a login whose onLoginSuccess throws, where the cookies are
+//	              already the source's and the error still has to surface
 
 import (
 	"context"
+	"flag"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/egoist/mygo"
@@ -24,10 +31,18 @@ import (
 )
 
 func main() {
+	mode := flag.String("mode", "ok", "ok, timeout or failcallback")
+	flag.Parse()
+
 	mux := http.NewServeMux()
 	mux.HandleFunc("/login", func(w http.ResponseWriter, r *http.Request) {
-		fmt.Fprint(w, `<!doctype html><title>Sign in</title>
-<script>setTimeout(function(){location.href="/done"},1200)</script>sign in`)
+		// The timeout mode stays on this page: the source only accepts the title
+		// "Logged in", so the client has to give up rather than decide for it.
+		advance := `<script>setTimeout(function(){location.href="/done"},1200)</script>`
+		if *mode == "timeout" {
+			advance = ""
+		}
+		fmt.Fprintf(w, "<!doctype html><title>Sign in</title>%s sign in", advance)
 	})
 	mux.HandleFunc("/done", func(w http.ResponseWriter, r *http.Request) {
 		http.SetCookie(w, &http.Cookie{Name: "sid", Value: "abc123", Path: "/"})
@@ -48,6 +63,13 @@ func main() {
 	}
 	defer c.Close()
 
+	callback := `onLoginSuccess: async () => {
+                const cs = await Network.getCookies("` + srv.URL + `/")
+                this.saveData("sawCookie", cs.length > 0)
+            }`
+	if *mode == "failcallback" {
+		callback = `onLoginSuccess: async () => { throw new Error("probe callback refused") }`
+	}
 	src := `class Probe extends ComicSource {
     name = "Probe"; key = "probe"; version = "1.0.0"
     init() { this.saveData("done", false) }
@@ -55,14 +77,12 @@ func main() {
         loginWithWebview: {
             url: "` + srv.URL + `/login",
             checkStatus: (url, title) => title === "Logged in",
-            onLoginSuccess: async () => {
-                const cs = await Network.getCookies("` + srv.URL + `/")
-                this.saveData("sawCookie", cs.length > 0)
-            },
+            ` + callback + `,
         },
     }
     search = { load: async () => ({comics: [], maxPage: 1}) }
 }`
+
 	ctx := context.Background()
 	rec, err := c.Install(ctx, src, "file", "")
 	if err != nil {
@@ -80,7 +100,11 @@ func main() {
 	result := make(chan error, 1)
 	mygo.App.WhenReady(func() {
 		go func() {
-			runCtx, cancel := context.WithTimeout(ctx, 90*time.Second)
+			bound := 90 * time.Second
+			if *mode == "timeout" {
+				bound = 8 * time.Second
+			}
+			runCtx, cancel := context.WithTimeout(ctx, bound)
 			defer cancel()
 			_, err := login.Run(runCtx)
 			result <- err
@@ -91,11 +115,45 @@ func main() {
 		fmt.Println("FAIL app:", err)
 		os.Exit(1)
 	}
-	if err := <-result; err != nil {
-		fmt.Println("FAIL run:", err)
+
+	runErr := <-result
+	got := jar.Get(core.ComicPartition(rec.Key), srv.URL+"/")
+
+	switch *mode {
+	case "timeout":
+		if runErr == nil {
+			fmt.Println("FAIL the wait ended successfully although the source never agreed")
+			os.Exit(1)
+		}
+		if len(got) != 0 {
+			fmt.Println("FAIL cookies were stored for a login the source never accepted:", len(got))
+			os.Exit(1)
+		}
+		fmt.Println("PASS timeout: the wait ended with an error and nothing was stored")
+		return
+	case "failcallback":
+		if runErr == nil {
+			fmt.Println("FAIL a throwing onLoginSuccess was reported as success")
+			os.Exit(1)
+		}
+		if len(got) == 0 {
+			fmt.Println("FAIL the cookies were dropped although they were already stored")
+			os.Exit(1)
+		}
+		// The source's own reason, not a deadline: waiting the window out would
+		// tell the user nothing and take a minute and a half.
+		if !strings.Contains(runErr.Error(), "onLoginSuccess") {
+			fmt.Println("FAIL the callback error was replaced by:", runErr)
+			os.Exit(1)
+		}
+		fmt.Println("PASS failing callback surfaced with", len(got), "cookie(s) kept:", runErr)
+		return
+	}
+
+	if runErr != nil {
+		fmt.Println("FAIL run:", runErr)
 		os.Exit(1)
 	}
-	got := jar.Get(core.ComicPartition(rec.Key), srv.URL+"/")
 	if len(got) == 0 {
 		fmt.Println("FAIL the partition has no cookie from the login page")
 		os.Exit(1)
@@ -105,5 +163,5 @@ func main() {
 		fmt.Println("FAIL onLoginSuccess did not run:", err)
 		os.Exit(1)
 	}
-	fmt.Printf("PASS login window: %d cookie(s) kept, onLoginSuccess saw them (%s)\n", len(got), raw)
+	fmt.Println("PASS login window:", len(got), "cookie(s) kept, onLoginSuccess saw them:", string(raw))
 }
