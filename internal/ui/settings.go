@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/egoist/mygo/ui"
+	"github.com/laincat/nekophage/internal/browser"
 	"github.com/laincat/nekophage/internal/core"
 )
 
@@ -93,12 +94,20 @@ func (a *App) accountPanel(c *ui.Context, t *ui.Theme) {
 		return
 	}
 	key := m.settingsFor
-	// A webview login needs a browser the client does not host yet; saying so is
-	// better than a form that cannot work. manga_dex and nhentai only offer it.
+	// The source logs in on its own page. The window is a real browser with the
+	// source's own partition, so what it earns here is what its requests send.
 	if m.account.Webview && !m.account.Password && !m.account.Cookies {
 		ui.Row(c).Gap(8).AlignItems(ui.Center).Children(func() {
 			ui.Text(c, "登录").FontSize(11).TextColor(t.TextMuted).Width(96)
-			ui.Text(c, "这个源只提供网页内登录，桌面端暂不支持。").FontSize(11).TextColor(t.TextMuted)
+			if m.accountBusy {
+				ui.Spinner(c)
+				ui.Text(c, "正在打开登录页面…").FontSize(11).TextColor(t.TextMuted)
+				return
+			}
+			if ui.PrimaryButton(c, "在网页里登录").Clicked() {
+				a.webviewLogin(key)
+			}
+			ui.Text(c, "会打开该源的登录页,登录完成后窗口自动关闭。").FontSize(11).TextColor(t.TextMuted)
 		})
 		return
 	}
@@ -500,4 +509,34 @@ func (a *App) devSetSetting(sourceKey, spec string) {
 		return
 	}
 	log.Printf("nekophage: no setting named %q", name)
+}
+
+// webviewLogin opens the source's own login page in a browser window and keeps
+// whatever cookies it earns in the source's partition.
+func (a *App) webviewLogin(key string) {
+	m := &a.manage
+	if m.accountBusy {
+		return
+	}
+	a.mu.Lock()
+	m.accountBusy = true
+	m.errText, m.notice = "", ""
+	a.mu.Unlock()
+	a.manageWin.Update(func() {})
+	go func() {
+		login := browser.NewLoginWindow(a.core, a.lib.Jar(), key, core.ComicPartition(key))
+		stored, err := login.Run(context.Background())
+		a.manageWin.Update(func() {
+			a.mu.Lock()
+			m.accountBusy = false
+			if err != nil {
+				m.accountMessage = explain(err)
+			} else {
+				// The cookies are in the partition now; whether the source agrees
+				// it is logged in is its own answer.
+				m.accountMessage = fmt.Sprintf("登录状态已保存(%d 个 Cookie),可以点「校验」让源自己确认", stored)
+			}
+			a.mu.Unlock()
+		})
+	}()
 }

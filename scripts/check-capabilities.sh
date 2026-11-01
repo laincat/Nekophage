@@ -52,6 +52,8 @@ need "browse cursor" internal/core/core.go 'rt.Explore(ctx, key, index, page, cu
 need "browse cursor paging" internal/ui/app.go 'a.loadExploreAt(key, index, page+1, res.Next)'
 need "comments" internal/core/comments.go 'func (c *Core) Comments(ctx context.Context'
 need "link to id" internal/core/core.go 'func (c *Core) OpenLink(ctx context.Context, raw string)'
+need "webview login" internal/browser/login.go 'func (l *LoginWindow) Run(ctx context.Context) (int, error)'
+need "webview login ui" internal/ui/settings.go 'func (a *App) webviewLogin(key string)'
 need "send comment" internal/core/comments.go 'func (c *Core) SendComment('
 need "comment vote" internal/ui/comments.go 'func (a *App) likeComment(one core.Comment, isLike bool)'
 need "comment replies" internal/ui/comments.go 'func (a *App) showReplies(one core.Comment)'

@@ -1133,6 +1133,46 @@ func claims(domains []string, host string) bool {
 	return false
 }
 
+// WebviewLogin is the browser login a source declares.
+type WebviewLogin struct {
+	// URL is the page the user has to log in on; empty when the source logs in
+	// another way.
+	URL string
+	// Handle names the declaration inside Core for the two callbacks below.
+	Handle string
+}
+
+// AccountWebviewLogin reads the source's browser login.
+func (c *Core) AccountWebviewLogin(ctx context.Context, key string) (WebviewLogin, error) {
+	rt, err := c.reg.Comic(key)
+	if err != nil {
+		return WebviewLogin{}, err
+	}
+	decl, err := rt.AccountWebviewLogin(ctx, key)
+	if err != nil {
+		return WebviewLogin{}, err
+	}
+	return WebviewLogin{URL: decl.URL, Handle: decl.Handle}, nil
+}
+
+// WebviewStatus runs the source's checkStatus for the page the browser is on.
+func (c *Core) WebviewStatus(ctx context.Context, key, handle, pageURL, title string) (bool, error) {
+	rt, err := c.reg.Comic(key)
+	if err != nil {
+		return false, err
+	}
+	return rt.WebviewStatus(ctx, key, handle, pageURL, title)
+}
+
+// WebviewLoginDone runs the source's onLoginSuccess, when it wrote one.
+func (c *Core) WebviewLoginDone(ctx context.Context, key, handle string) error {
+	rt, err := c.reg.Comic(key)
+	if err != nil {
+		return err
+	}
+	return rt.WebviewLoginDone(ctx, key, handle)
+}
+
 // ClickTag runs comic.onClickTag(namespace, tag).
 //
 // Sources put their own meaning on a tag: `copy_manga` searches "作者:<name>",

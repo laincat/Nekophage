@@ -1,0 +1,176 @@
+package browser
+
+import (
+	"context"
+	"errors"
+	"log"
+	"net/http"
+	"os"
+	"sync"
+	"time"
+
+	"github.com/egoist/mygo"
+	"github.com/egoist/mygo/ui"
+	"github.com/laincat/nekophage/internal/cookies"
+	"github.com/laincat/nekophage/internal/core"
+)
+
+// Logging in on the site's own page.
+//
+// Five official sources log in this way and a client without it can only say
+// "not supported". The source names the page and supplies two callbacks: one that
+// says "this page means logged in", and one that runs afterwards. The window here
+// is the same WebView the challenge flow uses, and the cookies it earns go into
+// the same per-source partition every later request reads.
+
+// LoginWindow logs a source in through its own page.
+type LoginWindow struct {
+	core *core.Core
+	jar  *cookies.Jar
+	key  string
+	// Partition is the jar the cookies land in; the same one the source's
+	// requests use.
+	partition string
+}
+
+// NewLoginWindow builds the helper for one source.
+func NewLoginWindow(c *core.Core, jar *cookies.Jar, key, partition string) *LoginWindow {
+	return &LoginWindow{core: c, jar: jar, key: key, partition: partition}
+}
+
+// Run shows the login page and waits until the source says it is logged in, the
+// user closes the window, or the context ends.
+//
+// The result is the number of cookies stored, so the caller can say what
+// happened rather than "done".
+func (l *LoginWindow) Run(ctx context.Context) (int, error) {
+	if l.core == nil || l.key == "" {
+		return 0, errors.New("browser: login without a source")
+	}
+	decl, err := l.core.AccountWebviewLogin(ctx, l.key)
+	if err != nil {
+		return 0, err
+	}
+	if decl.Handle == "" || decl.URL == "" {
+		return 0, errors.New("browser: this source has no browser login")
+	}
+
+	// A page must start from a clean store, or it inherits the last one's
+	// cookies and the login it should earn is never earned.
+	_ = mygo.Cookies.Clear()
+
+	state := &loginState{done: make(chan struct{})}
+	win := mygo.NewWindow(mygo.WindowOptions{
+		Title:   "登录 " + l.key,
+		Width:   520,
+		Height:  780,
+		Content: ui.View(state.draw),
+	})
+	view, err := win.NewWebView(mygo.WebViewOptions{URL: decl.URL})
+	if err != nil {
+		win.Close()
+		return 0, err
+	}
+	state.win, state.web = win, view
+	win.Show()
+	win.Focus()
+
+	stored, err := l.watch(ctx, decl, state)
+	win.Close()
+	_ = mygo.Cookies.Clear()
+	return stored, err
+}
+
+// loginState is the window's close button.
+type loginState struct {
+	win  *mygo.Window
+	web  *mygo.WebView
+	once sync.Once
+	done chan struct{}
+}
+
+func (s *loginState) draw(c *ui.Context) {
+	t := c.Theme()
+	ui.Column(c).Fill().Padding(12).Gap(8).Children(func() {
+		ui.Text(c, "在下面的页面里登录,完成后窗口会自动关闭。").FontSize(12).TextColor(t.TextMuted)
+		if ui.Button(c, "我已登录").Clicked() {
+			s.once.Do(func() { close(s.done) })
+		}
+	})
+}
+
+// watch polls the page: the source's checkStatus decides when to stop, because
+// only it knows which page means "logged in".
+func (l *LoginWindow) watch(ctx context.Context, decl core.WebviewLogin, state *loginState) (int, error) {
+	ticker := time.NewTicker(time.Second)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return 0, ctx.Err()
+		case <-state.done:
+			// The user says they are logged in even though checkStatus never
+			// agreed; the cookies are still worth keeping.
+			return l.store(decl)
+		case <-ticker.C:
+			page := state.web.Page()
+			rawURL, err := page.Eval("location.href")
+			if err != nil {
+				continue
+			}
+			pageURL, _ := rawURL.(string)
+			rawTitle, err := page.Eval("document.title")
+			if err != nil {
+				continue
+			}
+			title, _ := rawTitle.(string)
+			done, err := l.core.WebviewStatus(ctx, l.key, decl.Handle, pageURL, title)
+			if err != nil {
+				// A source that throws on a page it does not recognise is
+				// ordinary: keep watching.
+				continue
+			}
+			if os.Getenv("NKDEBUG") != "" {
+				log.Printf("login %s: %q %q done=%v", l.key, title, pageURL, done)
+			}
+			if !done {
+				continue
+			}
+			if stored, err := l.store(decl); err == nil {
+				return stored, nil
+			}
+			// A source may say "logged in" a moment before the cookies settle;
+			// keep polling rather than failing the login.
+		}
+	}
+}
+
+// store moves the browser's cookies into the source's partition and runs
+// onLoginSuccess.
+func (l *LoginWindow) store(decl core.WebviewLogin) (int, error) {
+	listed, err := mygo.Cookies.List(mygo.CookieFilter{})
+	if err != nil {
+		return 0, err
+	}
+	out := make([]*http.Cookie, 0, len(listed))
+	for _, mc := range listed {
+		hc := &http.Cookie{Name: mc.Name, Value: mc.Value, Domain: mc.Domain, Path: mc.Path,
+			Secure: mc.Secure, HttpOnly: mc.HTTPOnly}
+		if !mc.Expires.IsZero() {
+			hc.Expires = mc.Expires
+		}
+		out = append(out, hc)
+	}
+	if len(out) == 0 {
+		return 0, errors.New("browser: the page set no cookies to keep")
+	}
+	l.jar.Import(l.partition, out)
+	// The source may need to read its own cookie to finish: ehentai copies it to
+	// another host, ccc refreshes its profile.
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	if err := l.core.WebviewLoginDone(ctx, l.key, decl.Handle); err != nil {
+		return len(out), err
+	}
+	return len(out), nil
+}
