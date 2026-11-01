@@ -65,3 +65,36 @@ func TestLoginCookiesForRejectsNonWebURL(t *testing.T) {
 		t.Fatalf("kept %v for a non-web page", got)
 	}
 }
+
+// A login can finish on another host than it started on: manga_dex goes from
+// forums.mangadex.org back to mangadex.org. Both are the login site, so both
+// sets of cookies belong to the source.
+func TestLoginCookiesCoverTheStartingAndFinishingHost(t *testing.T) {
+	cs := []*http.Cookie{
+		{Name: "forum", Value: "1", Domain: "forums.mangadex.org"},
+		{Name: "site", Value: "2", Domain: "mangadex.org"},
+		{Name: "shared", Value: "3", Domain: ".mangadex.org"},
+		{Name: "other", Value: "4", Domain: "analytics.test"},
+	}
+	start := loginCookiesFor(cs, "https://forums.mangadex.org/login/")
+	end := loginCookiesFor(cs, "https://mangadex.org/")
+	merged := start
+	for _, c := range end {
+		if !hasCookie(merged, c) {
+			merged = append(merged, c)
+		}
+	}
+	// forum, site and the cookie for the parent domain; not the third party.
+	if len(merged) != 3 {
+		t.Fatalf("kept %d cookie(s), want the forum's, the site's and the parent-domain one", len(merged))
+	}
+	for _, c := range merged {
+		if c.Name == "other" {
+			t.Error("a third party's cookie was kept")
+		}
+	}
+	// The parent-domain cookie matches both hosts, and must be stored once.
+	if len(start)+len(end) != len(merged)+1 {
+		t.Errorf("start %d + end %d did not collapse one duplicate into %d", len(start), len(end), len(merged))
+	}
+}

@@ -118,7 +118,7 @@ func (l *LoginWindow) watch(ctx context.Context, decl core.WebviewLogin, state *
 		case <-state.done:
 			// The user says they are logged in even though checkStatus never
 			// agreed; the cookies are still worth keeping.
-			return l.store(decl)
+			return l.store(decl, "")
 		case <-ticker.C:
 			page := state.web.Page()
 			rawURL, err := page.Eval("location.href")
@@ -143,7 +143,7 @@ func (l *LoginWindow) watch(ctx context.Context, decl core.WebviewLogin, state *
 			if !done {
 				continue
 			}
-			if stored, err := l.store(decl); err == nil {
+			if stored, err := l.store(decl, pageURL); err == nil {
 				return stored, nil
 			}
 			// A source may say "logged in" a moment before the cookies settle;
@@ -154,7 +154,7 @@ func (l *LoginWindow) watch(ctx context.Context, decl core.WebviewLogin, state *
 
 // store moves the browser's cookies into the source's partition and runs
 // onLoginSuccess.
-func (l *LoginWindow) store(decl core.WebviewLogin) (int, error) {
+func (l *LoginWindow) store(decl core.WebviewLogin, pageURL string) (int, error) {
 	listed, err := mygo.Cookies.List(mygo.CookieFilter{})
 	if err != nil {
 		return 0, err
@@ -171,7 +171,17 @@ func (l *LoginWindow) store(decl core.WebviewLogin) (int, error) {
 	// Only the login site's own cookies belong to this source. The page also
 	// loads third parties, and storing their cookies in the source's partition
 	// would make them part of a login the source never asked for.
+	// The page a login finishes on may be another host than the one it started
+	// on (manga_dex goes from forums.mangadex.org back to mangadex.org), so both
+	// count as the login site.
 	out := loginCookiesFor(all, decl.URL)
+	if pageURL != "" {
+		for _, c := range loginCookiesFor(all, pageURL) {
+			if !hasCookie(out, c) {
+				out = append(out, c)
+			}
+		}
+	}
 	if len(out) == 0 {
 		return 0, errors.New("browser: the page set no cookies to keep")
 	}
@@ -216,4 +226,14 @@ func loginCookiesFor(cs []*http.Cookie, rawURL string) []*http.Cookie {
 		}
 	}
 	return out
+}
+
+// hasCookie reports whether cs already holds a cookie with this identity.
+func hasCookie(cs []*http.Cookie, c *http.Cookie) bool {
+	for _, have := range cs {
+		if have.Name == c.Name && have.Domain == c.Domain && have.Path == c.Path {
+			return true
+		}
+	}
+	return false
 }
