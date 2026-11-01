@@ -251,3 +251,36 @@ func TestBrowseForCheckFollowsTheChipRule(t *testing.T) {
 		t.Fatalf("two sections: %d/%d/%d, want 2/2/3", sections, chips, comics)
 	}
 }
+
+// The category check reports both halves: the parts a reader chooses from and the
+// comics the loader returned. A page that draws its choosers and loads nothing is
+// the fault it exists to name, so the two counts have to be independent.
+func TestCategoryForCheckSeparatesPartsFromComics(t *testing.T) {
+	a := commentsApp(t)
+
+	parts, values, _, comics, _ := a.CategoryForCheck()
+	if parts != 0 || values != 0 || comics != 0 {
+		t.Fatalf("empty category reported %d/%d/%d", parts, values, comics)
+	}
+
+	a.mu.Lock()
+	a.category = core.Category{Parts: []core.CategoryPart{
+		{Name: "Genre", Categories: []string{"probe", "test"}},
+	}}
+	a.catComics = nil
+	a.mu.Unlock()
+
+	parts, values, _, comics, _ = a.CategoryForCheck()
+	if parts != 1 || values != 2 || comics != 0 {
+		t.Fatalf("parts without results: %d/%d/%d, want 1/2/0", parts, values, comics)
+	}
+
+	a.mu.Lock()
+	a.catComics = []core.Comic{{Title: "Probe Comic"}}
+	a.mu.Unlock()
+
+	parts, values, _, comics, _ = a.CategoryForCheck()
+	if parts != 1 || values != 2 || comics != 1 {
+		t.Fatalf("loaded page: %d/%d/%d, want 1/2/1", parts, values, comics)
+	}
+}
