@@ -644,6 +644,9 @@ go run ./cmd/comicprobe /path/to/source.js 关键词
 go run ./cmd/dialogprobe
 go run ./cmd/updateprobe
 
+# 跨官方源问一遍每个源自己的标签含义(需要网络)
+NK_OFFICIAL_SRC=/path/to/official-srcs sh scripts/tag-probe.sh
+
 # 上面这些需要窗口的检查一次跑完(不设 NK_OFFICIAL_SRC 时跳过最后一项)
 NK_OFFICIAL_SRC=/path/to/official-srcs sh scripts/desktop-probes.sh
 ```
