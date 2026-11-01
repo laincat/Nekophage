@@ -468,7 +468,7 @@ Cookie 字段名(`ipb_member_id` 等)**不翻译**:那是 Cookie 名,不是界�
 
 另外两端都补了:登出与登录反馈不再只出现在密码方式下(`ehentai` 这类纯 Cookie 源原本算出了「这组 Cookie 不能用」却从不显示,也点不到登出)。
 
-桌面视觉证据(2026-11-01):`ui-webview-login.png` 的 `nhentai` 设置区同时画出「在网页里登录」与「登出」;`ui-webview-ehentai.png` 的 `ehentai` 设置区同时画出网页登录、四个 Cookie 输入框、「校验并保存」与「登出」;`ui-callback-wnacg.png` 的 `wnacg` 设置区按源自己的 `buttonText` 画出 `Refresh`。三张图都在 `E:/Temp/nkprobe/`,由 `cmd/uicheck -settings` 在真实源上捕获。
+桌面视觉证据(2026-11-01):`ui-webview-login.png` 的 `nhentai` 设置区同时画出「在网页里登录」与「登出」;`ui-webview-ehentai.png` 的 `ehentai` 设置区同时画出网页登录、四个 Cookie 输入框、「校验并保存」与「登出」;`ui-callback-wnacg.png` 的 `wnacg` 设置区按源自己的 `buttonText` 画出 `Refresh`。三张图都在 `E:/Temp/nkprobe/`,由 `cmd/uicheck -settings` 在真实源上捕获。**新增两张对比图**:`ui-cb-quiet2-settings.png` 是修复前 —— 只按了 `Quiet` 一个回调,`Run` 行却同样显示「已完成」(`callbackMsg` 是面板级单一文本);`ui-cb-quiet3-settings.png` 是修复后,只有被按的那一行显示结果。另一张 `ui-wnacg-cb-settings.png` 是真实源上按下 `Refresh` 的结果:`刷新域名列表` 行显示「已完成」,其余设置行不受影响;`-callback` 现在走按钮用的同一个入口,所以截图里看到的就是用户会看到的。
 
 **网页登录现在有整条链路的实测,不只是截图(2026-11-01,`455d0ec`、`487b15a`)**:`cmd/loginprobe` 起一个本地假登录页(`/login` 标题 `Sign in`,自动跳到 `/done` 标题 `Logged in` 并下发 Cookie),让窗口、WebView、轮询、源自己的 `checkStatus`、Cookie 导入源分区、`onLoginSuccess` 全部在无人值守下跑一遍。三种模式各自验证一件事:`ok` 保留 1 个 Cookie 且回调里 `Network.getCookies` 读得到;`timeout` 在源永不同意时以错误结束且**不留下半个登录**;`failcallback` 回调抛错时**立即报出源自己的原因**。
 
