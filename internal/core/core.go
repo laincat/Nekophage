@@ -911,6 +911,12 @@ func (c *Core) CallSettingCallback(ctx context.Context, key, settingKey string) 
 	}
 	var out any
 	if json.Unmarshal(raw, &out) == nil {
+		if out == nil {
+			// A callback that returns nothing carries no message. Passing the
+			// JSON literal "null" on would show that word as if the source had
+			// said it; the panel already has "已完成" for an empty answer.
+			return "", nil
+		}
 		if text, ok := out.(string); ok {
 			return text, nil
 		}
@@ -1001,9 +1007,13 @@ func (c *Core) LoginAccount(ctx context.Context, key, account, password string) 
 		return "", err
 	}
 	// A source answers "ok" or some short phrase; anything else is passed on as
-	// JSON text rather than dropped.
+	// JSON text rather than dropped. A login that answers nothing is no message,
+	// not the word "null".
 	var out any
 	if json.Unmarshal(raw, &out) == nil {
+		if out == nil {
+			return "", nil
+		}
 		if text, ok := out.(string); ok {
 			return text, nil
 		}
