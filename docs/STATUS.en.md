@@ -613,6 +613,20 @@ go run ./cmd/uicheck -script /path/to/manga_dex.js -query "one piece" -open -out
 # site that answers like Cloudflare)
 go run ./cmd/verifycheck -local
 go run ./cmd/verifycheck -e2e
+
+# the browser login's four endings with nobody at the keyboard (a local page),
+# and the challenge window
+go run ./cmd/loginprobe -mode ok|timeout|failcallback|latecookie
+sh scripts/login-probe.sh
+sh scripts/challenge-probe.sh
+
+# a source's setting callback without the interface: one, or all it declares
+go run ./cmd/cbprobe /path/to/source.js - --all
+NK_OFFICIAL_SRC=/path/to/official-srcs sh scripts/callback-probe.sh
+
+# closing a source's dialog releases its caller; updating a closed window is safe
+go run ./cmd/dialogprobe
+go run ./cmd/updateprobe
 ```
 
 `NKDEBUG=1` prints cover download and decode lines.

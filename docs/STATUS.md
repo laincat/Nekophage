@@ -603,6 +603,19 @@ go run ./cmd/uicheck -script /path/to/manga_dex.js -query "one piece" -open -out
 # 人机验证:窗口本身,以及 Core 的整条 403→验证→重试 链路(本地伪造站点)
 go run ./cmd/verifycheck -local
 go run ./cmd/verifycheck -e2e
+
+# 无人值守跑完网页登录的三种结局(本地假登录页),以及 403 挑战窗口
+go run ./cmd/loginprobe -mode ok|timeout|failcallback|latecookie
+sh scripts/login-probe.sh
+sh scripts/challenge-probe.sh
+
+# 源的设置回调:不带界面跑一个源的某个回调,或跑完它声明的全部回调
+go run ./cmd/cbprobe /path/to/source.js - --all
+NK_OFFICIAL_SRC=/path/to/official-srcs sh scripts/callback-probe.sh
+
+# 源对话框被用户关掉后调用方是否释放;窗口关掉后 Update 是否仍安全
+go run ./cmd/dialogprobe
+go run ./cmd/updateprobe
 ```
 
 `NKDEBUG=1` 会打印封面下载与解码的日志。
