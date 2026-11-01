@@ -703,9 +703,11 @@ sh scripts/comment-probe.sh /path/to/source.js
 NK_READ_SRC=/path/to/source.js sh scripts/reader-probe.sh
 
 # all of the window-dependent checks at once
-# callbacks and tags skip without NK_OFFICIAL_SRC, the comment thread without NK_PROBE_SRC,
-# the reader without NK_READ_SRC
-NK_OFFICIAL_SRC=/path/to/official-srcs NK_PROBE_SRC=/path/to/source.js NK_READ_SRC=/path/to/source.js sh scripts/desktop-probes.sh
+# an unset item prints SKIP rather than being quietly dropped:
+#   NK_OFFICIAL_SRC for official callbacks and tags, NK_PROBE_SRC for the comment
+#   thread and the browse chips, NK_FAV_SRC for source favourites, NK_READ_SRC for
+#   the reader's decode
+NK_OFFICIAL_SRC=/path/to/official-srcs NK_PROBE_SRC=/path/to/source.js NK_FAV_SRC=/path/to/source.js NK_READ_SRC=/path/to/source.js sh scripts/desktop-probes.sh
 ```
 
 The comment thread is the one added this round: the client has driven real sources' threads for a while, but that path needs the network and a login. Given a source script that answers for itself (the iOS repository's `UITests/Fixtures/callback_probe.js` is one), the check runs on any machine, and what it checks is whether the comment screen draws the author, the body and the buttons at all.

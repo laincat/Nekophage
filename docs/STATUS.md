@@ -688,8 +688,10 @@ sh scripts/comment-probe.sh /path/to/source.js
 NK_READ_SRC=/path/to/source.js sh scripts/reader-probe.sh
 
 # 上面这些需要窗口的检查一次跑完
-# 不设 NK_OFFICIAL_SRC 跳过回调与标签,不设 NK_PROBE_SRC 跳过评论线程,不设 NK_READ_SRC 跳过阅读器
-NK_OFFICIAL_SRC=/path/to/official-srcs NK_PROBE_SRC=/path/to/source.js NK_READ_SRC=/path/to/source.js sh scripts/desktop-probes.sh
+# 不设的项会打印 SKIP 而不是悄悄略过:
+#   NK_OFFICIAL_SRC 跳过官方源回调与标签,NK_PROBE_SRC 跳过评论线程与分区标签,
+#   NK_FAV_SRC 跳过源收藏,NK_READ_SRC 跳过阅读器解码
+NK_OFFICIAL_SRC=/path/to/official-srcs NK_PROBE_SRC=/path/to/source.js NK_FAV_SRC=/path/to/source.js NK_READ_SRC=/path/to/source.js sh scripts/desktop-probes.sh
 ```
 
 评论线程那项是这一轮补的:客户端对真实源的评论早就跑过,但那条路要网络和登录。给它一个自带回答的源脚本(例如 iOS 仓库里的 `UITests/Fixtures/callback_probe.js`),这项在任何机器上都能跑,检查的是评论界面本身有没有把作者、正文和按钮画出来。
