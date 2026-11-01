@@ -613,6 +613,17 @@ PASS  what every source's own tags mean
 
 The comment check was first written as "the capture has content, so it passed" — and it passed against a source that **declares no comments**, because an empty thread and a real one capture to within a few hundred bytes of each other. Asking the window for `count / author / body / err` instead made the same source report `count=0 err="源返回错误:core: wnacg keeps no comments"` immediately. That kind of false positive only shows up if the check is run against a case that should fail.
 
+## The reader, re-run on the new pin (2026-11-01, Core `d81445f`)
+
+`go run ./cmd/readercheck` against two real sources, with the attribution kept separate:
+
+| Source | Result | Attribution |
+|---|---|---|
+| `manhuagui` | details list 210 chapters; reader reports `figures=210 images=210 decoded=4 first=1520x1300`, with images fetched through the reader's own proxy | passes |
+| `copy_manga` | `Invalid status code: 210` while loading details | **the site** (it has answered 210 before; not a client or source-script regression) |
+
+`decoded=4` does not mean only four pages rendered: the reader decodes as it goes, so that is how many were decoded at that moment. The window capture does not include the web layer, so the evidence is that log line rather than the image.
+
 ## Not verified
 
 - **A live Cloudflare challenge**: none could be reproduced. On 2026-11-01 `cmd/challengeprobe -mode inspect` (new) looked at what the window actually holds, so the two sites are no longer guesses:

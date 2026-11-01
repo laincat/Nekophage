@@ -606,6 +606,17 @@ PASS  what every source's own tags mean
 
 评论那一项先被写成「截图有内容就算过」,拿一个**不声明评论**的源一跑也 PASS 了——空线程和真线程的截图只差几百字节。改成向窗口要 `count / author / body / err` 之后,同一个源立刻报出 `count=0 err="源返回错误:core: wnacg keeps no comments"`。这类假阳性只有负向验证能发现。
 
+## 阅读器在新 pin 上重测(2026-11-01,Core `d81445f`)
+
+`go run ./cmd/readercheck` 对真实源各跑一次,归因分开记:
+
+| 源 | 结果 | 归因 |
+|---|---|---|
+| `manhuagui` | 详情 210 页,阅读器 `figures=210 images=210 decoded=4 first=1520x1300`,图片经阅读器代理取回 | 通过 |
+| `copy_manga` | 详情阶段 `Invalid status code: 210` | **站点侧**(该站此前也用 210 回应,不是客户端或源脚本的回归) |
+
+`decoded=4` 不等于只渲染 4 页:阅读器按需解码,这是「屏幕上此刻解码出来的页数」。窗口截图里没有 web 层,所以判断依据是日志里这行数字,不是图。
+
 ## 未验证
 
 - **真实 Cloudflare 挑战**:没有遇到可复现的挑战页。2026-11-01 用 `cmd/challengeprobe -mode inspect`(新增)直接看窗口里到底是什么,两个站点的结论不再靠推测:
