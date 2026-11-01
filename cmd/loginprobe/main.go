@@ -14,6 +14,8 @@ package main
 //	              without storing half a login
 //	failcallback  a login whose onLoginSuccess throws, where the cookies are
 //	              already the source's and the error still has to surface
+//	latecookie    a page that agrees before its cookies exist, where the wait has
+//	              to keep polling instead of giving up on the empty first look
 
 import (
 	"context"
@@ -37,7 +39,7 @@ func main() {
 	// An unknown mode would otherwise fall through to the ordinary path and report
 	// a pass for a case nobody asked about.
 	switch *mode {
-	case "ok", "timeout", "failcallback":
+	case "ok", "timeout", "failcallback", "latecookie":
 	default:
 		fmt.Println("FAIL unknown mode:", *mode)
 		os.Exit(1)
@@ -56,6 +58,13 @@ func main() {
 		fmt.Fprintf(w, "<!doctype html><title>Sign in</title>%s sign in", advance)
 	})
 	mux.HandleFunc("/done", func(w http.ResponseWriter, r *http.Request) {
+		if *mode == "latecookie" {
+			// The title is already acceptable while the cookie is three seconds
+			// behind it, which is the case the wait has to survive.
+			fmt.Fprint(w, `<!doctype html><title>Logged in</title><script>`+
+				`setTimeout(function(){document.cookie="sid=late; path=/"},3000)</script>ok`)
+			return
+		}
 		http.SetCookie(w, &http.Cookie{Name: "sid", Value: "abc123", Path: "/"})
 		fmt.Fprint(w, `<!doctype html><title>Logged in</title>ok`)
 	})
