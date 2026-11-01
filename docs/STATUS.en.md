@@ -691,9 +691,14 @@ NK_OFFICIAL_SRC=/path/to/official-srcs sh scripts/tag-probe.sh
 # script that answers loadComments)
 sh scripts/comment-probe.sh /path/to/source.js
 
+# the reader decodes real pages from a real chapter (needs the network; when a site
+# refuses, the script says so rather than blaming the client)
+NK_READ_SRC=/path/to/source.js sh scripts/reader-probe.sh
+
 # all of the window-dependent checks at once
-# callbacks and tags skip without NK_OFFICIAL_SRC; the comment thread skips without NK_PROBE_SRC
-NK_OFFICIAL_SRC=/path/to/official-srcs NK_PROBE_SRC=/path/to/source.js sh scripts/desktop-probes.sh
+# callbacks and tags skip without NK_OFFICIAL_SRC, the comment thread without NK_PROBE_SRC,
+# the reader without NK_READ_SRC
+NK_OFFICIAL_SRC=/path/to/official-srcs NK_PROBE_SRC=/path/to/source.js NK_READ_SRC=/path/to/source.js sh scripts/desktop-probes.sh
 ```
 
 The comment thread is the one added this round: the client has driven real sources' threads for a while, but that path needs the network and a login. Given a source script that answers for itself (the iOS repository's `UITests/Fixtures/callback_probe.js` is one), the check runs on any machine, and what it checks is whether the comment screen draws the author, the body and the buttons at all.

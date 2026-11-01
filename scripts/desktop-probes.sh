@@ -4,6 +4,7 @@
 #   sh scripts/desktop-probes.sh
 #   NK_OFFICIAL_SRC=/path/to/official-srcs sh scripts/desktop-probes.sh
 #   NK_PROBE_SRC=/path/to/source.js sh scripts/desktop-probes.sh
+#   NK_READ_SRC=/path/to/source.js sh scripts/desktop-probes.sh
 #
 # These are the checks a headless CI cannot do: a WebView login, a challenge page,
 # a source's own dialog, closing a window mid-wait, and the callbacks the official
@@ -51,6 +52,16 @@ run "closing a source dialog releases its caller" \
 go build -o "$out/updateprobe" ./cmd/updateprobe
 run "a closed window still takes updates and page reads" \
 	"$out/update.log" "$out/updateprobe"
+
+# Pages that actually decode, which is the one thing about images that cannot be
+# answered without a decoder: a source can return plausible byte counts that are
+# not a picture.
+if [ -n "${NK_READ_SRC:-}" ]; then
+	run "the reader decodes a real chapter" 		"$out/reader-probe.log" sh scripts/reader-probe.sh
+else
+	printf 'SKIP  reader decode (set NK_READ_SRC to a source script)
+'
+fi
 
 # A thread the source answers, in a window, with no network: the comment screen is
 # the one part of the source contract a capture tool can drive on its own.
