@@ -708,6 +708,18 @@ The comment thread is the one added this round: the client has driven real sourc
 
 `NKDEBUG=1` prints cover download and decode lines.
 
+## Cross-compilation: all three targets build (2026-11-01)
+
+"compile and run on macOS and Linux" has been on the next list for a while with only macOS evidence from the Mac worker. This round settles the "does not compile" half:
+
+```
+GOOS=linux  GOARCH=amd64  go build ./...   exit 0
+GOOS=linux  GOARCH=arm64  go build ./...   exit 0
+GOOS=darwin GOARCH=arm64  go build ./...   exit 0
+```
+
+**This is portability, not execution**: the window layer needs GTK/WebKit runtime libraries, and nothing built here has been started on Linux. So "works on Linux" still has no evidence, while "does not compile on Linux" can now be ruled out.
+
 ## Next
 
 1. Find a reproducible live Cloudflare challenge (a site that answers a command-line client with 403 and does hand out `cf_clearance`) and check the done rule against it. Sites like 18comic.vip, which open in WebView2 but never set `cf_clearance`, cannot be judged passed today; relaxing the rule is a design decision.

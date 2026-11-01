@@ -692,9 +692,21 @@ NK_OFFICIAL_SRC=/path/to/official-srcs NK_PROBE_SRC=/path/to/source.js NK_READ_S
 
 `NKDEBUG=1` 会打印封面下载与解码的日志。
 
+## 交叉编译:三个目标都能编过(2026-11-01)
+
+「在 macOS 与 Linux 上编译」这条一直列在下一步,却只有 macOS 的真机证据(Mac worker)。这一轮先做了交叉编译,把「编不过」这种可能排除掉:
+
+```
+GOOS=linux  GOARCH=amd64  go build ./...   exit 0
+GOOS=linux  GOARCH=arm64  go build ./...   exit 0
+GOOS=darwin GOARCH=arm64  go build ./...   exit 0
+```
+
+**这证明的是可移植性,不是能运行**:窗口层依赖 GTK/WebKit 的运行时库,交叉编译出来的二进制没有在 Linux 上启动过。所以「Linux 上可用」仍然没有证据,「Linux 上编不过」现在已经可以排除。
+
 ## 下一步
 
 1. 找可复现的真实 Cloudflare 挑战(需要站点当前对命令行回 403 且会下发 `cf_clearance`),用它核对完成规则;目前 18comic.vip 这类「WebView 能开但不发 `cf_clearance`」的站点,验证后仍无法判定通过,可能要放宽完成规则,这属于设计决定。
-2. 在 macOS 与 Linux 上编译并运行。
+2. 在 Linux 上运行(macOS 已由 Mac worker 运行;交叉编译已通过,见上一节)。
 3. 接上视频源与嗅探 —— 三个选项各自的工作量与代价已量在 [VIDEO-PLAYBACK.md](VIDEO-PLAYBACK.md):WebView + `<video>`(纯 Go,复用阅读器那套代理)、原生播放器(需 cgo 与自写解码,MyGo 只带 GIF 解码器)、只嗅探直链交给系统播放器(请求头带不过去)。
 4. 制作台模块。
