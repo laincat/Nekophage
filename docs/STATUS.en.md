@@ -756,6 +756,20 @@ The desktop now follows the same rule (`len(pages) > 1`, divider included). Both
 
 `go vet` and `go test ./internal/ui` pass. This kind of difference does not announce itself; it only shows up when both clients are given the same input.
 
+## Seed generation is deterministic across platforms (2026-11-01)
+
+`cmd/seedgen` put the file's bytes straight into a record's `body`, so **the same fixture** produced a seed with a different md5 on Windows (CRLF) and on macOS (LF). That is not theoretical: the verification machine received a different hash, so "the seed matches the tree" could not be answered with a hash — it had to be compared by eye, which is exactly how this went wrong.
+
+It now turns `
+` and lone `` into `
+` before installing:
+
+```
+the same command run twice → byte-identical output
+of the four sources only callback_probe's sha256 changed (the others had no CRLF)
+the iOS check-seed.sh still passes (it normalises line endings anyway)
+```
+
 ## Cross-compilation: all three targets build (2026-11-01)
 
 "compile and run on macOS and Linux" has been on the next list for a while with only macOS evidence from the Mac worker. This round settles the "does not compile" half:
