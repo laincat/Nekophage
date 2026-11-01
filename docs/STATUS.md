@@ -692,6 +692,17 @@ NK_OFFICIAL_SRC=/path/to/official-srcs NK_PROBE_SRC=/path/to/source.js NK_READ_S
 
 `NKDEBUG=1` 会打印封面下载与解码的日志。
 
+## 门禁默认带竞态检测(2026-11-01)
+
+`scripts/check.sh` 里的 `go test` 一直是普通模式,而这个客户端恰恰在后台 goroutine 里加载评论、浏览和图片,界面同时在读同一份状态——正是竞态检测该管的地方。现在默认 `-race`:
+
+```
+PASS  go test (race detector)      # 13 个包,exit 0
+NK_NO_RACE=1 → PASS  go test (no race detector)
+```
+
+两种模式的标签会打印在结果里,**关掉时看得见**,不会让「跑过」和「带检测跑过」混成一件事。没有 C 工具链的机器用 `NK_NO_RACE=1`。
+
 ## 单分区源不再画一行单标签(2026-11-01)
 
 同一个状态,两端原来给出不同画面:iOS 在「只有一个分区且没有分类」时不画分区行(`BrowseView.swift:50`),桌面却总是画一行——那行里只有一个标签,而且永远是选中的,读起来只是噪声。

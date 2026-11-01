@@ -26,7 +26,7 @@ For people and AI assistants working on the code. Read before changing it.
 In the repository root:
 
 ```sh
-sh scripts/check.sh   # gofmt, actual Core pin, go vet, go test, docs, partitions — one line per step
+sh scripts/check.sh   # gofmt, actual Core pin, go vet, go test (with the race detector), docs, partitions, capabilities — one line per step
 ```
 
 The steps individually:

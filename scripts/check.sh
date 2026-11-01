@@ -40,7 +40,12 @@ fi
 
 run 'core pin' sh scripts/check-core-pin.sh
 run 'go vet' go vet ./...
-run 'go test' go test -count=1 ./...
+# The race detector is on by default: this app loads comments, browses and decodes
+# images on goroutines while the interface reads the same state, which is exactly
+# what it is for. NK_NO_RACE=1 turns it off where no C toolchain is available.
+race="-race"
+[ "${NK_NO_RACE:-}" = "1" ] && race=""
+run "go test ($( [ -n "$race" ] && echo 'race detector' || echo 'no race detector' ))" 	go test -count=1 $race ./...
 run 'docs' sh scripts/check-docs.sh
 run 'partitions' sh scripts/check-partitions.sh
 run 'capabilities' sh scripts/check-capabilities.sh

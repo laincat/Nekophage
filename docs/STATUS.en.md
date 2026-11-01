@@ -708,6 +708,17 @@ The comment thread is the one added this round: the client has driven real sourc
 
 `NKDEBUG=1` prints cover download and decode lines.
 
+## The gate runs with the race detector by default (2026-11-01)
+
+`go test` in `scripts/check.sh` was plain mode, and this client loads comments, browses and images on background goroutines while the interface reads the same state — exactly what the detector exists for. It is now `-race` by default:
+
+```
+PASS  go test (race detector)      # 13 packages, exit 0
+NK_NO_RACE=1 → PASS  go test (no race detector)
+```
+
+The mode is printed in the result, so **turning it off is visible**: "it ran" and "it ran with the detector" do not collapse into one thing. A machine with no C toolchain uses `NK_NO_RACE=1`.
+
 ## A single-browse source no longer draws a one-chip row (2026-11-01)
 
 The same state used to look different on the two clients: iOS draws no section row when a source has one browse and no category (`BrowseView.swift:50`), while the desktop always drew one — a row holding a single chip that is permanently selected, which reads as noise.

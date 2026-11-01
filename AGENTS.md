@@ -26,7 +26,7 @@
 在仓库根目录运行:
 
 ```sh
-sh scripts/check.sh   # gofmt、真实 Core pin、go vet、go test、docs、partitions,逐项打印
+sh scripts/check.sh   # gofmt、真实 Core pin、go vet、go test(带 race)、docs、partitions、capabilities,逐项打印
 ```
 
 单步等价于:
