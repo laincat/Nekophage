@@ -192,6 +192,14 @@ Network.get(`${this.baseUrl}/users-fav_del-id-${favoriteId}.html?ajax=true...`)
 
 单测覆盖参数形态:单收藏夹源必须收到 `null` 而不是空串;改名/移除的收尾都验证过。截图确认按钮与文件夹选择渲染正常。
 
+**评论能发不能赞(2026-11-01)**
+
+4 个源声明了 `comic.likeComment`(`ccc` / `lanraragi` / `picacg` / `zaimanhua`),契约是 `likeComment(comicId, subId, commentId, isLike)` —— **同一个函数、传 `false` 就是取消赞**。Core 层早就实现了,界面上一直没有按钮。
+
+现在评论区每条评论带「赞 / 取消赞」,只在源声明了 `likeComment` 时出现;点完重新读当前页,因为源可能只在下一读里给出新的赞数。
+
+**活体验证**:`ccc` 与 `zaimanhua` 都声明了赞(`canLike: true`);它们的评论列表要登录才能读,所以**投票的端到端仍需真实账号**,这一点不当作已验证。
+
 **粘贴源自己的链接,客户端当关键词搜(2026-11-01)**
 
 8 个源声明了 `comic.link`(域名 + `linkToId`),用来把「https://nhentai.net/g/691529/」这类地址解析成作品 id。两个客户端都没接:搜索框把整串地址当关键词,结果当然是 0 条。

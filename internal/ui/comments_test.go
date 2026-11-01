@@ -81,3 +81,50 @@ func TestCommentButtonFollowsTheSource(t *testing.T) {
 		t.Error("a source without comments reported support")
 	}
 }
+
+// A source that votes on comments gets a control; one that does not keeps it
+// away, and the vote reaches the source with the flag it expects.
+func TestCommentVoteFollowsTheSource(t *testing.T) {
+	c, err := core.Open(core.Options{DataDir: filepath.Join(t.TempDir(), "d"), AppVersion: "1.6.3", Locale: "zh_CN"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { c.Close() })
+	ctx := context.Background()
+	if _, err := c.Install(ctx, `class Votes extends ComicSource {
+  name = 'Votes'; key = 'votes'; version = '1'
+  search = {load: async () => ({comics: [], maxPage: 1})}
+  comic = {
+    loadComments: async () => ({comments: [{id: 'c1', userName: 'a', content: 'x', isLiked: false}], maxPage: 1}),
+    likeComment: async (comicId, subId, commentId, isLike) => {
+      if (commentId !== 'c1') throw new Error('wrong comment id')
+      return isLike ? 'liked' : 'unliked'
+    },
+  }
+}`, "file", ""); err != nil {
+		t.Fatal(err)
+	}
+	if !c.CanLikeComment(ctx, "votes") {
+		t.Fatal("the source votes on comments but the client says it does not")
+	}
+	if err := c.LikeComment(ctx, "votes", "42", "sub", "c1", true); err != nil {
+		t.Errorf("like: %v", err)
+	}
+	// The same call with false is how a vote is taken back.
+	if err := c.LikeComment(ctx, "votes", "42", "sub", "c1", false); err != nil {
+		t.Errorf("unlike: %v", err)
+	}
+	// A source without likeComment is told apart rather than asked.
+	if _, err := c.Install(ctx, `class Quiet extends ComicSource {
+  name = 'Quiet'; key = 'quiet'; version = '1'
+  search = {load: async () => ({comics: [], maxPage: 1})}
+}`, "file", ""); err != nil {
+		t.Fatal(err)
+	}
+	if c.CanLikeComment(ctx, "quiet") {
+		t.Error("a source without likeComment reported support")
+	}
+	if err := c.LikeComment(ctx, "quiet", "1", "", "c1", true); err == nil {
+		t.Error("voting on a source that does not vote succeeded")
+	}
+}

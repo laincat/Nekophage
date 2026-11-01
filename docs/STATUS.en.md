@@ -199,6 +199,14 @@ Three deliberate choices:
 
 The unit test pins the argument shape: a single-folder source must receive `null`, not an empty string; add and remove are both covered. The capture confirms the button and the folder picker render.
 
+**Comments could be written but not voted on (2026-11-01)**
+
+Four sources declare `comic.likeComment` (`ccc`, `lanraragi`, `picacg`, `zaimanhua`) with the contract `likeComment(comicId, subId, commentId, isLike)` — **the same call with `false` takes the vote back**. The core layer had it all along; the window had no button.
+
+Each comment now carries 赞 / 取消赞, shown only when the source declares `likeComment`, and the page is read again afterwards because a source may only report the new score on the next read.
+
+**Verified live**: `ccc` and `zaimanhua` both declare the vote (`canLike: true`). Their comment lists need a login to read, so **voting end to end still needs a real account** and is not counted as verified.
+
 **A pasted link of a source's own was searched as a keyword (2026-11-01)**
 
 Eight sources declare `comic.link` (domains plus `linkToId`) to turn an address like `https://nhentai.net/g/691529/` into a comic id. Neither client used it: the search box sent the whole URL as a keyword and of course found nothing.

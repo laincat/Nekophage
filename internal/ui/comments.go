@@ -35,9 +35,10 @@ type commentsState struct {
 	// replyTo is the comment being answered; "" for a new thread entry.
 	replyTo  string
 	replyWho string
-	// canSend is read once when the window opens: asking Core on every repaint
-	// would run a source call inside the render path.
+	// canSend and canLike are read once when the window opens: asking Core on
+	// every repaint would run a source call inside the render path.
 	canSend bool
+	canLike bool
 }
 
 // openComments shows the thread, or focuses it when it is already open for this
@@ -51,7 +52,8 @@ func (a *App) openComments() {
 		return
 	}
 	*c = commentsState{key: key, id: comic.ID, sub: a.detail.SubID, page: 1,
-		canSend: a.core.CanSendComment(context.Background(), key)}
+		canSend: a.core.CanSendComment(context.Background(), key),
+		canLike: a.core.CanLikeComment(context.Background(), key)}
 	win := mygo.NewWindow(mygo.WindowOptions{
 		Title:   "评论",
 		Width:   720,
@@ -104,6 +106,33 @@ func (a *App) loadComments(page int) {
 	}()
 }
 
+// likeComment votes on one comment and reads the page again, because a source
+// may report the new score only on the next read.
+func (a *App) likeComment(one core.Comment, isLike bool) {
+	c := &a.comments
+	a.mu.Lock()
+	c.busy, c.errText, c.notice = true, "", ""
+	key, id, sub := c.key, c.id, c.sub
+	a.mu.Unlock()
+	a.comments.win.Update(func() {})
+	go func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+		defer cancel()
+		err := a.core.LikeComment(ctx, key, id, sub, one.ID, isLike)
+		a.win.Update(func() {
+			a.mu.Lock()
+			c.busy = false
+			if err != nil {
+				c.errText = explain(err)
+			}
+		})
+		a.comments.win.Update(func() {})
+		if err == nil {
+			a.loadComments(c.page)
+		}
+	}()
+}
+
 // sendComment posts the draft and reloads the thread, because sources differ in
 // whether they keep the new comment in the response.
 func (a *App) sendComment() {
@@ -143,7 +172,7 @@ func (a *App) commentsView(ctx *ui.Context) {
 	t := ctx.Theme()
 	a.mu.Lock()
 	c := &a.comments
-	busy, errText, notice := c.busy, c.errText, c.notice
+	busy, canLike, errText, notice := c.busy, c.canLike, c.errText, c.notice
 	list, page, maxPage := c.list, c.page, c.maxPage
 	replyTo, replyWho := c.replyTo, c.replyWho
 	draft := c.draft
@@ -201,6 +230,17 @@ func (a *App) commentsView(ctx *ui.Context) {
 					ui.Row(ctx).Gap(8).Children(func() {
 						if one.ReplyCount > 0 {
 							ui.Textf(ctx, "%d 条回复", one.ReplyCount).FontSize(11).TextColor(t.TextMuted)
+						}
+						// A source that votes gets a control; sending false is how
+						// the same button takes the vote back.
+						if canLike && one.ID != "" {
+							label := "赞"
+							if one.IsLiked {
+								label = "取消赞"
+							}
+							if ui.Button(ctx, label).Disabled(busy).Clicked() {
+								a.likeComment(one, !one.IsLiked)
+							}
 						}
 						if c.canSend {
 							if ui.Button(ctx, "回复").Clicked() {
