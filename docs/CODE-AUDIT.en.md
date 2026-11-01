@@ -45,6 +45,14 @@ Core uses MoeJS for per-source runtimes, cascadia for CSS selectors, htmlquery/x
 4. **Responsibility boundaries**: baseline `internal/ui/app.go` has 1530 lines and `internal/core/core.go` 834. Split around search, browsing and reader lifetimes rather than reducing line counts alone.
 5. **Version truth**: desktop now checks actual module HEAD, clean tree and stamp. iOS still needs artifact-level framework version evidence. Generated strings do not verify linked artifacts.
 
+## Known boundary: a source may reach loopback and private networks (2026-11-01)
+
+Checked: neither the client nor Core limits the target address — a source script writing `http://127.0.0.1:…` or `http://169.254.169.254/` gets its request. That is an SSRF surface: a hostile source could scan local ports or a cloud metadata service and hand the answers back to the interface as comic data.
+
+**Not blocking it is deliberate**: self-hosted comic servers (Komga, LANraragi and the like) usually live on a LAN address, so a blanket block breaks real use, and the iOS interface test now depends on fetching from `http://127.0.0.1:18731`. The trust boundary is "a source script the user installed", which is consistent with those scripts already running arbitrary JavaScript.
+
+The way to tighten it is not a blacklist but **per-source consent**: when a source is installed or first reaches a non-public address, show the user what it is asking for. That is a product decision, so the current behaviour is recorded here and left alone.
+
 ## Verification and limits
 
 No throughput or percentage memory reduction is claimed. No real AI account or vulnerability database scan was used. Passing race/vet/tests does not prove absence of other defects. Cookie/storage/AI/cancellation inputs failed before fixes and pass as regressions. Full logs live in `E:/Temp/tri-audit`. Desktop gates, race checks and Windows builds must pass again after correcting the stale linked dependency; earlier green results against old Core do not verify the new pin.
