@@ -650,6 +650,9 @@ go run ./cmd/comicprobe /path/to/source.js keyword
 # closing a source's dialog releases its caller; a closed window still takes updates and page reads
 go run ./cmd/dialogprobe
 go run ./cmd/updateprobe
+
+# all of the window-dependent checks at once (the last one skips without NK_OFFICIAL_SRC)
+NK_OFFICIAL_SRC=/path/to/official-srcs sh scripts/desktop-probes.sh
 ```
 
 `NKDEBUG=1` prints cover download and decode lines.

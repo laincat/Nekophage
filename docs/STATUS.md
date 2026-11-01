@@ -638,6 +638,9 @@ go run ./cmd/comicprobe /path/to/source.js 关键词
 # 源对话框被用户关掉后调用方是否释放;窗口关掉后 Update 与页面读取是否仍安全
 go run ./cmd/dialogprobe
 go run ./cmd/updateprobe
+
+# 上面这些需要窗口的检查一次跑完(不设 NK_OFFICIAL_SRC 时跳过最后一项)
+NK_OFFICIAL_SRC=/path/to/official-srcs sh scripts/desktop-probes.sh
 ```
 
 `NKDEBUG=1` 会打印封面下载与解码的日志。
