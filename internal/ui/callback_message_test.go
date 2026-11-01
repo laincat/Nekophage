@@ -43,3 +43,20 @@ func TestCallbackFailureKeepsTheSourcesWords(t *testing.T) {
 		t.Fatalf("failure = %q, want the source's reason", got)
 	}
 }
+
+// A setting with no value has no text. The panel draws unknown setting kinds with
+// rawText, and the JSON literal would otherwise appear where a value belongs.
+func TestNullSettingValueReadsAsNothing(t *testing.T) {
+	if got := rawText(nil); got != "" {
+		t.Fatalf("empty value = %q", got)
+	}
+	if got := rawText([]byte("null")); got != "" {
+		t.Fatalf("null value = %q", got)
+	}
+	if got := rawText([]byte(`"wnacg.com"`)); got != "wnacg.com" {
+		t.Fatalf("text value = %q", got)
+	}
+	if got := rawText([]byte("3")); got != "3" {
+		t.Fatalf("number value = %q", got)
+	}
+}

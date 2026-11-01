@@ -29,7 +29,7 @@
 | P2 | 源声明的每个回调共用一条结果文本,按其中一个按钮后所有回调行都显示它的答案 | `manage` 改为按设置项保存答案(`callbackMsgs map[string]string`),只在自己那一行显示;截图对比确认只按 `quiet` 时 `Run` 行不再跟着显示「已完成」 |
 | P2 | Core 与桌面各有一份「把源的回答当文本」的实现,只改一边不会生效 | **结构性风险,本轮实证**:把修复只放进 Core 后桌面仍然显示 `null`,因为 `internal/core` 有自己的同类实现。现在两端规则一致,并把 `internal/core` 里其余 `json.Unmarshal(raw…)` 站点逐个看过:其余都解到结构体或布尔,没有再把协议字面量直接交给界面的路径 |
 
-**「桌面重复实现 Core」的实际范围(2026-11-01)**:桌面 `internal/core` 有 57 个导出方法,Core 的 `mobile` 有 56 个,其中 **24 个同名**。逐个看过之后,分叉风险只落在**自己解析 Core 输出文本**的那几处 —— 其余要么直接委托同一个 JS 运行时(`WebviewStatus`、`WebviewLoginDone`、`ClickTag` 等),要么把 JSON 解到结构体(`parseComic`、`parseDetails`),这些不会各自演化。文本解析一共三处:`CallSettingCallback`、`LoginAccount`(本轮都改成「`null` 视为没有消息」)与 `CategoryComics`/`ComicValue`(返回的是 JSON 契约本身,`null` 有意义,不能改)。这条边界写在这里,是因为它决定了以后改 Core 的输出语义时,哪些地方必须一起改。
+**「桌面重复实现 Core」的实际范围(2026-11-01)**:桌面 `internal/core` 有 57 个导出方法,Core 的 `mobile` 有 56 个,其中 **24 个同名**。逐个看过之后,分叉风险只落在**自己解析 Core 输出文本**的那几处 —— 其余要么直接委托同一个 JS 运行时(`WebviewStatus`、`WebviewLoginDone`、`ClickTag` 等),要么把 JSON 解到结构体(`parseComic`、`parseDetails`),这些不会各自演化。文本解析一共四处:`CallSettingCallback` 与 `LoginAccount`(本轮都改成「`null` 视为没有消息」)、`CategoryComics`/`ComicValue`(返回的是 JSON 契约本身,`null` 有意义,不能改),以及界面层的 `rawText`。最后这个本来就没问题——Go 把 JSON `null` 解到 `string` 时不会改动目标值,所以它返回空串;我一度加了显式判断,负向验证证明那段是多余的,已撤回,改为用一条测试把这个行为钉住。这条边界写在这里,是因为它决定了以后改 Core 的输出语义时,哪些地方必须一起改。
 
 ## 三项目框架结论
 
