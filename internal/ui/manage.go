@@ -22,6 +22,27 @@ import (
 
 // manageState is the source manager window: install from a script URL or an
 // index, see the installed sources, turn them on or off, remove them.
+// recordCallback stores what one callback answered, under its own key.
+//
+// Per key rather than one message for the panel: a source declares several
+// callbacks, and one shared line would put a press's result beside all of them.
+func (m *manageState) recordCallback(settingKey, answer string, err error) {
+	m.callbackBusy = ""
+	if m.callbackMsgs == nil {
+		m.callbackMsgs = map[string]string{}
+	}
+	switch {
+	case err != nil:
+		// The source's own words: "no network", "Login expired", or whatever it
+		// chose.
+		m.callbackMsgs[settingKey] = explain(err)
+	case answer == "":
+		m.callbackMsgs[settingKey] = "已完成"
+	default:
+		m.callbackMsgs[settingKey] = answer
+	}
+}
+
 type manageState struct {
 	scriptURL string
 	indexURL  string

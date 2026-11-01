@@ -225,21 +225,7 @@ func (a *App) callSettingCallback(key, settingKey string) {
 		defer cancel()
 		answer, err := a.core.CallSettingCallback(ctx, key, settingKey)
 		a.manageWin.Update(func() {
-			m := &a.manage
-			m.callbackBusy = ""
-			if m.callbackMsgs == nil {
-				m.callbackMsgs = map[string]string{}
-			}
-			switch {
-			case err != nil:
-				// The source's own words: "no network", "Login expired", or
-				// whatever it chose.
-				m.callbackMsgs[settingKey] = explain(err)
-			case answer == "":
-				m.callbackMsgs[settingKey] = "已完成"
-			default:
-				m.callbackMsgs[settingKey] = answer
-			}
+			a.manage.recordCallback(settingKey, answer, err)
 		})
 	}()
 }
