@@ -590,19 +590,22 @@ Cookie 字段名(`ipb_member_id` 等)**不翻译**:那是 Cookie 名,不是界�
 | `manwaba` | 封面「不是图片」 | **实测**:取回那张 13328 字节的封面,`Content-Type: image/jpeg` 但首字节是 `aa254a…` 而不是 `ffd8`,即站点返回的是加密/混淆字节。客户端拒绝把它当图片是对的 |
 | `mh1234` | `Cannot read properties of null` | 源脚本解析站点结构时期望的元素不存在,属源侧脆弱 |
 
-## 窗口检查现在有七项,全部通过(2026-11-01,Core `d81445f`)
+## 窗口检查现在有八项,全部通过(2026-11-01,Core `d81445f`)
 
-`sh scripts/desktop-probes.sh` 一次跑完所有需要真窗口的检查,这一轮首次包含评论线程,七项全过:
+`sh scripts/desktop-probes.sh` 一次跑完所有需要真窗口的检查,八项全过(三项按环境变量决定是否参与):
 
 ```
 PASS  login window: ok, timeout, failing callback, late cookie, close
 PASS  challenge window: cleared and dismissed
 PASS  closing a source dialog releases its caller
 PASS  a closed window still takes updates and page reads
-PASS  a comment thread the source answers
-PASS  every callback the official sources declare
-PASS  what every source's own tags mean
+PASS  the reader decodes a real chapter          (NK_READ_SRC=manhuagui)
+PASS  a comment thread the source answers        (NK_PROBE_SRC=测试源)
+PASS  every callback the official sources declare  (NK_OFFICIAL_SRC)
+PASS  what every source's own tags mean            (NK_OFFICIAL_SRC)
 ```
+
+阅读器那项是唯一需要**真解码器**的:源可以返回看着合理的字节数而那并不是图片,所以它要求 `decoded>0`,并用 `manhuagui` 的真实章节跑(210 页,首批解码 4 页,首图 1520×1300)。负向验证用了 `copy_manga`:它现在在详情阶段返回 210,探针据此判失败,并把**站点的答复**原样打出来,而不是只说「命令失败」。
 
 评论那一项先被写成「截图有内容就算过」,拿一个**不声明评论**的源一跑也 PASS 了——空线程和真线程的截图只差几百字节。改成向窗口要 `count / author / body / err` 之后,同一个源立刻报出 `count=0 err="源返回错误:core: wnacg keeps no comments"`。这类假阳性只有负向验证能发现。
 

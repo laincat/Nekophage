@@ -597,19 +597,22 @@ That repository is **not a theme plugin** — it is a complete Android client wh
 | `manwaba` | the cover "is not an image" | **Measured**: the 13328-byte cover comes back with `Content-Type: image/jpeg` but starts with `aa254a…` rather than `ffd8`, so the site serves encrypted bytes. Refusing to treat that as a picture is right |
 | `mh1234` | `Cannot read properties of null` | The script expects an element the site no longer has, which is the source being brittle |
 
-## Seven window checks, all passing (2026-11-01, Core `d81445f`)
+## Eight window checks, all passing (2026-11-01, Core `d81445f`)
 
-`sh scripts/desktop-probes.sh` runs every check that needs a real window; this round was the first to include the comment thread, and all seven passed:
+`sh scripts/desktop-probes.sh` runs every check that needs a real window; all eight passed in one run, with three of them taking part only when the environment says so:
 
 ```
 PASS  login window: ok, timeout, failing callback, late cookie, close
 PASS  challenge window: cleared and dismissed
 PASS  closing a source dialog releases its caller
 PASS  a closed window still takes updates and page reads
-PASS  a comment thread the source answers
-PASS  every callback the official sources declare
-PASS  what every source's own tags mean
+PASS  the reader decodes a real chapter          (NK_READ_SRC=manhuagui)
+PASS  a comment thread the source answers        (NK_PROBE_SRC=the test source)
+PASS  every callback the official sources declare  (NK_OFFICIAL_SRC)
+PASS  what every source's own tags mean            (NK_OFFICIAL_SRC)
 ```
+
+The reader is the one that needs a real **decoder**: a source can return plausible byte counts that are not a picture, so it requires `decoded>0` and runs on a real `manhuagui` chapter (210 pages, 4 decoded at first, first image 1520×1300). The negative run used `copy_manga`, which now answers 210 while loading details; the probe fails on it and prints the site's answer rather than "a command failed".
 
 The comment check was first written as "the capture has content, so it passed" — and it passed against a source that **declares no comments**, because an empty thread and a real one capture to within a few hundred bytes of each other. Asking the window for `count / author / body / err` instead made the same source report `count=0 err="源返回错误:core: wnacg keeps no comments"` immediately. That kind of false positive only shows up if the check is run against a case that should fail.
 
