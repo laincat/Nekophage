@@ -460,18 +460,24 @@ func (a *App) settingRow(c *ui.Context, t *ui.Theme, s core.SourceSetting) {
 			// A callback is a function in the source. Nothing can be carried
 			// across by value, but the source can run it, so the panel does that
 			// and shows what came back.
-			if m.callbackBusy == s.Key {
-				ui.Spinner(c)
-				return
-			}
+			//
+			// The button stays while it runs. Replacing it with a spinner takes the
+			// control away mid-press, which reads as a glitch rather than as work in
+			// progress; the press is ignored while a callback is already running.
 			// A source names its own button ("Refresh"); falling back to the
 			// generic word keeps a source that names none usable.
 			label := s.ButtonText
 			if label == "" {
 				label = "执行"
 			}
-			if ui.Button(c, label).Clicked() {
+			if ui.Button(c, label).Clicked() && m.callbackBusy == "" {
 				a.callSettingCallback(m.settingsFor, s.Key)
+			}
+			if m.callbackBusy == s.Key {
+				ui.Row(c).Gap(8).Children(func() {
+					ui.Spinner(c)
+					ui.Text(c, "正在执行…").FontSize(11).TextColor(t.TextMuted)
+				})
 			}
 			if m.callbackMsg != "" {
 				ui.Text(c, m.callbackMsg).FontSize(11).TextColor(t.TextMuted).Selectable()
