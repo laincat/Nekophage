@@ -8,9 +8,9 @@
 #
 #   sh scripts/comment-probe.sh /path/to/source.js
 #
-# A thread that opens on an empty page still draws its entry, so the capture has
-# to show more than a frame: the file size is the cheapest signal that something
-# was drawn, and the log line names where the image went.
+# A thread that opens on an empty page still draws its entry, so the check cannot
+# be "a window appeared": an empty thread and a real one capture to almost the same
+# number of bytes. The window is asked what it holds instead.
 set -eu
 
 cd "$(dirname "$0")/.."
@@ -27,18 +27,36 @@ rm -f "$shot"
 
 go run ./cmd/uicheck -script "$src" -comments -comments-out "$shot" >"$out/comments-uicheck.log" 2>&1
 
+line=$(grep -E 'comments: count=' "$out/comments-uicheck.log" | tail -1 || true)
+if [ -z "$line" ]; then
+	printf 'comment-probe: the tool reported no comment state; see %s
+' "$out/comments-uicheck.log" >&2
+	exit 1
+fi
+
+if ! printf '%s' "$line" | grep -q 'count=0 '; then
+	: # a thread was read
+else
+	reason=$(printf '%s' "$line" | sed -n 's/.*err="\(.*\)"$/\1/p')
+	printf 'comment-probe: the window holds no comments (%s)
+' "${reason:-no reason given}" >&2
+	exit 1
+fi
+
+if printf '%s' "$line" | grep -q 'author="" body=""'; then
+	printf 'comment-probe: a comment arrived with no author and no body: %s
+' "$line" >&2
+	exit 1
+fi
+
 if [ ! -f "$shot" ]; then
-	printf 'comment-probe: no capture was written; see %s\n' "$out/comments-uicheck.log" >&2
+	printf 'comment-probe: no capture was written; see %s
+' "$out/comments-uicheck.log" >&2
 	exit 1
 fi
 
-# A blank frame compresses to almost nothing; a thread with an author, a body and
-# its buttons does not. The threshold is deliberately low: this separates "drew
-# something" from "drew nothing", not one thread from another.
 bytes=$(wc -c <"$shot" | tr -d ' ')
-if [ "$bytes" -lt 4000 ]; then
-	printf 'comment-probe: the capture is %s bytes, which is a blank frame\n' "$bytes" >&2
-	exit 1
-fi
-
-printf 'comment-probe: thread captured to %s (%s bytes)\n' "$shot" "$bytes"
+printf 'comment-probe: %s
+' "$line"
+printf 'comment-probe: thread captured to %s (%s bytes)
+' "$shot" "$bytes"

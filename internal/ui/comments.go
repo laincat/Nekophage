@@ -79,6 +79,22 @@ func (a *App) CommentsWindow() *mygo.Window { return a.comments.win }
 // screenshot tool.
 func (a *App) OpenCommentsForCheck() { a.openComments() }
 
+// CommentsForCheck reports what the comment window is showing: how many comments
+// it holds, the first one's author and body, and any error it is displaying.
+//
+// Reading the window by its pixels cannot tell a thread from an empty page — the
+// two captures differ by a few hundred bytes — so a check has to ask the window
+// what it has rather than compare images.
+func (a *App) CommentsForCheck() (count int, author, body, errText string) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	count = len(a.comments.list)
+	if count > 0 {
+		author, body = a.comments.list[0].UserName, a.comments.list[0].Content
+	}
+	return count, author, body, a.comments.errText
+}
+
 // loadComments reads one page in the background.
 func (a *App) loadComments(page int) {
 	c := &a.comments

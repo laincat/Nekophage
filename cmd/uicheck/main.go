@@ -185,6 +185,10 @@ func main() {
 			if *commentsShot {
 				app.OpenCommentsForCheck()
 				time.Sleep(4000 * time.Millisecond)
+				// What the window holds, not what it looks like: an empty thread and
+				// a real one capture to almost the same number of bytes.
+				count, author, body, errText := app.CommentsForCheck()
+				log.Printf("comments: count=%d author=%q body=%q err=%q", count, author, body, errText)
 				if win := app.CommentsWindow(); win != nil {
 					if shot, err := win.CapturePage(); err == nil && *commentsOut != "" {
 						if werr := os.WriteFile(*commentsOut, shot, 0o644); werr == nil {
