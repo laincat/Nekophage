@@ -197,3 +197,57 @@ func TestCommentsForCheckReportsWhatTheWindowHolds(t *testing.T) {
 		t.Errorf("errText = %q", errText)
 	}
 }
+
+// The window checks read the view state through these, so what they report has to
+// be the view's own contents rather than something derived from a screenshot.
+func TestFavoritesForCheckReportsTheListing(t *testing.T) {
+	a := commentsApp(t)
+
+	count, first, errText := a.FavoritesForCheck()
+	if count != 0 || first != "" || errText != "" {
+		t.Fatalf("an empty view reported %d %q %q", count, first, errText)
+	}
+
+	a.mu.Lock()
+	a.favComics = []core.Comic{{Title: "ada"}, {Title: "bob"}}
+	a.favErr = "限制"
+	a.mu.Unlock()
+
+	count, first, errText = a.FavoritesForCheck()
+	if count != 2 || first != "ada" || errText != "限制" {
+		t.Fatalf("count=%d first=%q err=%q", count, first, errText)
+	}
+}
+
+// The chip rule lives here: one section draws no chips, two draw one each. A
+// capture shows a row or no row without saying which the view believes it drew.
+func TestBrowseForCheckFollowsTheChipRule(t *testing.T) {
+	a := commentsApp(t)
+
+	sections, chips, comics, _ := a.BrowseForCheck()
+	if sections != 0 || chips != 0 || comics != 0 {
+		t.Fatalf("empty browse reported %d/%d/%d", sections, chips, comics)
+	}
+
+	fill := func(pages int) {
+		a.mu.Lock()
+		a.explorePages = make([]core.ExplorePage, pages)
+		a.explore = core.ExploreResult{Sections: []core.ExploreSection{
+			{Title: "one", Comics: []core.Comic{{Title: "a"}, {Title: "b"}}},
+			{Title: "two", Comics: []core.Comic{{Title: "c"}}},
+		}}
+		a.mu.Unlock()
+	}
+
+	fill(1)
+	sections, chips, comics, _ = a.BrowseForCheck()
+	if sections != 1 || chips != 0 || comics != 3 {
+		t.Fatalf("one section: %d/%d/%d, want 1/0/3", sections, chips, comics)
+	}
+
+	fill(2)
+	sections, chips, comics, _ = a.BrowseForCheck()
+	if sections != 2 || chips != 2 || comics != 3 {
+		t.Fatalf("two sections: %d/%d/%d, want 2/2/3", sections, chips, comics)
+	}
+}
