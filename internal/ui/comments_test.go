@@ -128,3 +128,40 @@ func TestCommentVoteFollowsTheSource(t *testing.T) {
 		t.Error("voting on a source that does not vote succeeded")
 	}
 }
+
+// "N 条回复" is the source's word that replies exist; reading them is a second
+// call with replyTo set, and the way back has to exist.
+func TestRepliesAreALoadedWithReplyTo(t *testing.T) {
+	c, err := core.Open(core.Options{DataDir: filepath.Join(t.TempDir(), "d"), AppVersion: "1.6.3", Locale: "zh_CN"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { c.Close() })
+	ctx := context.Background()
+	if _, err := c.Install(ctx, `class Threads extends ComicSource {
+  name = 'Threads'; key = 'threads'; version = '1'
+  search = {load: async () => ({comics: [], maxPage: 1})}
+  comic = {
+    loadComments: async (comicId, subId, page, replyTo) => ({
+      comments: replyTo === null
+        ? [{id: 'c1', userName: '阿达', content: 'top', replyCount: 2}]
+        : [{id: 'r1', userName: '鲍勃', content: 'reply to ' + replyTo}],
+      maxPage: 1,
+    }),
+  }
+}`, "file", ""); err != nil {
+		t.Fatal(err)
+	}
+	thread, err := c.Comments(ctx, "threads", "42", "", 1, "")
+	if err != nil || len(thread.Comments) != 1 || thread.Comments[0].ReplyCount != 2 {
+		t.Fatalf("thread = %+v, %v", thread, err)
+	}
+	// Passing null reads the thread; passing an id reads that comment's replies.
+	replies, err := c.Comments(ctx, "threads", "42", "", 1, "c1")
+	if err != nil {
+		t.Fatalf("replies: %v", err)
+	}
+	if len(replies.Comments) != 1 || replies.Comments[0].Content != "reply to c1" {
+		t.Fatalf("replies = %+v", replies.Comments)
+	}
+}

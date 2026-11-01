@@ -199,6 +199,16 @@ Three deliberate choices:
 
 The unit test pins the argument shape: a single-folder source must receive `null`, not an empty string; add and remove are both covered. The capture confirms the button and the folder picker render.
 
+**"2 replies" was a number that did nothing when clicked (2026-11-01)**
+
+`replyCount` in a thread was text only. Reading the replies means **calling `comic.loadComments` again** with `replyTo` set to that comment's id — both clients only ever read the first level.
+
+- The desktop turns "N replies" into a button that loads that level, with "回复 X 的评论" and 返回全部评论 above it; going back to the thread passes `replyTo` as `null`, not an empty string, because a source tests for null.
+- A test pins it: null reads the thread, an id reads the replies, and the content tells them apart.
+- The capture `E:/Temp/nkprobe/ui-comments-thread.png` shows the count as a button.
+
+**Not done / not verified**: the same wiring just went into iOS, with syntax and key checks only, and a real source's reply level needs a login to read — so none of this is claimed as verified against a live thread.
+
 **Comments could be written but not voted on (2026-11-01)**
 
 Four sources declare `comic.likeComment` (`ccc`, `lanraragi`, `picacg`, `zaimanhua`) with the contract `likeComment(comicId, subId, commentId, isLike)` — **the same call with `false` takes the vote back**. The core layer had it all along; the window had no button.

@@ -2,6 +2,7 @@ package ui
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/egoist/mygo"
@@ -35,6 +36,10 @@ type commentsState struct {
 	// replyTo is the comment being answered; "" for a new thread entry.
 	replyTo  string
 	replyWho string
+	// repliesTo is the comment whose replies are on screen; empty shows the
+	// thread itself. repliesWho is its author, for the breadcrumb.
+	repliesTo  string
+	repliesWho string
 	// canSend and canLike are read once when the window opens: asking Core on
 	// every repaint would run a source call inside the render path.
 	canSend bool
@@ -82,13 +87,13 @@ func (a *App) loadComments(page int) {
 	}
 	a.mu.Lock()
 	c.busy, c.errText = true, ""
-	key, id, sub := c.key, c.id, c.sub
+	key, id, sub, replyTo := c.key, c.id, c.sub, c.repliesTo
 	a.mu.Unlock()
 	a.comments.win.Update(func() {})
 	go func() {
 		ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 		defer cancel()
-		res, err := a.core.Comments(ctx, key, id, sub, page, "")
+		res, err := a.core.Comments(ctx, key, id, sub, page, replyTo)
 		a.win.Update(func() {
 			a.mu.Lock()
 			defer a.mu.Unlock()
@@ -104,6 +109,30 @@ func (a *App) loadComments(page int) {
 		})
 		a.comments.win.Update(func() {})
 	}()
+}
+
+// showReplies loads the replies to one comment.
+//
+// A thread's count is the source's answer to "are there replies"; reading them is
+// a second call with replyTo set, and the way back has to be visible or the user
+// is stuck inside one comment.
+func (a *App) showReplies(one core.Comment) {
+	c := &a.comments
+	a.mu.Lock()
+	c.repliesTo, c.repliesWho = one.ID, one.UserName
+	c.errText, c.notice = "", ""
+	a.mu.Unlock()
+	a.loadComments(1)
+}
+
+// showThread returns to the thread itself.
+func (a *App) showThread() {
+	c := &a.comments
+	a.mu.Lock()
+	c.repliesTo, c.repliesWho = "", ""
+	c.errText, c.notice = "", ""
+	a.mu.Unlock()
+	a.loadComments(1)
 }
 
 // likeComment votes on one comment and reads the page again, because a source
@@ -175,6 +204,7 @@ func (a *App) commentsView(ctx *ui.Context) {
 	busy, canLike, errText, notice := c.busy, c.canLike, c.errText, c.notice
 	list, page, maxPage := c.list, c.page, c.maxPage
 	replyTo, replyWho := c.replyTo, c.replyWho
+	threadOf, threadWho := c.repliesTo, c.repliesWho
 	draft := c.draft
 	a.mu.Unlock()
 
@@ -199,6 +229,15 @@ func (a *App) commentsView(ctx *ui.Context) {
 				a.loadComments(page)
 			}
 		})
+		if threadOf != "" {
+			ui.Row(ctx).Padding(8, 12).Gap(8).AlignItems(ui.Center).Children(func() {
+				ui.Textf(ctx, "回复 %s 的评论", threadWho).FontSize(12).TextColor(t.TextMuted)
+				ui.Spacer(ctx)
+				if ui.Button(ctx, "返回全部评论").Clicked() {
+					a.showThread()
+				}
+			})
+		}
 		ui.Divider(ctx)
 		if errText != "" {
 			ui.Text(ctx, errText).Padding(8, 12).FontSize(12).TextColor(t.Danger).Selectable()
@@ -228,7 +267,13 @@ func (a *App) commentsView(ctx *ui.Context) {
 					})
 					ui.Text(ctx, one.Content).FontSize(13).Selectable()
 					ui.Row(ctx).Gap(8).Children(func() {
-						if one.ReplyCount > 0 {
+						if one.ReplyCount > 0 && one.ID != "" && threadOf == "" {
+							// The count is the source's word that replies exist;
+							// reading them is a second call.
+							if ui.Button(ctx, fmt.Sprintf("%d 条回复", one.ReplyCount)).Clicked() {
+								a.showReplies(one)
+							}
+						} else if one.ReplyCount > 0 {
 							ui.Textf(ctx, "%d 条回复", one.ReplyCount).FontSize(11).TextColor(t.TextMuted)
 						}
 						// A source that votes gets a control; sending false is how

@@ -192,6 +192,16 @@ Network.get(`${this.baseUrl}/users-fav_del-id-${favoriteId}.html?ajax=true...`)
 
 单测覆盖参数形态:单收藏夹源必须收到 `null` 而不是空串;改名/移除的收尾都验证过。截图确认按钮与文件夹选择渲染正常。
 
+**「2 条回复」是个数字,点了没反应(2026-11-01)**
+
+评论里 `replyCount` 一直只是文字。真正的回复要**用同一个 `comic.loadComments` 再调一次**,把 `replyTo` 设成那条评论的 id —— 两个客户端都只读了第一层。
+
+- 桌面端:「N 条回复」变成按钮,点了读那层回复,顶部显示「回复 X 的评论」和「返回全部评论」;回到线程本身时 `replyTo` 传 `null`(不是空串,源按 null 判断)。
+- 单测钉住这条:`replyTo` 为 null 读线程,传 id 读回复,内容能分辨。
+- 截图 `E:/Temp/nkprobe/ui-comments-thread.png` 显示「2 条回复」已成按钮。
+
+**未做**:iOS 的同一处刚接上,但只有语法/键核对;`replyCount` 里没有账号维度的问题,但**真实源的回复层仍需登录才能读到**,这点不当作已验证。
+
 **评论能发不能赞(2026-11-01)**
 
 4 个源声明了 `comic.likeComment`(`ccc` / `lanraragi` / `picacg` / `zaimanhua`),契约是 `likeComment(comicId, subId, commentId, isLike)` —— **同一个函数、传 `false` 就是取消赞**。Core 层早就实现了,界面上一直没有按钮。
