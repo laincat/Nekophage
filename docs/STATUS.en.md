@@ -199,6 +199,16 @@ Three deliberate choices:
 
 The unit test pins the argument shape: a single-folder source must receive `null`, not an empty string; add and remove are both covered. The capture confirms the button and the folder picker render.
 
+**Another full reading sweep (2026-11-01, pin `cf9eb9b`)**
+
+All 34 sources again: **20 passed / 11 failed / 3 need a server**. Two things moved, neither a client regression:
+
+- **`jm` now passes consistently** — the BOM tolerance from the previous round did it; before, it could not even finish `init`, and now search, details, chapters and image fetch all complete.
+- **`manga_dex` failed this time**: `api.mangadex.org` answers **302 → "Redirecting to bot challenge page"** today, and the source hands that HTML to `JSON.parse`. That is bot protection on the site, not a broken transport — our challenge verifier only fires on a Cloudflare-style 403, so **a 302 to a challenge page is not covered**, and the honest conclusion is "the site changed", not "the client works".
+- **`ikmmh` returned zero results and an empty front page** this round after passing the last one — the clearest example yet of why one round is not a conclusion.
+
+The rest are unchanged in kind: `picacg` needs a login, `mh18`/`mycomic` are Cloudflare, `baozi` is 403, `comic_walker`/`shonen_jump_plus` return HTML, `happy`'s search answers EOF, `jcomic` moved its image addresses into a `data-locked` attribute that needs JavaScript to decrypt, and `mh1234` times out.
+
 **"2 replies" was a number that did nothing when clicked (2026-11-01)**
 
 `replyCount` in a thread was text only. Reading the replies means **calling `comic.loadComments` again** with `replyTo` set to that comment's id — both clients only ever read the first level.

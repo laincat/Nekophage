@@ -192,6 +192,16 @@ Network.get(`${this.baseUrl}/users-fav_del-id-${favoriteId}.html?ajax=true...`)
 
 单测覆盖参数形态:单收藏夹源必须收到 `null` 而不是空串;改名/移除的收尾都验证过。截图确认按钮与文件夹选择渲染正常。
 
+**又一(N)轮读取巡检(2026-11-01,pin `cf9eb9b`)**
+
+34 源重跑:**20 通过 / 11 失败 / 3 需自建服务**。与上一轮相比有两处变化,都不是客户端回归:
+
+- **`jm` 稳定通过** —— 上一轮修的 BOM 容忍起效了(以前它连 init 都过不去),现在搜索、详情、章节、取图整条走通。
+- **`manga_dex` 这次失败**:实测 `api.mangadex.org` 现在返回 **302 → "Redirecting to bot challenge page"**,源拿到 HTML 就去 `JSON.parse`。这是站点侧的机器人防护,不是我们的传输层坏了;我们的挑战验证器只在 Cloudflare 式的 403 上触发,**302 跳转到挑战页这类没有覆盖**,结论是"站点改了",不是"客户端可用"。
+- **`ikmmh` 这次搜索 0 条、首页也空**,上一轮通过 —— 典型的单轮不可结论,已在文档里保留这个例子。
+
+仍失败的其余源与之前归类一致:`picacg` 需登录、`mh18`/`mycomic` Cloudflare、`baozi` 403、`comic_walker`/`shonen_jump_plus` 返回 HTML、`happy` 搜索 EOF、`jcomic` 站点把图地址移进需 JS 解密的 `data-locked`、`mh1234` 连接超时。
+
 **「2 条回复」是个数字,点了没反应(2026-11-01)**
 
 评论里 `replyCount` 一直只是文字。真正的回复要**用同一个 `comic.loadComments` 再调一次**,把 `replyTo` 设成那条评论的 id —— 两个客户端都只读了第一层。
