@@ -597,7 +597,7 @@ That repository is **not a theme plugin** — it is a complete Android client wh
 | `manwaba` | the cover "is not an image" | **Measured**: the 13328-byte cover comes back with `Content-Type: image/jpeg` but starts with `aa254a…` rather than `ffd8`, so the site serves encrypted bytes. Refusing to treat that as a picture is right |
 | `mh1234` | `Cannot read properties of null` | The script expects an element the site no longer has, which is the source being brittle |
 
-## Eight window checks, all passing (2026-11-01, Core `d81445f`)
+## Ten window checks (2026-11-01, Core `d81445f`)
 
 `sh scripts/desktop-probes.sh` runs every check that needs a real window; all eight passed in one run, with three of them taking part only when the environment says so:
 
@@ -606,11 +606,15 @@ PASS  login window: ok, timeout, failing callback, late cookie, close
 PASS  challenge window: cleared and dismissed
 PASS  closing a source dialog releases its caller
 PASS  a closed window still takes updates and page reads
+PASS  the favourites the source keeps are listed (NK_FAV_SRC=the test source)
 PASS  the reader decodes a real chapter          (NK_READ_SRC=manhuagui)
 PASS  a comment thread the source answers        (NK_PROBE_SRC=the test source)
+PASS  the browse chips follow the sections       (NK_PROBE_SRC=the test source)
 PASS  every callback the official sources declare  (NK_OFFICIAL_SRC)
 PASS  what every source's own tags mean            (NK_OFFICIAL_SRC)
 ```
+
+The favourites and browse checks **do not look at captures**: one asks the window for `count/first/err`, the other for `sections/chips/comics` and asserts `chips == (sections>1 ? sections : 0)`. The browse check exists to guard the "a single section draws no chip row" change, and its negative sample is a source with two sections and an empty list — that fails with `the current section holds no comics`.
 
 The reader is the one that needs a real **decoder**: a source can return plausible byte counts that are not a picture, so it requires `decoded>0` and runs on a real `manhuagui` chapter (210 pages, 4 decoded at first, first image 1520×1300). The negative run used `copy_manga`, which now answers 210 while loading details; the probe fails on it and prints the site's answer rather than "a command failed".
 

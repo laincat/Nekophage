@@ -590,7 +590,7 @@ Cookie 字段名(`ipb_member_id` 等)**不翻译**:那是 Cookie 名,不是界�
 | `manwaba` | 封面「不是图片」 | **实测**:取回那张 13328 字节的封面,`Content-Type: image/jpeg` 但首字节是 `aa254a…` 而不是 `ffd8`,即站点返回的是加密/混淆字节。客户端拒绝把它当图片是对的 |
 | `mh1234` | `Cannot read properties of null` | 源脚本解析站点结构时期望的元素不存在,属源侧脆弱 |
 
-## 窗口检查现在有八项,全部通过(2026-11-01,Core `d81445f`)
+## 窗口检查现在有十项(2026-11-01,Core `d81445f`)
 
 `sh scripts/desktop-probes.sh` 一次跑完所有需要真窗口的检查,八项全过(三项按环境变量决定是否参与):
 
@@ -599,11 +599,15 @@ PASS  login window: ok, timeout, failing callback, late cookie, close
 PASS  challenge window: cleared and dismissed
 PASS  closing a source dialog releases its caller
 PASS  a closed window still takes updates and page reads
+PASS  the favourites the source keeps are listed (NK_FAV_SRC=测试源)
 PASS  the reader decodes a real chapter          (NK_READ_SRC=manhuagui)
 PASS  a comment thread the source answers        (NK_PROBE_SRC=测试源)
+PASS  the browse chips follow the sections       (NK_PROBE_SRC=测试源)
 PASS  every callback the official sources declare  (NK_OFFICIAL_SRC)
 PASS  what every source's own tags mean            (NK_OFFICIAL_SRC)
 ```
+
+其中收藏与分区两项**都不看截图**:收藏问窗口 `count/first/err`,分区问 `sections/chips/comics`,并校验 `chips == (sections>1 ? sections : 0)`。分区那条是给「单分区不画标签行」这个改动加的护栏,负向样本是「两个分区但列表为空」——它会以 `the current section holds no comics` 失败。
 
 阅读器那项是唯一需要**真解码器**的:源可以返回看着合理的字节数而那并不是图片,所以它要求 `decoded>0`,并用 `manhuagui` 的真实章节跑(210 页,首批解码 4 页,首图 1520×1300)。负向验证用了 `copy_manga`:它现在在详情阶段返回 210,探针据此判失败,并把**站点的答复**原样打出来,而不是只说「命令失败」。
 
