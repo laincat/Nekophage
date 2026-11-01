@@ -96,7 +96,7 @@ func (a *App) accountPanel(c *ui.Context, t *ui.Theme) {
 	key := m.settingsFor
 	// The source logs in on its own page. The window is a real browser with the
 	// source's own partition, so what it earns here is what its requests send.
-	if m.account.Webview && !m.account.Password && !m.account.Cookies {
+	if m.account.Webview {
 		ui.Row(c).Gap(8).AlignItems(ui.Center).Children(func() {
 			ui.Text(c, "登录").FontSize(11).TextColor(t.TextMuted).Width(96)
 			if m.accountBusy {
@@ -109,38 +109,51 @@ func (a *App) accountPanel(c *ui.Context, t *ui.Theme) {
 			}
 			ui.Text(c, "会打开该源的登录页,登录完成后窗口自动关闭。").FontSize(11).TextColor(t.TextMuted)
 		})
-		return
 	}
 	if m.account.Cookies && len(m.accountCookies) > 0 {
 		a.cookieLoginPanel(c, t, key)
 	}
-	if !m.account.Password {
-		return
-	}
-	ui.Row(c).Gap(8).AlignItems(ui.Center).Children(func() {
-		ui.Text(c, "账号").FontSize(11).TextColor(t.TextMuted).Width(96)
-		ui.TextInput(c, &m.accountUser).Width(180)
-		ui.Text(c, "密码").FontSize(11).TextColor(t.TextMuted)
-		ui.TextInput(c, &m.accountPass).Width(160)
-		if m.accountBusy {
-			ui.Spinner(c)
-			return
-		}
-		if ui.PrimaryButton(c, "登录").Clicked() {
-			user, pass := m.accountUser, m.accountPass
-			if user == "" || pass == "" {
-				m.accountMessage = "账号和密码都要填。"
-				a.manageWin.Update(func() {})
+	if m.account.Password {
+		ui.Row(c).Gap(8).AlignItems(ui.Center).Children(func() {
+			ui.Text(c, "账号").FontSize(11).TextColor(t.TextMuted).Width(96)
+			ui.TextInput(c, &m.accountUser).Width(180)
+			ui.Text(c, "密码").FontSize(11).TextColor(t.TextMuted)
+			ui.TextInput(c, &m.accountPass).Width(160)
+			if m.accountBusy {
+				ui.Spinner(c)
 				return
 			}
-			a.loginAccount(key, user, pass)
-		}
-		if m.account.Logout {
+			if ui.PrimaryButton(c, "登录").Clicked() {
+				user, pass := m.accountUser, m.accountPass
+				if user == "" || pass == "" {
+					m.accountMessage = "账号和密码都要填。"
+					a.manageWin.Update(func() {})
+					return
+				}
+				a.loginAccount(key, user, pass)
+			}
+		})
+	}
+	a.accountFooter(c, t, key)
+}
+
+// accountFooter draws what every login style shares: the source's own logout and
+// the last answer. Both used to sit inside the password branch, so a source that
+// logs in with pasted cookies reported "these cookies are not usable" to nobody
+// and offered no way to log out.
+func (a *App) accountFooter(c *ui.Context, t *ui.Theme, key string) {
+	m := &a.manage
+	if m.account.Logout {
+		ui.Row(c).Gap(8).AlignItems(ui.Center).Children(func() {
+			ui.Text(c, "").Width(96)
+			if m.accountBusy {
+				return
+			}
 			if ui.Button(c, "登出").Clicked() {
 				a.logoutAccount(key)
 			}
-		}
-	})
+		})
+	}
 	if m.accountMessage != "" {
 		ui.Text(c, m.accountMessage).FontSize(11).Selectable()
 	}

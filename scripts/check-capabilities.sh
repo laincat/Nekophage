@@ -39,6 +39,11 @@ need "cookie login" internal/core/core.go '"account.loginWithCookies.validate"'
 need "webview login" internal/core/core.go '"account.loginWithWebview"'
 need "account panel" internal/ui/settings.go 'm.account.Cookies'
 need "account login" internal/ui/settings.go 'a.loginAccount(key, user, pass)'
+# Logout and the last answer belong to every login style: they used to sit inside
+# the password branch, so a cookie-login failure was computed and never shown.
+need "account footer" internal/ui/settings.go 'func (a *App) accountFooter(c *ui.Context, t *ui.Theme, key string)'
+need "account logout" internal/ui/settings.go 'if m.account.Logout {'
+need "account footer drawn" internal/ui/settings.go 'a.accountFooter(c, t, key)'
 # The source's own favorites, in one folder or several.
 need "favorites shape" internal/core/core.go 'func (c *Core) FavoritesSupport(ctx context.Context, key string) FavoritesSupport'
 need "favorites list" internal/core/core.go '"favorites.loadComics"'
