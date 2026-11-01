@@ -200,6 +200,19 @@ Network.get(`${this.baseUrl}/users-fav_del-id-${favoriteId}.html?ajax=true...`)
 - **`manga_dex` 这次失败**:实测 `api.mangadex.org` 现在返回 **302 → "Redirecting to bot challenge page"**,源拿到 HTML 就去 `JSON.parse`。这是站点侧的机器人防护,不是我们的传输层坏了;我们的挑战验证器只在 Cloudflare 式的 403 上触发,**302 跳转到挑战页这类没有覆盖**,结论是"站点改了",不是"客户端可用"。
 - **`ikmmh` 这次搜索 0 条、首页也空**,上一轮通过 —— 典型的单轮不可结论,已在文档里保留这个例子。
 
+`manga_dex` 这条值得单独留证 —— 实测响应就是:
+
+```
+HTTP/1.1 302 Found
+location: https://mangadex.org/edge/challenge?src=…
+content-type: text/plain
+server: MangaDex
+
+Redirecting to bot challenge page... (if this isn't a browser, don't send a browser UA)
+```
+
+也就是说它既不是 403、也没有 `cf-mitigated`,而是**自己的 edge 挑战**:302 → 文本提示页。我们现有的挑战检测刻意保守(只在 403/429/503 + `Server: cloudflare` + 页面标记时才算),**覆盖不到这一种**;而"把 302 当成挑战"需要一个新的挑战类型与完成规则(现在只有 cloudflare / captcha 两种 DoneRule,没有"离开某路径"这种判据),不是一行判断能补的。所以这里如实记为**站点侧新机制、客户端未覆盖**,不做半成品。
+
 仍失败的其余源与之前归类一致:`picacg` 需登录、`mh18`/`mycomic` Cloudflare、`baozi` 403、`comic_walker`/`shonen_jump_plus` 返回 HTML、`happy` 搜索 EOF、`jcomic` 站点把图地址移进需 JS 解密的 `data-locked`、`mh1234` 连接超时。
 
 **「2 条回复」是个数字,点了没反应(2026-11-01)**

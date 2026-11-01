@@ -207,6 +207,19 @@ All 34 sources again: **20 passed / 11 failed / 3 need a server**. Two things mo
 - **`manga_dex` failed this time**: `api.mangadex.org` answers **302 → "Redirecting to bot challenge page"** today, and the source hands that HTML to `JSON.parse`. That is bot protection on the site, not a broken transport — our challenge verifier only fires on a Cloudflare-style 403, so **a 302 to a challenge page is not covered**, and the honest conclusion is "the site changed", not "the client works".
 - **`ikmmh` returned zero results and an empty front page** this round after passing the last one — the clearest example yet of why one round is not a conclusion.
 
+`manga_dex` deserves its own evidence — the response measured today is:
+
+```
+HTTP/1.1 302 Found
+location: https://mangadex.org/edge/challenge?src=…
+content-type: text/plain
+server: MangaDex
+
+Redirecting to bot challenge page... (if this isn't a browser, don't send a browser UA)
+```
+
+So it is neither a 403 nor a `cf-mitigated`: it is MangaDex's own edge challenge, a 302 to a text notice. Our detection is deliberately conservative (only 403/429/503 + `Server: cloudflare` + page markers) and **does not cover this shape**; treating a 302 as a challenge would need a new challenge kind and completion rule (today only cloudflare and captcha exist, and neither can say "left this path"), which is not a one-line judgement. Recorded as **a new mechanism on the site that the client does not cover**, rather than half-built.
+
 The rest are unchanged in kind: `picacg` needs a login, `mh18`/`mycomic` are Cloudflare, `baozi` is 403, `comic_walker`/`shonen_jump_plus` return HTML, `happy`'s search answers EOF, `jcomic` moved its image addresses into a `data-locked` attribute that needs JavaScript to decrypt, and `mh1234` times out.
 
 **"2 replies" was a number that did nothing when clicked (2026-11-01)**
