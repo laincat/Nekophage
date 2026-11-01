@@ -54,8 +54,13 @@ run "a closed window still takes updates and page reads" \
 if [ -n "${NK_OFFICIAL_SRC:-}" ]; then
 	run "every callback the official sources declare" \
 		"$out/callbacks.log" sh scripts/callback-probe.sh
+	# Tags are the other thing a source decides for itself, and a namespace it does
+	# not handle is a normal answer rather than a fault, so that script separates
+	# site failures from source mappings instead of failing on both.
+	run "what every source's own tags mean" \
+		"$out/tags.log" sh scripts/tag-probe.sh
 else
-	printf 'SKIP  official source callbacks (set NK_OFFICIAL_SRC)\n'
+	printf 'SKIP  official source callbacks and tags (set NK_OFFICIAL_SRC)\n'
 fi
 
 printf 'logs: %s\n' "$out"

@@ -660,7 +660,7 @@ go run ./cmd/updateprobe
 # ask every official source what its own tags mean (needs the network)
 NK_OFFICIAL_SRC=/path/to/official-srcs sh scripts/tag-probe.sh
 
-# all of the window-dependent checks at once (the last one skips without NK_OFFICIAL_SRC)
+# all of the window-dependent checks at once (callbacks and tags skip without NK_OFFICIAL_SRC)
 NK_OFFICIAL_SRC=/path/to/official-srcs sh scripts/desktop-probes.sh
 ```
 
