@@ -641,6 +641,10 @@ sh scripts/challenge-probe.sh
 go run ./cmd/cbprobe /path/to/source.js - --all
 NK_OFFICIAL_SRC=/path/to/official-srcs sh scripts/callback-probe.sh
 
+# check a source script's reading contract: install, search, details, tag action —
+# the source the interface tests ship has to pass this first
+go run ./cmd/comicprobe /path/to/source.js keyword
+
 # closing a source's dialog releases its caller; a closed window still takes updates and page reads
 go run ./cmd/dialogprobe
 go run ./cmd/updateprobe
