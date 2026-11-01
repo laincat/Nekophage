@@ -597,7 +597,7 @@ That repository is **not a theme plugin** — it is a complete Android client wh
 | `manwaba` | the cover "is not an image" | **Measured**: the 13328-byte cover comes back with `Content-Type: image/jpeg` but starts with `aa254a…` rather than `ffd8`, so the site serves encrypted bytes. Refusing to treat that as a picture is right |
 | `mh1234` | `Cannot read properties of null` | The script expects an element the site no longer has, which is the source being brittle |
 
-## Ten window checks (2026-11-01, Core `d81445f`)
+## Eleven window checks (2026-11-01, Core `d81445f`)
 
 `sh scripts/desktop-probes.sh` runs every check that needs a real window; all eight passed in one run, with three of them taking part only when the environment says so:
 
@@ -611,6 +611,7 @@ PASS  the reader decodes a real chapter          (NK_READ_SRC=manhuagui)
 PASS  the reader decodes a served page           (the offline form, when only NK_PROBE_SRC is set)
 PASS  a comment thread the source answers        (NK_PROBE_SRC=the test source)
 PASS  the browse chips follow the sections       (NK_PROBE_SRC=the test source)
+PASS  reading lands on the shelf                 (NK_PROBE_SRC=the test source, offline)
 PASS  every callback the official sources declare  (NK_OFFICIAL_SRC)
 PASS  what every source's own tags mean            (NK_OFFICIAL_SRC)
 ```

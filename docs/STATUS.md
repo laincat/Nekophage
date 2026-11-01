@@ -590,7 +590,7 @@ Cookie 字段名(`ipb_member_id` 等)**不翻译**:那是 Cookie 名,不是界�
 | `manwaba` | 封面「不是图片」 | **实测**:取回那张 13328 字节的封面,`Content-Type: image/jpeg` 但首字节是 `aa254a…` 而不是 `ffd8`,即站点返回的是加密/混淆字节。客户端拒绝把它当图片是对的 |
 | `mh1234` | `Cannot read properties of null` | 源脚本解析站点结构时期望的元素不存在,属源侧脆弱 |
 
-## 窗口检查现在有十项(2026-11-01,Core `d81445f`)
+## 窗口检查现在有十一项(2026-11-01,Core `d81445f`)
 
 `sh scripts/desktop-probes.sh` 一次跑完所有需要真窗口的检查,八项全过(三项按环境变量决定是否参与):
 
@@ -604,6 +604,7 @@ PASS  the reader decodes a real chapter          (NK_READ_SRC=manhuagui)
 PASS  the reader decodes a served page           (只给 NK_PROBE_SRC 时的离线版本)
 PASS  a comment thread the source answers        (NK_PROBE_SRC=测试源)
 PASS  the browse chips follow the sections       (NK_PROBE_SRC=测试源)
+PASS  reading lands on the shelf                 (NK_PROBE_SRC=测试源,离线)
 PASS  every callback the official sources declare  (NK_OFFICIAL_SRC)
 PASS  what every source's own tags mean            (NK_OFFICIAL_SRC)
 ```

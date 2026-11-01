@@ -9,25 +9,19 @@
 package main
 
 import (
-	"bytes"
 	"context"
 	"flag"
 	"fmt"
-	"image"
-	"image/color"
-	"image/png"
 	"log"
-	"net"
-	"net/http"
 	"os"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"time"
 
 	"github.com/egoist/mygo"
 	"github.com/egoist/mygo/ui"
 	"github.com/laincat/nekophage/internal/core"
+	"github.com/laincat/nekophage/internal/probesite"
 	"github.com/laincat/nekophage/internal/reader"
 	"github.com/laincat/nekophage/internal/sourceapi"
 )
@@ -53,7 +47,7 @@ func main() {
 	// fixture points at 127.0.0.1:18731. Serving here makes the same trick available
 	// on the desktop side.
 	if *servePort > 0 {
-		stop, err := serveOnePage(*servePort)
+		stop, err := probesite.ServeOnePage(*servePort)
 		if err != nil {
 			log.Fatalf("serve: %v", err)
 		}
@@ -248,39 +242,3 @@ func main() {
 	}
 	fmt.Println("done")
 }
-
-// serveOnePage answers every request with a small PNG on the given loopback port.
-//
-// The picture is drawn rather than embedded as a blob: a hand-typed base64 that
-// fails to decode looks exactly like a client that cannot render.
-func serveOnePage(port int) (func(), error) {
-	const side = 8
-	img := image.NewRGBA(image.Rect(0, 0, side, side))
-	for y := 0; y < side; y++ {
-		for x := 0; x < side; x++ {
-			img.Set(x, y, color.RGBA{R: 0x20, G: 0x90, B: 0x90, A: 0xFF})
-		}
-	}
-	var buf bytes.Buffer
-	if err := png.Encode(&buf, img); err != nil {
-		return nil, err
-	}
-	pages := buf.Bytes()
-
-	mux := http.NewServeMux()
-	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "image/png")
-		w.Header().Set("Content-Length", itoa(len(pages)))
-		_, _ = w.Write(pages)
-	})
-	srv := &http.Server{Addr: "127.0.0.1:" + itoa(port), Handler: mux, ReadHeaderTimeout: 5 * time.Second}
-	ln, err := net.Listen("tcp", srv.Addr)
-	if err != nil {
-		return nil, err
-	}
-	go func() { _ = srv.Serve(ln) }()
-	log.Printf("serving one page on http://%s/page.png", srv.Addr)
-	return func() { _ = srv.Close() }, nil
-}
-
-func itoa(n int) string { return strconv.Itoa(n) }

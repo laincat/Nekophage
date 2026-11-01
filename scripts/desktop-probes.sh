@@ -85,6 +85,9 @@ if [ -n "${NK_PROBE_SRC:-}" ]; then
 	# The chip row follows the number of sections a source declares; both clients
 	# have to agree on that, so it is a check rather than a screenshot.
 	run "the browse chips follow the sections" 		"$out/browse-probe.log" sh scripts/browse-probe.sh "$NK_PROBE_SRC"
+	# Reading writes the shelf and the shelf reads it back; the file says which comic,
+	# chapter and page, so this is not a picture comparison.
+	run "reading lands on the shelf" 		"$out/shelf-probe.log" sh scripts/shelf-probe.sh "$NK_PROBE_SRC"
 else
 	printf 'SKIP  comment thread (set NK_PROBE_SRC to a source script)
 '

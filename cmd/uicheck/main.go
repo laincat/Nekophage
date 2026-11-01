@@ -18,6 +18,7 @@ import (
 	"github.com/egoist/mygo"
 	"github.com/laincat/nekophage/internal/core"
 	"github.com/laincat/nekophage/internal/library"
+	"github.com/laincat/nekophage/internal/probesite"
 	"github.com/laincat/nekophage/internal/reader"
 	"github.com/laincat/nekophage/internal/sourceapi"
 	"github.com/laincat/nekophage/internal/ui"
@@ -37,6 +38,7 @@ func main() {
 	categoryShot := flag.Bool("category", false, "capture the source's category page")
 	rank := flag.String("rank", "", "pick a ranking option after the category page opens")
 	favorites := flag.Bool("favorites", false, "capture the source's own favorites")
+	servePort := flag.Int("serve", 0, "also serve one PNG on this port, for a source whose chapter points at loopback")
 	callback := flag.String("callback", "", "run one of the source's setting callbacks")
 	tag := flag.String("tag", "", "press a tag on the opened comic, as namespace|tag")
 	dialogShot := flag.Bool("dialog", false, "open a source dialog window and capture it")
@@ -133,6 +135,16 @@ func main() {
 		Tag:      *tag,
 		KeepPage: *keepPage, Favourite: *favourite, OpenSettings: *settingsShot, BackupCookies: *backupCookies,
 		SetSetting: *setSetting, AI: *aiShot, AITest: *aiTest, AIPrompt: *aiPrompt, AIModel: *aiModel})
+
+	// A chapter that points at loopback can be opened without any site, which is what
+	// the repository's own fixture does; see internal/probesite.
+	if *servePort > 0 {
+		stop, err := probesite.ServeOnePage(*servePort)
+		if err != nil {
+			log.Fatalf("serve: %v", err)
+		}
+		defer stop()
+	}
 
 	mygo.App.SetLanguages("zh-Hans")
 	var shotErr error

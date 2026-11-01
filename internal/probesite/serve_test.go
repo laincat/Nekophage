@@ -1,4 +1,4 @@
-package main
+package probesite
 
 import (
 	"io"
@@ -11,7 +11,7 @@ import (
 // a real PNG and not just any bytes: the reader decodes it, and a wrong
 // content-type or a truncated body would read as a client that cannot render.
 func TestServedPageIsAPNG(t *testing.T) {
-	stop, err := serveOnePage(18799)
+	stop, err := ServeOnePage(18799)
 	if err != nil {
 		t.Fatalf("serve: %v", err)
 	}
