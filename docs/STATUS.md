@@ -470,6 +470,12 @@ Cookie 字段名(`ipb_member_id` 等)**不翻译**:那是 Cookie 名,不是界�
 
 桌面视觉证据(2026-11-01):`ui-webview-login.png` 的 `nhentai` 设置区同时画出「在网页里登录」与「登出」;`ui-webview-ehentai.png` 的 `ehentai` 设置区同时画出网页登录、四个 Cookie 输入框、「校验并保存」与「登出」;`ui-callback-wnacg.png` 的 `wnacg` 设置区按源自己的 `buttonText` 画出 `Refresh`。三张图都在 `E:/Temp/nkprobe/`,由 `cmd/uicheck -settings` 在真实源上捕获。
 
+**网页登录现在有整条链路的实测,不只是截图(2026-11-01,`455d0ec`、`487b15a`)**:`cmd/loginprobe` 起一个本地假登录页(`/login` 标题 `Sign in`,自动跳到 `/done` 标题 `Logged in` 并下发 Cookie),让窗口、WebView、轮询、源自己的 `checkStatus`、Cookie 导入源分区、`onLoginSuccess` 全部在无人值守下跑一遍。三种模式各自验证一件事:`ok` 保留 1 个 Cookie 且回调里 `Network.getCookies` 读得到;`timeout` 在源永不同意时以错误结束且**不留下半个登录**;`failcallback` 回调抛错时**立即报出源自己的原因**。
+
+第三项是这一轮抓到的缺陷:回调抛错时客户端原先继续轮询到 90 秒超时,用户最后看到的是 `context deadline exceeded`,源写的原因被吞掉。现在只有「页面已同意但 Cookie 还没落地」才继续等,其余错误马上上浮,探针断言错误里必须出现 `onLoginSuccess`,退回超时行为就会失败。
+
+顺带记一笔容易写错的地方:探针第一版自己 `cookies.Open` 了一个 jar 交给登录窗口,于是 Cookie 落进了没有任何源会去读的地方,看起来像产品缺陷。真实路径是 `Library.Jar() → core.Jar()`,同一个实例(`settings.go`)。
+
 **排行榜页:9 个官方源声明了它,之前一直没用(2026-11-01,pin `c22a944`)**:`enableRankingPage: true` 配 `categoryComics.ranking = {options: ["date-Recent", …], load: (option, page) => …}` 是源声明的**另一个独立入口**,不是分类维度。Core 的 `Category` 现在把它一起带出来(`ranking.options`,值/标签按同样的 `-` 拆分),并新增 `RankingComics` 调用 `categoryComics.ranking.load`;桌面端分类页多一行「排行」,选中后走同一套列表与分页(`catRank` 决定分页走排行还是走维度)。
 
 真实源验证:`nhentai` 五个选项**全部**返回 25 部 —— `date` 26307 页、`today/week/month` 各 20 页、`popular` 26307 页;界面截图里 `Popular Week` 选中后列表换成了真实周榜。活体测试 `TestLiveCategoryRanking` 覆盖这一条。
