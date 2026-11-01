@@ -192,6 +192,18 @@ Network.get(`${this.baseUrl}/users-fav_del-id-${favoriteId}.html?ajax=true...`)
 
 单测覆盖参数形态:单收藏夹源必须收到 `null` 而不是空串;改名/移除的收尾都验证过。截图确认按钮与文件夹选择渲染正常。
 
+**粘贴源自己的链接,客户端当关键词搜(2026-11-01)**
+
+8 个源声明了 `comic.link`(域名 + `linkToId`),用来把「https://nhentai.net/g/691529/」这类地址解析成作品 id。两个客户端都没接:搜索框把整串地址当关键词,结果当然是 0 条。
+
+- Core 客户端层:`LinkDomains` 读源声明的域名(**用 `Runtime.Value` 读属性,不是 `Call`** —— `comic.link` 是对象,当函数调用只会得到 "source does not define this function");`LinkToID` 让源自己解析;`OpenLink` 按域名匹配后逐个问,第一个答得出来的源胜出。
+- 桌面端:搜索框里像地址的输入先走 `OpenLink`,认出就**直接打开那部作品**;没人认得时明说「没有源认得这个链接」,再按关键词搜也不迟。
+- 判定「像地址」不只看有没有点:`12.5`、`v1.2` 这类带点的关键词必须留在关键词一侧,否则每次搜索都白跑一轮源调用。
+
+**活体验证**:`nhentai` 链接 → id `691529` → 详情页正常打开(标题、封面、标签都来自源),截图 `E:/Temp/nkprobe/ui-link-open2.png`。顺带看到一个不存在的 id `177013` 会如实报 404,而不是假装打开了。
+
+**未做**:iOS 侧还没接 `linkToId`;`enableTagsTranslate` 仍未接。
+
 **点标签遇到分类就断在半路(2026-11-01,pin `0c721f3`)**
 
 6 个源声明了 `comic.onClickTag`,桌面端一直在用,但**「分类」这一支从来没走通** —— 点了只弹一句「当前版本还打不开分类参数」。iOS 则连标签都不可点。

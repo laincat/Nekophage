@@ -511,6 +511,74 @@ func (a *App) currentKey() string {
 	return ""
 }
 
+// looksLikeLink reports whether the box holds an address rather than a keyword.
+//
+// A dot alone is not enough: "12.5" has one, and a version number or a title with
+// a dot in it must stay a keyword. The last label has to look like a domain —
+// at least two characters and a letter — for the box to be treated as a link.
+func looksLikeLink(q string) bool {
+	if strings.ContainsAny(q, " 	") || q == "" {
+		return false
+	}
+	if strings.Contains(q, "://") {
+		return true
+	}
+	dot := strings.LastIndex(q, ".")
+	if dot < 0 {
+		return false
+	}
+	tail := q[dot+1:]
+	if i := strings.IndexAny(tail, "/?#"); i >= 0 {
+		tail = tail[:i]
+	}
+	if len(tail) < 2 {
+		return false
+	}
+	for _, r := range tail {
+		if !(r >= 'a' && r <= 'z') && !(r >= 'A' && r <= 'Z') {
+			return false
+		}
+	}
+	return true
+}
+
+// openPastedLink asks the sources whether the address is one of their comics and,
+// when one says yes, opens it.
+func (a *App) openPastedLink(q string, ticket int) {
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+	key, id, err := a.core.OpenLink(ctx, q)
+	a.win.Update(func() {
+		a.mu.Lock()
+		current := a.searchGen.current(ticket)
+		a.mu.Unlock()
+		if !current {
+			return
+		}
+		a.mu.Lock()
+		a.busy = ""
+		if err != nil {
+			a.errText = explain(err)
+			a.mu.Unlock()
+			return
+		}
+		if key == "" {
+			// Nothing claimed it: say so and leave the keyword search to the
+			// next press, rather than silently searching for a URL.
+			a.notice = "没有源认得这个链接,可以把它当关键词搜索"
+			a.mu.Unlock()
+			a.win.Update(func() {})
+			return
+		}
+		if key != a.currentKey() {
+			a.sourceKey = key
+		}
+		a.query = q
+		a.mu.Unlock()
+		a.openComic(core.Comic{ID: id})
+	})
+}
+
 // startSearch searches the current source for the typed query.
 func (a *App) startSearch() {
 	q := strings.TrimSpace(a.query)
@@ -524,6 +592,12 @@ func (a *App) startSearch() {
 	ticket := a.searchGen.next()
 	a.mu.Unlock()
 	a.saveSettings(key, q)
+	// A pasted address is not a keyword: the source that owns the link can name
+	// the comic, and searching for the URL would find nothing.
+	if looksLikeLink(q) {
+		go a.openPastedLink(q, ticket)
+		return
+	}
 	if a.searches != nil {
 		go func() { _ = a.searches.Add(q) }()
 	}

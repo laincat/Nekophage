@@ -199,6 +199,18 @@ Three deliberate choices:
 
 The unit test pins the argument shape: a single-folder source must receive `null`, not an empty string; add and remove are both covered. The capture confirms the button and the folder picker render.
 
+**A pasted link of a source's own was searched as a keyword (2026-11-01)**
+
+Eight sources declare `comic.link` (domains plus `linkToId`) to turn an address like `https://nhentai.net/g/691529/` into a comic id. Neither client used it: the search box sent the whole URL as a keyword and of course found nothing.
+
+- The core layer gained `LinkDomains` (read with `Runtime.Value`, because `comic.link` is an object and calling it only answers "source does not define this function"), `LinkToID`, and `OpenLink`, which matches the host and asks each source that claims it — the first one that answers wins.
+- The desktop sends an address-shaped query through `OpenLink` first and **opens the comic** when a source recognises it; when none does it says so instead of silently searching for a URL.
+- "Looks like an address" is not just "has a dot": `12.5` and `v1.2` must stay keywords, or every search spends a round of source calls for nothing.
+
+**Verified live**: an `nhentai` link resolved to id `691529` and the details opened (title, cover and tags all from the source); the capture is `E:/Temp/nkprobe/ui-link-open2.png`. A comic id that does not exist answers 404 honestly rather than pretending to open.
+
+**Not done**: iOS has no `linkToId` wiring yet, and `enableTagsTranslate` is still unwired.
+
 **A tapped tag stopped halfway when it pointed at a category (2026-11-01, pin `0c721f3`)**
 
 Six sources declare `comic.onClickTag` and the desktop has used it for a while, but **the "category" branch never worked** — a tap only said "this version cannot open category parameters yet". On iOS the tags are not even tappable.

@@ -1028,6 +1028,111 @@ type TagAction struct {
 	Param string
 }
 
+// LinkDomains lists the host names a source claims for `comic.link`, such as
+// nhentai.net. A source without a link declaration has none.
+func (c *Core) LinkDomains(ctx context.Context, key string) []string {
+	rt, err := c.reg.Comic(key)
+	if err != nil {
+		return nil
+	}
+	// `comic.link` is an object, not a function: reading it is a property read,
+	// and calling it would answer "source does not define this function".
+	raw, err := rt.Value(ctx, key, "comic.link")
+	if err != nil || len(raw) == 0 || string(raw) == "null" {
+		return nil
+	}
+	var f struct {
+		Domains []string `json:"domains"`
+	}
+	if json.Unmarshal(raw, &f) != nil {
+		return nil
+	}
+	return f.Domains
+}
+
+// LinkToID asks a source to read a comic id out of one of its own links.
+//
+// A source answers null for a link it does not recognise, which is an ordinary
+// "no" rather than a failure: several sources are asked about the same address.
+func (c *Core) LinkToID(ctx context.Context, key, raw string) (string, error) {
+	if !c.Has(ctx, key, "comic.link.linkToId") {
+		return "", nil
+	}
+	out, err := c.Call(ctx, key, "comic.link.linkToId", raw)
+	if err != nil {
+		return "", err
+	}
+	var id any
+	if json.Unmarshal(out, &id) != nil || id == nil {
+		return "", nil
+	}
+	text := strings.TrimSpace(fmt.Sprint(id))
+	if text == "<nil>" {
+		return "", nil
+	}
+	return text, nil
+}
+
+// OpenLink asks every source that claims a host whether a pasted address is one
+// of its own comics, and returns the source key and comic id that recognised it.
+//
+// Eight sources declare `comic.link`: pasting their address is what a reader does
+// when a link arrives in a chat, and searching for the URL as a keyword finds
+// nothing. The first source that answers wins; the rest are not asked.
+func (c *Core) OpenLink(ctx context.Context, raw string) (key, id string, err error) {
+	host := hostOf(raw)
+	if host == "" {
+		return "", "", nil
+	}
+	for _, record := range c.reg.List() {
+		if record.Type != "comic" || !record.Enabled {
+			continue
+		}
+		claimed := c.LinkDomains(ctx, record.Key)
+		if !claims(claimed, host) {
+			continue
+		}
+		found, err := c.LinkToID(ctx, record.Key, raw)
+		if err != nil || found == "" {
+			continue
+		}
+		return record.Key, found, nil
+	}
+	return "", "", nil
+}
+
+// hostOf reads the host of an address the user pasted, with or without a scheme.
+func hostOf(raw string) string {
+	text := strings.TrimSpace(raw)
+	if text == "" || strings.ContainsAny(text, " 	") {
+		return ""
+	}
+	if !strings.Contains(text, "://") {
+		if !strings.Contains(text, ".") {
+			return ""
+		}
+		text = "https://" + text
+	}
+	u, err := url.Parse(text)
+	if err != nil || u.Host == "" {
+		return ""
+	}
+	return strings.ToLower(u.Hostname())
+}
+
+// claims reports whether a source lists host, ignoring a "www." prefix on either
+// side: a link that arrives with it is the same site.
+func claims(domains []string, host string) bool {
+	trim := func(s string) string { return strings.TrimPrefix(strings.ToLower(strings.TrimSpace(s)), "www.") }
+	want := trim(host)
+	for _, d := range domains {
+		if trim(d) == want {
+			return true
+		}
+	}
+	return false
+}
+
 // ClickTag runs comic.onClickTag(namespace, tag).
 //
 // Sources put their own meaning on a tag: `copy_manga` searches "作者:<name>",
