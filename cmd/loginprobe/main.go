@@ -17,6 +17,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"flag"
 	"fmt"
 	"net/http"
@@ -41,6 +42,8 @@ func main() {
 		advance := `<script>setTimeout(function(){location.href="/done"},1200)</script>`
 		if *mode == "timeout" {
 			advance = ""
+			// A pending login may already have cookies; they must not be imported.
+			http.SetCookie(w, &http.Cookie{Name: "pending", Value: "secret", Path: "/"})
 		}
 		fmt.Fprintf(w, "<!doctype html><title>Sign in</title>%s sign in", advance)
 	})
@@ -121,8 +124,8 @@ func main() {
 
 	switch *mode {
 	case "timeout":
-		if runErr == nil {
-			fmt.Println("FAIL the wait ended successfully although the source never agreed")
+		if !errors.Is(runErr, context.DeadlineExceeded) {
+			fmt.Println("FAIL expected deadline exceeded, got:", runErr)
 			os.Exit(1)
 		}
 		if len(got) != 0 {
@@ -159,8 +162,8 @@ func main() {
 		os.Exit(1)
 	}
 	raw, ok, err := c.Store().LoadData(rec.Key, "sawCookie")
-	if err != nil || !ok {
-		fmt.Println("FAIL onLoginSuccess did not run:", err)
+	if err != nil || !ok || string(raw) != "true" {
+		fmt.Println("FAIL onLoginSuccess did not see the cookie:", string(raw), err)
 		os.Exit(1)
 	}
 	fmt.Println("PASS login window:", len(got), "cookie(s) kept, onLoginSuccess saw them:", string(raw))
