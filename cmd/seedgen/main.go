@@ -16,9 +16,17 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/laincat/nekophage/internal/core"
 )
+
+// normaliseNewlines makes CRLF and lone CR into LF, so the bytes a seed carries
+// depend on the fixture and not on where the seed was built.
+func normaliseNewlines(text string) string {
+	text = strings.ReplaceAll(text, "\r\n", "\n")
+	return strings.ReplaceAll(text, "\r", "\n")
+}
 
 func main() {
 	if len(os.Args) < 3 {
@@ -41,7 +49,11 @@ func main() {
 		if err != nil {
 			panic(err)
 		}
-		rec, err := c.Install(ctx, string(body), "file", "")
+		// Line endings are normalised so a seed built on one platform has the same
+		// bytes as one built on another. Without this the same fixture produced a
+		// different md5 per host, which turns "the seed matches the tree" into a
+		// question nobody can answer from a hash.
+		rec, err := c.Install(ctx, normaliseNewlines(string(body)), "file", "")
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "%s: %v\n", filepath.Base(path), err)
 			os.Exit(1)
