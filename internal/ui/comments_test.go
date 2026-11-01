@@ -165,3 +165,35 @@ func TestRepliesAreALoadedWithReplyTo(t *testing.T) {
 		t.Fatalf("replies = %+v", replies.Comments)
 	}
 }
+
+// The check that runs in a window reads the thread through this method, so it has
+// to report what the window holds rather than what a screenshot looks like: an
+// empty thread and a real one capture to almost the same number of bytes.
+func TestCommentsForCheckReportsWhatTheWindowHolds(t *testing.T) {
+	a := commentsApp(t)
+
+	count, author, body, errText := a.CommentsForCheck()
+	if count != 0 || author != "" || body != "" || errText != "" {
+		t.Fatalf("an empty window reported %d %q %q %q", count, author, body, errText)
+	}
+
+	a.mu.Lock()
+	a.comments.list = []core.Comment{
+		{UserName: "ada", Content: "first"},
+		{UserName: "bob", Content: "second"},
+	}
+	a.comments.errText = "kept from an earlier page"
+	a.mu.Unlock()
+
+	count, author, body, errText = a.CommentsForCheck()
+	if count != 2 {
+		t.Errorf("count = %d, want 2", count)
+	}
+	// The first comment is the one a reader sees first, so it is the one reported.
+	if author != "ada" || body != "first" {
+		t.Errorf("first comment = %q %q", author, body)
+	}
+	if errText != "kept from an earlier page" {
+		t.Errorf("errText = %q", errText)
+	}
+}
