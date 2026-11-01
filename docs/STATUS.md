@@ -590,6 +590,22 @@ Cookie 字段名(`ipb_member_id` 等)**不翻译**:那是 Cookie 名,不是界�
 | `manwaba` | 封面「不是图片」 | **实测**:取回那张 13328 字节的封面,`Content-Type: image/jpeg` 但首字节是 `aa254a…` 而不是 `ffd8`,即站点返回的是加密/混淆字节。客户端拒绝把它当图片是对的 |
 | `mh1234` | `Cannot read properties of null` | 源脚本解析站点结构时期望的元素不存在,属源侧脆弱 |
 
+## 窗口检查现在有七项,全部通过(2026-11-01,Core `d81445f`)
+
+`sh scripts/desktop-probes.sh` 一次跑完所有需要真窗口的检查,这一轮首次包含评论线程,七项全过:
+
+```
+PASS  login window: ok, timeout, failing callback, late cookie, close
+PASS  challenge window: cleared and dismissed
+PASS  closing a source dialog releases its caller
+PASS  a closed window still takes updates and page reads
+PASS  a comment thread the source answers
+PASS  every callback the official sources declare
+PASS  what every source's own tags mean
+```
+
+评论那一项先被写成「截图有内容就算过」,拿一个**不声明评论**的源一跑也 PASS 了——空线程和真线程的截图只差几百字节。改成向窗口要 `count / author / body / err` 之后,同一个源立刻报出 `count=0 err="源返回错误:core: wnacg keeps no comments"`。这类假阳性只有负向验证能发现。
+
 ## 未验证
 
 - **真实 Cloudflare 挑战**:没有遇到可复现的挑战页。2026-11-01 用 `cmd/challengeprobe -mode inspect`(新增)直接看窗口里到底是什么,两个站点的结论不再靠推测:
