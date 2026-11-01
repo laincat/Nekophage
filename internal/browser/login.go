@@ -5,7 +5,9 @@ import (
 	"errors"
 	"log"
 	"net/http"
+	"net/url"
 	"os"
+	"strings"
 	"sync"
 	"time"
 
@@ -157,15 +159,19 @@ func (l *LoginWindow) store(decl core.WebviewLogin) (int, error) {
 	if err != nil {
 		return 0, err
 	}
-	out := make([]*http.Cookie, 0, len(listed))
+	all := make([]*http.Cookie, 0, len(listed))
 	for _, mc := range listed {
 		hc := &http.Cookie{Name: mc.Name, Value: mc.Value, Domain: mc.Domain, Path: mc.Path,
 			Secure: mc.Secure, HttpOnly: mc.HTTPOnly}
 		if !mc.Expires.IsZero() {
 			hc.Expires = mc.Expires
 		}
-		out = append(out, hc)
+		all = append(all, hc)
 	}
+	// Only the login site's own cookies belong to this source. The page also
+	// loads third parties, and storing their cookies in the source's partition
+	// would make them part of a login the source never asked for.
+	out := loginCookiesFor(all, decl.URL)
 	if len(out) == 0 {
 		return 0, errors.New("browser: the page set no cookies to keep")
 	}
@@ -178,4 +184,36 @@ func (l *LoginWindow) store(decl core.WebviewLogin) (int, error) {
 		return len(out), err
 	}
 	return len(out), nil
+}
+
+// loginCookiesFor keeps the cookies that belong to the page the user logged in
+// on, and drops the ones third parties set while it loaded.
+//
+// The rule is the one a browser applies: a cookie without a leading dot is for
+// that exact host, and one with a leading dot is for the host and its
+// subdomains. A cookie with no domain at all is host-only for the page that set
+// it, which here is the login page.
+func loginCookiesFor(cs []*http.Cookie, rawURL string) []*http.Cookie {
+	u, err := url.Parse(rawURL)
+	if err != nil || u.Hostname() == "" {
+		return nil
+	}
+	host := strings.ToLower(u.Hostname())
+	out := make([]*http.Cookie, 0, len(cs))
+	for _, c := range cs {
+		domain := strings.ToLower(strings.TrimSpace(c.Domain))
+		switch {
+		case domain == "":
+			out = append(out, c)
+		case strings.HasPrefix(domain, "."):
+			if host == domain[1:] || strings.HasSuffix(host, domain) {
+				out = append(out, c)
+			}
+		default:
+			if host == domain {
+				out = append(out, c)
+			}
+		}
+	}
+	return out
 }
