@@ -401,6 +401,8 @@ type SourceSetting struct {
 	Options []SettingOption `json:"options,omitempty"`
 	// Validator is a regular expression an input's text must match.
 	Validator string `json:"validator,omitempty"`
+	// ButtonText is what a callback setting wants its button to say.
+	ButtonText string `json:"buttonText,omitempty"`
 }
 
 // SettingOption is one choice of a select.
@@ -422,7 +424,7 @@ func (c *Core) Settings(ctx context.Context, key string) ([]SourceSetting, error
 	out := make([]SourceSetting, 0, len(list))
 	for _, s := range list {
 		setting := SourceSetting{Key: s.Key, Title: s.Title, Type: s.Type,
-			Default: s.Default, Validator: s.Validator}
+			Default: s.Default, Validator: s.Validator, ButtonText: s.ButtonText}
 		for _, o := range s.Options {
 			setting.Options = append(setting.Options, SettingOption{Value: o.Value, Text: o.Text})
 		}

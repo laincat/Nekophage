@@ -464,7 +464,13 @@ func (a *App) settingRow(c *ui.Context, t *ui.Theme, s core.SourceSetting) {
 				ui.Spinner(c)
 				return
 			}
-			if ui.Button(c, "执行").Clicked() {
+			// A source names its own button ("Refresh"); falling back to the
+			// generic word keeps a source that names none usable.
+			label := s.ButtonText
+			if label == "" {
+				label = "执行"
+			}
+			if ui.Button(c, label).Clicked() {
 				a.callSettingCallback(m.settingsFor, s.Key)
 			}
 			if m.callbackMsg != "" {
