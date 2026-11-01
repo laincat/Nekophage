@@ -578,6 +578,23 @@ The rest failed, and **almost none of that is a client defect** — the scripts 
 That repository is **not a theme plugin** — it is a complete Android client whose theme is compiled into the code (`VeneraTheme.kt`, `MiuixMotion.kt`, `VeneraLiquidGlassNavBar.kt`). What it ships is the 34 standard `.js` sources above, which our Core reads directly.
 
 
+## A live sweep of the sources (2026-11-01, 35 official scripts)
+
+`NK_LIVE_DIR=… NK_LIVE_QUERY=love sh scripts/live-sources.sh` reported **18 passed, 3 that need a server the user runs, 13 failed**. Every failure is attributed below, and none of them is a regression in the client:
+
+| Source | What happened | Why |
+|---|---|---|
+| `manga_dex` | `Unexpected token <` | The site answered with HTML (its 302 edge challenge); the core does not support that kind |
+| `mycomic`, `mh18`, `ykmh` | `CloudflareException` | A site challenge that needs clearance, again a kind the core does not support |
+| `baozi`, `ikmmh` | 403 | The site refuses |
+| `comic_walker`, `shonen_jump_plus` | `Unexpected token <` | The site answered with HTML |
+| `happy` | `Post …: EOF` | The site closed the connection |
+| `picacg` | `Not logged in` | A real account is required |
+| `zaimanhua` | `漫画不存在或已被删除` | The sample is gone, in the source's own words |
+| `jcomic` | image URLs are empty | The source returns empty strings; the client refuses them correctly (`image URL is not http(s)`) |
+| `manwaba` | the cover "is not an image" | **Measured**: the 13328-byte cover comes back with `Content-Type: image/jpeg` but starts with `aa254a…` rather than `ffd8`, so the site serves encrypted bytes. Refusing to treat that as a picture is right |
+| `mh1234` | `Cannot read properties of null` | The script expects an element the site no longer has, which is the source being brittle |
+
 ## Not verified
 
 - **A live Cloudflare challenge**: none could be reproduced. On 2026-11-01 `cmd/challengeprobe -mode inspect` (new) looked at what the window actually holds, so the two sites are no longer guesses:

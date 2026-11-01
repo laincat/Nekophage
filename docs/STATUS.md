@@ -571,6 +571,23 @@ Cookie 字段名(`ipb_member_id` 等)**不翻译**:那是 Cookie 名,不是界�
 这个仓库本身**不是主题插件** —— 它是完整的 Android 客户端,主题是编译进代码的(`VeneraTheme.kt`、`MiuixMotion.kt`、`VeneraLiquidGlassNavBar.kt`),随包带的是上面那 34 个标准格式的 `.js` 源,我们的 Core 能直接吃。
 
 
+## 真实源巡检(2026-11-01,35 个官方脚本)
+
+`NK_LIVE_DIR=… NK_LIVE_QUERY=love sh scripts/live-sources.sh` 的结果:**18 个通过、3 个需要自建服务、13 个失败**。失败逐个归因如下,没有一个是客户端回归:
+
+| 源 | 现象 | 归因 |
+|---|---|---|
+| `manga_dex` | `Unexpected token <` | 站点返回 HTML(302 边缘挑战),核心不支持该挑战类型 |
+| `mycomic`、`mh18`、`ykmh` | `CloudflareException` | 站点挑战,需要 clearance;该挑战类型同样未支持 |
+| `baozi`、`ikmmh` | 403 | 站点拒绝 |
+| `comic_walker`、`shonen_jump_plus` | `Unexpected token <` | 站点返回 HTML |
+| `happy` | `Post …: EOF` | 站点提前断开 |
+| `picacg` | `Not logged in` | 需要真实账号 |
+| `zaimanhua` | `漫画不存在或已被删除` | 样本失效(源自己说的) |
+| `jcomic` | 图片 URL 为空 | 源侧返回空串,客户端正确拒绝(`image URL is not http(s)`) |
+| `manwaba` | 封面「不是图片」 | **实测**:取回那张 13328 字节的封面,`Content-Type: image/jpeg` 但首字节是 `aa254a…` 而不是 `ffd8`,即站点返回的是加密/混淆字节。客户端拒绝把它当图片是对的 |
+| `mh1234` | `Cannot read properties of null` | 源脚本解析站点结构时期望的元素不存在,属源侧脆弱 |
+
 ## 未验证
 
 - **真实 Cloudflare 挑战**:没有遇到可复现的挑战页。2026-11-01 用 `cmd/challengeprobe -mode inspect`(新增)直接看窗口里到底是什么,两个站点的结论不再靠推测:
