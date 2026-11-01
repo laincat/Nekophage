@@ -42,7 +42,7 @@ sh scripts/check-partitions.sh
 
 `check-partitions.sh` 守的是分区名: `"comic:<key>"` 只允许出现在 `core.ComicPartition`。它来自一个真实的 bug —— 恢复备份 cookie 时写进了裸源 key 分区,而所有请求读的是 `comic:<key>`,cookie 落在没人读的地方,导入摘要却显示「恢复了 N 条」。**当时的测试断言的是同一个错误假设**,所以全绿。这类错误不是「没覆盖到」,而是**用例在帮我们确认误解**:唯一可靠的查法是对照代码之外的事实源(传输层真正用的 key),并让错写不成立(传源 key、内部加前缀),而不是靠「记得用助手」。
 
-真实源与界面的核对(需要网络与桌面会话,可选):
+## 真实源与界面的核对(需要网络与桌面会话,可选)
 
 ```sh
 NK_LIVE_JS=/path/to/manga_dex.js NK_LIVE_QUERY="one piece" go test -run TestLiveSource -v ./internal/library
@@ -50,16 +50,32 @@ go run ./cmd/readercheck -script ... -query ... -out reader.png        # 阅读�
 go run ./cmd/readercheck -script ... -query ... -layout               # 双页/右起
 go run ./cmd/uicheck -script ... -query ... -open -out window.png
 go run ./cmd/verifycheck -e2e
-NK_LIVE_JS=... NK_LIVE_QUERY=... go test -run TestLiveSource -v ./internal/library   # 整条主线   # 人机验证:403→验证窗口→重试,本地伪造站点
 ```
 
-交叉编译检查:
+需要真窗口的检查一次跑完(三项按环境变量参与):
+
+```sh
+NK_OFFICIAL_SRC=/path/to/official-srcs NK_PROBE_SRC=/path/to/source-with-comments.js NK_READ_SRC=/path/to/source.js sh scripts/desktop-probes.sh
+```
+
+单独跑:
+
+```sh
+sh scripts/reader-probe.sh          # 需要 NK_READ_SRC:真章节真解码,decoded>0 才算过
+sh scripts/comment-probe.sh /path/to/source.js   # 评论线程;向窗口要 count/author/body,不比截图
+```
+
+两处判据是踩出来的,别改回去:**评论**不能按截图大小判断(空线程与真线程只差几百字节,曾因此对不声明评论的源误报通过);**阅读器**必须要求 `decoded>0`(源可以返回看着合理的字节数而那并不是图片)。两者都做过负向验证。
+
+## 交叉编译
 
 ```sh
 CGO_ENABLED=0 GOOS=linux   go build ./...
 CGO_ENABLED=0 GOOS=windows go build ./...
 CGO_ENABLED=0 GOOS=darwin  go build ./...
 ```
+
+交叉编译通过只说明**能编**:窗口层要 GTK/WebKit 运行时,编出来的二进制没有在 Linux 上启动过,不能写成「Linux 上可用」。
 
 需要把 Go 的临时目录和缓存放到别处时,设置 `GOTMPDIR` 和 `GOCACHE`。
 
