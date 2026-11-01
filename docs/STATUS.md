@@ -632,6 +632,9 @@ sh scripts/challenge-probe.sh
 go run ./cmd/cbprobe /path/to/source.js - --all
 NK_OFFICIAL_SRC=/path/to/official-srcs sh scripts/callback-probe.sh
 
+# 按下详情页上的一个标签,看源自己的 onClickTag 把它解释成什么(-open 打开第一个结果)
+go run ./cmd/uicheck -script /path/to/source.js -query 关键词 -open -tag '类型|热血' -out tag.png
+
 # 校验一个源脚本的阅读契约:安装→搜索→详情→标签动作(界面测试用的自带源先过这关)
 go run ./cmd/comicprobe /path/to/source.js 关键词
 

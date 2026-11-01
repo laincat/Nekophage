@@ -237,6 +237,11 @@ type DevOptions struct {
 	// Favorites opens the source's own favorites, so a capture shows what the
 	// source answers without a human clicking 源收藏.
 	Favorites bool
+	// Tag presses one tag on the opened comic, as "namespace|tag". A source decides
+	// what a tagged tap means, so this is the only way to photograph that decision:
+	// the detail page draws the tag, the press runs comic.onClickTag, and the
+	// result is a search or a category page.
+	Tag string
 	// Callback runs one of the source's own setting callbacks, so a tool can
 	// check that the source's UI reaches it at all.
 	Callback string
@@ -398,6 +403,19 @@ func (a *App) Run() error {
 		}
 		if a.dev.Favorites {
 			a.setMode(4)
+		}
+		if dev := a.dev.Tag; dev != "" && a.dev.OpenFirst {
+			go func() {
+				// The detail page has to have loaded its tags before one can be
+				// pressed.
+				time.Sleep(5 * time.Second)
+				ns, tag, ok := strings.Cut(dev, "|")
+				if !ok {
+					log.Printf("nekophage: tag %q is not namespace|tag", dev)
+					return
+				}
+				a.tagClicked(ns, tag)
+			}()
 		}
 		if cb := a.dev.Callback; cb != "" {
 			go func() {

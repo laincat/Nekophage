@@ -38,6 +38,7 @@ func main() {
 	rank := flag.String("rank", "", "pick a ranking option after the category page opens")
 	favorites := flag.Bool("favorites", false, "capture the source's own favorites")
 	callback := flag.String("callback", "", "run one of the source's setting callbacks")
+	tag := flag.String("tag", "", "press a tag on the opened comic, as namespace|tag")
 	dialogShot := flag.Bool("dialog", false, "open a source dialog window and capture it")
 	dialogOut := flag.String("dialog-out", "", "where to write the dialog capture")
 	dialogInput := flag.Bool("dialog-input", false, "capture an input dialog instead of a confirm")
@@ -129,6 +130,7 @@ func main() {
 		ExploreIndex: *exploreIndex, ExplorePage: *explorePage, Shelf: *shelfMode, OpenChapter: *chapter, ShelfDemo: *shelfDemo, ScrollPercent: *scrollPercent,
 		AdvanceChapter: *advance, AutoNext: *autoNext, Filters: *filters, Filter: *filterPick,
 		SearchAll: *searchAll, OpenLast: *openLast, Category: *categoryShot, Rank: *rank, Favorites: *favorites, Callback: *callback,
+		Tag:      *tag,
 		KeepPage: *keepPage, Favourite: *favourite, OpenSettings: *settingsShot, BackupCookies: *backupCookies,
 		SetSetting: *setSetting, AI: *aiShot, AITest: *aiTest, AIPrompt: *aiPrompt, AIModel: *aiModel})
 
