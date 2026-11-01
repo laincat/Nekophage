@@ -594,7 +594,7 @@ Cookie 字段名(`ipb_member_id` 等)**不翻译**:那是 Cookie 名,不是界�
 
 - **真实 Cloudflare 挑战**:没有遇到可复现的挑战页。2026-11-01 用 `cmd/challengeprobe -mode inspect`(新增)直接看窗口里到底是什么,两个站点的结论不再靠推测:
   - `18comic.vip`:窗口里是**正常站点**(标题「免費A漫 - 禁漫天堂」,Cookie 有 `yuo1`/`AVS`/`ipcountry`/`theme` 等),**根本没有挑战页**,也就没有 `cf_clearance`。所以「无法判定通过」不是客户端看不到 cookie,而是这类站点**没有挑战可过**:完成规则要求 `cf_clearance`,而页面不需要它就已可用,于是客户端只能等到超时。
-  - `mangadex.org`:Cookie 只有 `MD-Edge-ID`,页面里加载了 `gstatic` 的 reCAPTCHA —— 印证了它是**边缘 302 + reCAPTCHA**,不是 Cloudflare 通行证,现有 `DoneRule`(缺标记 + 必有 `cf_clearance`)描述不了它。
+  - `mangadex.org`:**2026-11-01 取到了完整链路**。`GET https://api.mangadex.org/manga?title=love` 返回 `302`,`location: /edge/challenge?src=<原路径的 base64>`,正文只有一句 `Redirecting to bot challenge page... (if this isn't a browser, don't send a browser UA)`;该挑战页是 `200` + `challenge-assets/challenge.js`,脚本读 `#c`/`#d`/`#h` 做 **proof-of-work**(`SOLVER_LIMIT_MS = 400000`,难度默认 17),解出后 `location.replace` 回原地址并带上 `powblock=<nonce>&pbchal=<token>`。也就是说:**它的通行凭据在 URL 参数里,不是一个 Cookie**。现有 `DoneRule` 只能表达「某些标记不存在 + 某些 Cookie 必须存在」,因此描述不了它——要支持就得加一种「URL 带上指定参数」的完成条件。**这属于产品决定,没有擅自放宽规则。** 顺带一个观察:因为挑战是页面内 JS 自解的,真人在 WebView 里打开会自动通过,缺的只是判定规则。
   - 两者 `-mode live` 都以 `context deadline exceeded` 结束、0 个 cookie,与 inspect 的观察一致。**本地可复现的那条闭环**(页面自己写出 `cf_clearance` 并被窗口判为通过、cookie 进入分区、带回页面真实 UA)已由 `scripts/challenge-probe.sh` 的 `clear` 模式跑通;仍缺的是**真实站点**上的成功样本。
 - **macOS 与 Linux**:交叉编译与 `go vet` 都过(`GOOS=darwin GOARCH=arm64`、`GOOS=linux GOARCH=amd64`,2026-10-31 复查),但**没有运行**。能编译不等于能开窗:窗口那一层要各自平台的系统库,真实运行仍需在对应机器上做。
 - **视频源**:Core 支持,桌面端还没接上;`browser.Sniffer` 目前明确返回不支持。
