@@ -33,6 +33,11 @@ type LoginWindow struct {
 	// Partition is the jar the cookies land in; the same one the source's
 	// requests use.
 	partition string
+	// OnWindow, when set, is handed the window as soon as it exists. The
+	// development tools use it to do what a capture cannot: close the window the
+	// way a person would, so the path that ends the wait can be exercised
+	// without someone sitting in front of it.
+	OnWindow func(*mygo.Window)
 }
 
 // NewLoginWindow builds the helper for one source.
@@ -86,6 +91,9 @@ func (l *LoginWindow) Run(ctx context.Context) (int, error) {
 	win.OnClosed(func() { state.once.Do(func() { state.closed = true; close(state.done) }) })
 	win.Show()
 	win.Focus()
+	if l.OnWindow != nil {
+		l.OnWindow(win)
+	}
 
 	stored, err := l.watch(ctx, decl, state)
 	win.Close()

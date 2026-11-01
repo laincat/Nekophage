@@ -16,6 +16,8 @@ package main
 //	              already the source's and the error still has to surface
 //	latecookie    a page that agrees before its cookies exist, where the wait has
 //	              to keep polling instead of giving up on the empty first look
+//	close         a person closing the window, which must end the wait at once and
+//	              keep nothing
 
 import (
 	"context"
@@ -34,12 +36,12 @@ import (
 )
 
 func main() {
-	mode := flag.String("mode", "ok", "ok, timeout or failcallback")
+	mode := flag.String("mode", "ok", "ok, timeout, failcallback, latecookie or close")
 	flag.Parse()
 	// An unknown mode would otherwise fall through to the ordinary path and report
 	// a pass for a case nobody asked about.
 	switch *mode {
-	case "ok", "timeout", "failcallback", "latecookie":
+	case "ok", "timeout", "failcallback", "latecookie", "close":
 	default:
 		fmt.Println("FAIL unknown mode:", *mode)
 		os.Exit(1)
@@ -50,7 +52,10 @@ func main() {
 		// The timeout mode stays on this page: the source only accepts the title
 		// "Logged in", so the client has to give up rather than decide for it.
 		advance := `<script>setTimeout(function(){location.href="/done"},1200)</script>`
-		if *mode == "timeout" {
+		// Both of these stay on a page the source never accepts: one is given up
+		// by a deadline, the other by closing the window, and in both cases a
+		// client that ignored the ending would hang here.
+		if *mode == "timeout" || *mode == "close" {
 			advance = ""
 			// A pending login may already have cookies; they must not be imported.
 			http.SetCookie(w, &http.Cookie{Name: "pending", Value: "secret", Path: "/"})
@@ -114,19 +119,37 @@ func main() {
 	// the cookies where no source ever looks for them.
 	jar := c.Jar()
 	login := browser.NewLoginWindow(c, jar, rec.Key, core.ComicPartition(rec.Key))
+	if *mode == "close" {
+		// Stand where the person sits: the page loads, then the window is closed
+		// without answering. The wait has to end there.
+		login.OnWindow = func(w *mygo.Window) {
+			go func() {
+				time.Sleep(3 * time.Second)
+				w.Close()
+			}()
+		}
+	}
 
 	// App.Run owns the main goroutine; the work starts once the toolkit is ready
 	// and reports through the channel after Run returns.
 	result := make(chan error, 1)
+	var elapsed time.Duration
 	mygo.App.WhenReady(func() {
 		go func() {
 			bound := 90 * time.Second
 			if *mode == "timeout" {
 				bound = 8 * time.Second
 			}
+			if *mode == "close" {
+				// Long enough that a wait which ignored the close would run into
+				// it and report the wrong reason.
+				bound = 60 * time.Second
+			}
 			runCtx, cancel := context.WithTimeout(ctx, bound)
 			defer cancel()
+			start := time.Now()
 			_, err := login.Run(runCtx)
+			elapsed = time.Since(start)
 			result <- err
 			mygo.App.Quit()
 		}()
@@ -138,6 +161,23 @@ func main() {
 
 	runErr := <-result
 	got := jar.Get(core.ComicPartition(rec.Key), srv.URL+"/")
+
+	if *mode == "close" {
+		if runErr == nil {
+			fmt.Println("FAIL closing the window was reported as a finished login")
+			os.Exit(1)
+		}
+		if len(got) != 0 {
+			fmt.Println("FAIL half a login was kept after the window closed:", len(got))
+			os.Exit(1)
+		}
+		if elapsed > 15*time.Second {
+			fmt.Println("FAIL the wait outlived the window by", elapsed, "— it kept polling a closed page")
+			os.Exit(1)
+		}
+		fmt.Println("PASS close: the wait ended in", elapsed.Round(time.Millisecond), "with", runErr)
+		return
+	}
 
 	switch *mode {
 	case "timeout":

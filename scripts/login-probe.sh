@@ -13,6 +13,8 @@
 #                 instead of waiting out the deadline
 #   latecookie    a page that agrees before its cookies exist keeps polling, so an
 #                 empty first look is not mistaken for a failed login
+#   close         closing the window ends the wait at once and keeps nothing;
+#                 without this the client polls a closed page until its deadline
 #
 # Usage: sh scripts/login-probe.sh [mode...]
 set -eu
@@ -28,7 +30,7 @@ esac
 
 go build -o "$bin" ./cmd/loginprobe
 
-modes=${*:-"ok timeout failcallback latecookie"}
+modes=${*:-"ok timeout failcallback latecookie close"}
 failed=0
 for mode in $modes; do
 	log="$out/$mode.log"
