@@ -12,6 +12,8 @@ The client media transport and `internal/player.MediaProxy` are implemented: the
 
 This is not yet a usable player. The video UI entry, WebView page, Windows/Linux HLS decoding dependency and watch progress remain unconnected. Nothing silently falls back to the system player; sniffing and DRM are not implemented. Route A's transport is the first implemented step; the remaining boundaries and acceptance below still apply.
 
+**Update, 2026-11-02 (after the paragraph above):** Route A is now connected to the interface: 视频 in the main window → search/details/line-episodes → player window. The page is served by the local `player.Server` and bundles HLS.js 1.7.4 (native HLS preferred where available); positions are stored in `shelf.json` and resume. Measured in a real window: a progressive MP4 decodes actual pixels (`readyState=4`, `640x360`, frame read back as PNG) and a paused position is persisted. Still unverified: **HLS decoded in the browser** (no local fMP4/TS fixture), subtitles, picture-in-picture and a run on macOS.
+
 ## What already exists
 
 Core (implemented and tested):

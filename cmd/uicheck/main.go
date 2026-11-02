@@ -6,11 +6,14 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"flag"
 	"image"
 	"image/png"
 	"log"
+	"net"
+	"net/http"
 	"os"
 	"path/filepath"
 	"time"
@@ -23,6 +26,7 @@ import (
 	"github.com/laincat/nekophage/internal/sourceapi"
 	"github.com/laincat/nekophage/internal/ui"
 	"github.com/laincat/veneracat-core/comic/js"
+	"github.com/laincat/veneracat-core/plugin"
 
 	_ "github.com/egoist/mygo/locales/zh-Hans"
 )
@@ -72,11 +76,15 @@ func main() {
 	logsShot := flag.Bool("logs", false, "open the source log panel and capture it")
 	logsOut := flag.String("logs-out", "", "where to write the log-panel capture")
 	backupCookies := flag.Bool("backup-cookies", false, "start the sources window with the backup cookie checkbox ticked")
+	videoScript := flag.String("video-script", "", "video source script to install")
+	videoQuery := flag.String("video", "", "search the video window for this text, open the first result and play it")
+	videoFrame := flag.String("video-frame", "", "where to write the frame read back from the player")
+	videoMedia := flag.String("video-media", "", "mp4 to serve on 127.0.0.1:18732 for a video source whose play URL points there")
 	// dir reuses a profile, so the shelf and installed sources carry over
 	// from an earlier import.
 	dir := flag.String("dir", "", "profile directory; a fresh one under the temp directory when empty")
 	flag.Parse()
-	if *script == "" && *script2 == "" && *dir == "" {
+	if *script == "" && *script2 == "" && *videoScript == "" && *dir == "" {
 		flag.Usage()
 		os.Exit(2)
 	}
@@ -120,6 +128,17 @@ func main() {
 		}
 		log.Printf("installed %s (%s)", rec.Name, rec.Key)
 	}
+	if *videoScript != "" {
+		body, err := os.ReadFile(*videoScript)
+		if err != nil {
+			log.Fatal(err)
+		}
+		rec, err := c.InstallTyped(ctx, plugin.TypeVideoJS, string(body), *videoScript, "")
+		if err != nil {
+			log.Fatalf("install video source %s: %v", *videoScript, err)
+		}
+		log.Printf("installed video source %s (%s)", rec.Name, rec.Key)
+	}
 	// The reader's scheme must be registered before its window is made, and
 	// the same server must reach the window that reports the position.
 	srv := reader.New(c)
@@ -134,8 +153,16 @@ func main() {
 		SearchAll: *searchAll, OpenLast: *openLast, Category: *categoryShot, Rank: *rank, Favorites: *favorites, Callback: *callback,
 		Tag:      *tag,
 		KeepPage: *keepPage, Favourite: *favourite, OpenSettings: *settingsShot, BackupCookies: *backupCookies,
-		SetSetting: *setSetting, AI: *aiShot, AITest: *aiTest, AIPrompt: *aiPrompt, AIModel: *aiModel})
+		SetSetting: *setSetting, AI: *aiShot, AITest: *aiTest, AIPrompt: *aiPrompt, AIModel: *aiModel,
+		Video: *videoQuery, VideoOut: *videoFrame, VideoQuit: *videoQuery != ""})
 
+	if *videoMedia != "" {
+		stop, err := serveMedia(*videoMedia, "127.0.0.1:18732")
+		if err != nil {
+			log.Fatalf("serve media: %v", err)
+		}
+		defer stop()
+	}
 	// A chapter that points at loopback can be opened without any site, which is what
 	// the repository's own fixture does; see internal/probesite.
 	if *servePort > 0 {
@@ -150,6 +177,11 @@ func main() {
 	var shotErr error
 	mygo.App.WhenReady(func() {
 		go func() {
+			if *videoQuery != "" {
+				// The probe reports and quits on its own; a capture here would
+				// photograph the window before it holds a player.
+				return
+			}
 			time.Sleep(*wait)
 			data, err := app.Window().CapturePage()
 			// A default file name here would leave a window.png in whatever
@@ -325,3 +357,24 @@ func bytesReader(b []byte) *os.File {
 }
 
 var _ image.Image
+
+// serveMedia serves one file with byte ranges on a fixed loopback address, so a
+// video fixture can hand the player a real URL without a site.
+func serveMedia(path, address string) (func(), error) {
+	body, err := os.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+	ln, err := net.Listen("tcp", address)
+	if err != nil {
+		return nil, err
+	}
+	mux := http.NewServeMux()
+	mux.HandleFunc("/clip.mp4", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "video/mp4")
+		http.ServeContent(w, r, "clip.mp4", time.Time{}, bytes.NewReader(body))
+	})
+	srv := &http.Server{Handler: mux}
+	go func() { _ = srv.Serve(ln) }()
+	return func() { _ = srv.Close() }, nil
+}

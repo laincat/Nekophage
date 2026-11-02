@@ -36,6 +36,15 @@ type resource struct {
 	playlist bool
 }
 
+// Option changes how a proxy addresses its resources.
+type Option func(*MediaProxy)
+
+// WithMount puts the resources under prefix, so one loopback server can host
+// several players without their URLs colliding.
+func WithMount(prefix string) Option {
+	return func(p *MediaProxy) { p.prefix = strings.TrimSuffix(prefix, "/") }
+}
+
 // MediaProxy owns one play declaration. URLs exposed to the WebView contain
 // opaque resource IDs, not upstream URLs, credentials or an arbitrary fetch URL.
 // Close stops active requests when its player window goes away.
@@ -45,6 +54,7 @@ type MediaProxy struct {
 	headers http.Header
 	dropAds bool
 	root    string
+	prefix  string
 	ctx     context.Context
 	cancel  context.CancelFunc
 	mu      sync.Mutex
@@ -52,9 +62,12 @@ type MediaProxy struct {
 	byURL   map[resource]string
 }
 
-func NewMediaProxy(source MediaSource, key string, play *video.Play) (*MediaProxy, error) {
+func NewMediaProxy(source MediaSource, key string, play *video.Play, opts ...Option) (*MediaProxy, error) {
 	if play == nil {
 		return nil, errors.New("player: missing playback declaration")
+	}
+	if source == nil {
+		return nil, errors.New("player: missing media source")
 	}
 	if err := play.Validate(); err != nil {
 		return nil, err
@@ -71,6 +84,9 @@ func NewMediaProxy(source MediaSource, key string, play *video.Play) (*MediaProx
 	ctx, cancel := context.WithCancel(context.Background())
 	p := &MediaProxy{source: source, key: key, headers: play.Header.Clone(), ctx: ctx, cancel: cancel,
 		byID: map[string]resource{}, byURL: map[resource]string{}}
+	for _, opt := range opts {
+		opt(p)
+	}
 	p.dropAds = play.HLS != nil && play.HLS.FilterAds
 	root, err := p.add(play.URL, play.Format == video.FormatHLS)
 	if err != nil {
@@ -96,7 +112,7 @@ func (p *MediaProxy) add(rawURL string, playlist bool) (string, error) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	if id, ok := p.byURL[r]; ok {
-		return "/media/" + id, nil
+		return p.prefix + "/media/" + id, nil
 	}
 	var token [16]byte
 	if _, err := rand.Read(token[:]); err != nil {
@@ -104,7 +120,7 @@ func (p *MediaProxy) add(rawURL string, playlist bool) (string, error) {
 	}
 	id := hex.EncodeToString(token[:])
 	p.byID[id], p.byURL[r] = r, id
-	return "/media/" + id, nil
+	return p.prefix + "/media/" + id, nil
 }
 
 func (p *MediaProxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -117,10 +133,18 @@ func (p *MediaProxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "player closed", http.StatusGone)
 		return
 	}
+	path := r.URL.Path
+	if p.prefix != "" {
+		if !strings.HasPrefix(path, p.prefix+"/") {
+			http.NotFound(w, r)
+			return
+		}
+		path = strings.TrimPrefix(path, p.prefix)
+	}
 	p.mu.Lock()
-	item, ok := p.byID[strings.TrimPrefix(r.URL.Path, "/media/")]
+	item, ok := p.byID[strings.TrimPrefix(path, "/media/")]
 	p.mu.Unlock()
-	if !strings.HasPrefix(r.URL.Path, "/media/") || !ok {
+	if !strings.HasPrefix(path, "/media/") || !ok {
 		http.NotFound(w, r)
 		return
 	}

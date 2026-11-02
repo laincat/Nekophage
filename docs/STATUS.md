@@ -4,6 +4,16 @@
 
 更新:2026-10-31。下列结论来自 **Windows** 本机实测,包括真实漫画源与真实网络。当天新增的内容集中在三处:传输层重定向 Cookie 的真 bug(`CheckRoute` 读错了字段)、错误提示的中文化(与 iOS 同一规则:只翻认得的,其余保留 Core 原文)、以及 `live-sources.sh` 的重复跑与 `FLAKY` 分类。
 
+## 桌面视频播放器(2026-11-02)
+
+主窗口新增「视频」入口:视频源搜索 → 详情(线路/分集)→ 播放窗口。播放页由 `player.Server` 在 `127.0.0.1` 上提供,会话 URL 带随机 token,页面只能拿到代理资源 ID;页面同时内置 HLS.js 1.7.4(Apache-2.0,`internal/player/assets`),Safari/原生支持 HLS 时优先用原生解码,Windows WebView2 用 HLS.js。观看位置写入 `shelf.json` 的 `videos`(与漫画历史分开,同一 key 不冲突),重开详情时显示已看时长,再次点击从上次位置续播;看到最后 2% 且距结尾 10 秒内视为看完,下次从头开始。
+
+真实窗口证据(`cmd/uicheck -video …`):搜索 → 详情 → 播放全程无人工点击,页面报告 `readyState=4`、`640x360`、`duration=10.0`,时钟自行推进,并从 `<video>` 读回一帧 PNG(`E:/Temp/desktop-player-frame.png`,解码出实际画面)、暂停后位置写入书架(`Episode 1@2.07s`)。日志 `E:/Temp/desktop-player-ui-probe7.log`;独立探针 `cmd/videocheck` 日志 `E:/Temp/desktop-player-check.log`。
+
+本轮修复:视频源不再被主窗口当成漫画源(以前会把 `not this kind of plugin` 当作搜索筛选错误报出来);短片段不会被“接近结尾即算看完”的规则立即删除续播点。
+
+**未验证**:HLS 清单在浏览器内真正解码(本地没有 fMP4/TS 夹具,也没有 ffmpeg 重新封装);字幕、画中画、macOS 实机运行。媒体代理自身的 HLS 改写/Range/请求头另见上节测试。
+
 ## 桌面视频媒体传输层(2026-11-02)
 
 `internal/core` 新增 VideoSearch/VideoDetails/VideoPlay 对共享 Core provider 的直接委托,不在客户端重写解析。媒体读取复用现有传输层的 Cookie 与重定向策略,返回可关闭的响应流,不把完整影片读进 64 MiB 源响应缓冲。视频 JS 的 Network 使用现有 `comic:<key>` 分区,媒体也使用同一分区,真实 Cookie 用例已验证登录状态不会丢失。

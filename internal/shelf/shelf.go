@@ -68,6 +68,24 @@ type ImageFavourite struct {
 	Time int64  `json:"time"`
 }
 
+// VideoHistory is one episode's playback position. It is kept apart from
+// comic history: a video provider and a comic source can share a key, and one
+// list cannot answer "where was I" for both.
+type VideoHistory struct {
+	Source    string `json:"source"`
+	ItemID    string `json:"itemId"`
+	Title     string `json:"title,omitempty"`
+	LineID    string `json:"lineId,omitempty"`
+	LineName  string `json:"lineName,omitempty"`
+	EpisodeID string `json:"episodeId,omitempty"`
+	// EpisodeName is the episode's title as the provider gave it.
+	EpisodeName string `json:"episodeName,omitempty"`
+	// Position and Duration are seconds; Position is where playback stopped.
+	Position float64 `json:"position,omitempty"`
+	Duration float64 `json:"duration,omitempty"`
+	Time     int64   `json:"time"`
+}
+
 // Folder is a named list of comics.
 type Folder struct {
 	Name  string  `json:"name"`
@@ -81,12 +99,14 @@ type Shelf struct {
 	history  []History
 	folders  []Folder
 	pictures []ImageFavourite
+	videos   []VideoHistory
 }
 
 type file struct {
 	History  []History        `json:"history"`
 	Folders  []Folder         `json:"folders"`
 	Pictures []ImageFavourite `json:"pictures,omitempty"`
+	Videos   []VideoHistory   `json:"videos,omitempty"`
 }
 
 // Open reads the profile's records; a profile without any starts empty.
@@ -107,6 +127,7 @@ func Open(root string) (*Shelf, error) {
 		return nil, fmt.Errorf("shelf: %s: %w", s.path(), err)
 	}
 	s.history, s.folders, s.pictures = f.History, f.Folders, f.Pictures
+	s.videos = f.Videos
 	return s, nil
 }
 
@@ -484,6 +505,78 @@ func (s *Shelf) ForgetPage(source, comicID, url string) error {
 	return s.save()
 }
 
+// RecordVideo keeps where playback stopped for one episode, moving it to the
+// front. An episode is one record: watching it again replaces the position.
+func (s *Shelf) RecordVideo(v VideoHistory) error {
+	if v.Source == "" || v.ItemID == "" {
+		return errors.New("shelf: video history needs a source and an item")
+	}
+	if v.Position < 0 {
+		v.Position = 0
+	}
+	if v.Time == 0 {
+		v.Time = time.Now().Unix()
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	out := make([]VideoHistory, 0, len(s.videos)+1)
+	out = append(out, v)
+	for _, e := range s.videos {
+		if sameVideo(e, v) {
+			continue
+		}
+		out = append(out, e)
+	}
+	if len(out) > historyLimit {
+		out = out[:historyLimit]
+	}
+	s.videos = out
+	return s.save()
+}
+
+// VideoProgress returns the saved position of one episode.
+func (s *Shelf) VideoProgress(source, itemID, episodeID string) (VideoHistory, bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for _, e := range s.videos {
+		if e.Source == source && e.ItemID == itemID && e.EpisodeID == episodeID {
+			return e, true
+		}
+	}
+	return VideoHistory{}, false
+}
+
+// VideoHistory returns the most recently watched episodes, newest first.
+func (s *Shelf) VideoHistory(limit int) []VideoHistory {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if limit <= 0 || limit > len(s.videos) {
+		limit = len(s.videos)
+	}
+	return append([]VideoHistory(nil), s.videos[:limit]...)
+}
+
+// ForgetVideo drops one episode's position.
+func (s *Shelf) ForgetVideo(source, itemID, episodeID string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	out := s.videos[:0:0]
+	for _, e := range s.videos {
+		if e.Source == source && e.ItemID == itemID && e.EpisodeID == episodeID {
+			continue
+		}
+		out = append(out, e)
+	}
+	s.videos = out
+	return s.save()
+}
+
+// sameVideo reports whether two records describe the same episode. The line
+// is not part of the identity: a provider may move an episode to another CDN.
+func sameVideo(a, b VideoHistory) bool {
+	return a.Source == b.Source && a.ItemID == b.ItemID && a.EpisodeID == b.EpisodeID
+}
+
 // Counts is how much the shelf holds, for reports.
 func (s *Shelf) Counts() (history, favourites int) {
 	s.mu.Lock()
@@ -509,7 +602,11 @@ func (s *Shelf) save() error {
 	if pictures == nil {
 		pictures = []ImageFavourite{}
 	}
-	b, err := json.MarshalIndent(file{History: history, Folders: folders, Pictures: pictures}, "", "  ")
+	videos := s.videos
+	if videos == nil {
+		videos = []VideoHistory{}
+	}
+	b, err := json.MarshalIndent(file{History: history, Folders: folders, Pictures: pictures, Videos: videos}, "", "  ")
 	if err != nil {
 		return err
 	}

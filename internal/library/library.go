@@ -61,6 +61,20 @@ func (l *Library) Restore(ctx context.Context) (map[string]error, error) {
 // stale list.
 func (l *Library) Sources() []plugin.Record { return l.core.Plugins() }
 
+// ComicSources is the list the comic interface may open: a video provider and
+// a manga source are both plugins, but only one of them answers a search for
+// comics, and Core refuses the other with "not this kind of plugin".
+func (l *Library) ComicSources() []plugin.Record {
+	var out []plugin.Record
+	for _, rec := range l.core.Plugins() {
+		if rec.Type == plugin.TypeVideoJS || rec.Type == plugin.TypeKazumi {
+			continue
+		}
+		out = append(out, rec)
+	}
+	return out
+}
+
 // Jar is where source cookies live, one partition per source. A backup import
 // needs it to restore sign-ins without inventing a shared jar.
 func (l *Library) Jar() *cookies.Jar { return l.core.Jar() }

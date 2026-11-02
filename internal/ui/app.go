@@ -26,6 +26,7 @@ import (
 	"github.com/egoist/mygo/ui/markdown"
 	"github.com/laincat/nekophage/internal/core"
 	"github.com/laincat/nekophage/internal/library"
+	"github.com/laincat/nekophage/internal/player"
 	"github.com/laincat/nekophage/internal/reader"
 	"github.com/laincat/nekophage/internal/searches"
 	"github.com/laincat/nekophage/internal/shelf"
@@ -165,6 +166,14 @@ type App struct {
 	aiWin  *mygo.Window
 	ai     aiState
 	manage manageState
+	// video is the video window and its player.
+	video      videoState
+	videoWin   *mygo.Window
+	detailWin  *mygo.Window
+	playerWin  *mygo.Window
+	playerView *mygo.WebView
+	playerSrv  *player.Server
+	playerSess *player.Session
 	// defaultIndex is the index URL tried first in the manager.
 	defaultIndex string
 
@@ -220,6 +229,16 @@ type DevOptions struct {
 	// real catalogue rather than the empty first frame.
 	AI     bool
 	AITest bool
+	// Video searches the video window for this keyword, opens the first
+	// result, plays its first episode and reports what the player decoded, so
+	// the tools check the whole desktop video path rather than a compile.
+	Video string
+	// VideoOut is where the probe writes the reconstructed frame it read from
+	// the player page.
+	VideoOut string
+	// VideoQuit ends the app once the video probe has reported, so a tool can
+	// run it and read the exit code.
+	VideoQuit bool
 	// AIPrompt, with -ai, sends this text once the connection and the
 	// catalogue are in, so a capture shows a real streamed answer.
 	AIPrompt string
@@ -385,6 +404,9 @@ func (a *App) Run() error {
 				}()
 			}
 		}
+		if a.dev.Video != "" {
+			a.runVideoProbe(a.dev.Video, a.dev.VideoOut, a.dev.VideoQuit)
+		}
 		if a.dev.OpenSettings {
 			a.openManage()
 			// The panel reads the declaration, which is JS work: show the
@@ -477,7 +499,7 @@ func (a *App) AIWindow() *mygo.Window { return a.aiWin }
 // refreshSources reloads the installed list on the window's thread.
 func (a *App) refreshSources() {
 	a.mu.Lock()
-	a.sources = a.lib.Sources()
+	a.sources = a.lib.ComicSources()
 	a.options = make([]string, 0, len(a.sources))
 	keep := false
 	for _, s := range a.sources {
@@ -1347,6 +1369,9 @@ func (a *App) header(c *ui.Context, t *ui.Theme, sources []plugin.Record, option
 		}
 		if ui.Button(c, "AI").Clicked() {
 			a.openAI()
+		}
+		if ui.Button(c, "视频").Clicked() {
+			a.openVideo()
 		}
 	})
 	ui.Divider(c)

@@ -9,6 +9,16 @@ The four CI jobs of Core's `6e07429` are green (three Go platforms plus Apple's 
 
 **Pin moved to `6e07429` (2026-11-01)**: Core gained the three standard AI entry points and the optional chunked transport (`HostStream`), and it fixed a deadlock in the package bridge — the package pushed to `__magpieChatPush` from inside its own hook while the reader stopped at the end marker, so the writer waited for a reader that had gone. The desktop client **does not implement `HostStream` yet**, so replies still arrive whole; `scripts/fetch-core.sh` has aligned `build/core` to that commit and `scripts/check-core-pin.sh` passes.
 
+## Desktop video player (2026-11-02)
+
+The main window now has a 视频 entry: provider search → details (lines/episodes) → player window. `player.Server` serves the page on `127.0.0.1`; session URLs carry a random token and the page only ever sees proxy resource IDs. The page bundles HLS.js 1.7.4 (Apache-2.0, `internal/player/assets`), prefers native HLS where the engine has it and uses HLS.js otherwise. Positions are stored in `shelf.json` under `videos`, separate from comic history so a shared key cannot collide; the details list shows watched time and reopening resumes; reaching the last two percent within ten seconds of the end counts as finished and the next open starts from zero.
+
+Real-window evidence (`cmd/uicheck -video …`): search → details → play with no human clicking; the page reports `readyState=4`, `640x360`, `duration=10.0`, the clock advances by itself, a frame read back from `<video>` is decoded pixels (`E:/Temp/desktop-player-frame.png`), and the paused position is written to the shelf (`Episode 1@2.07s`). Log `E:/Temp/desktop-player-ui-probe7.log`; the standalone probe `cmd/videocheck` logs to `E:/Temp/desktop-player-check.log`.
+
+Fixed here: the comic window no longer treats a video provider as a manga source (it used to report `not this kind of plugin` as a search-filter error), and short clips are not immediately treated as finished.
+
+**Not verified**: HLS manifests decoded inside the browser (no local fMP4/TS fixture and no ffmpeg to remux one); subtitles, picture-in-picture, and a run on macOS. The proxy's own HLS rewriting, Range and request headers are covered by the section below.
+
 ## Desktop video media transport (2026-11-02)
 
 `internal/core` now delegates VideoSearch/VideoDetails/VideoPlay directly to the shared Core provider, without duplicating parsing. Media reads reuse the existing transport's cookie and redirect policy and return a closable stream rather than buffering a whole film into the 64 MiB source-response limit. Video JS Network uses the existing `comic:<key>` partition; media uses the same one, with an actual cookie test demonstrating that sign-in state reaches playback requests.
