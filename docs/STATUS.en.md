@@ -2,7 +2,7 @@
 
 English | [简体中文](STATUS.md)
 
-Updated 2026-11-03. Sections distinguish Windows live sites, loopback media fixtures, native windows, unit tests and macOS. The latest round covers the macOS reading mainline and an ad-hoc bundle launch, a rerun of the twelve desktop window probes, and a progress check that now reads only what the page reports. Local fixtures do not establish real-account or live-site behaviour.
+Updated 2026-11-03. Sections distinguish Windows live sites, loopback media fixtures, native windows, unit tests and macOS. Recent progress: the macOS reading mainline and an ad-hoc bundle launch are verified, and the desktop window suite grew from twelve to **12 with no external variables and 16 with every script** (local video playback, subtitles across a reopen, the native search and detail pages, progress reporting and the reading place), all folded into `scripts/desktop-probes.sh`. Local fixtures do not establish real-account or live-site behaviour.
 
 
 The four CI jobs of Core's `6e07429` are green (three Go platforms plus Apple's xcframework with two Swift smoke tests), checked on 2026-11-01.
