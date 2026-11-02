@@ -11,9 +11,11 @@ The four CI jobs of Core's `6e07429` are green (three Go platforms plus Apple's 
 
 ## Subtitle delivery (2026-11-02)
 
-A new HLS fixture with `EXT-X-MEDIA:TYPE=SUBTITLES` (`internal/player/testdata/hls-subs`). In an actual Windows WebView the player fetched `subs.m3u8` and five `.vtt` files through the media proxy, each carrying the source's Referer/Cookie (`E:/Temp/desktop-hls-subs-text.log`); HLS.js set the subtitle track to `showing`, 10 cues were read back, and the first cue text is the fixture's `字幕渲染检查`. Paused `2.007s` reopens at `2.007s`. Media without a subtitle group reports `cues=0` and exits 1 (`E:/Temp/desktop-hls-subs-negative2.log`).
+Subtitle groups load through the media proxy with source Referer/Cookie headers. Early `41a89da` forced the first track; this round respects `DEFAULT=YES`, keeps subtitles off when there is no default, and adds a subtitle language/Off selector that retains an explicit choice within the page across track-list updates.
 
-The player gained one real behaviour for this: a `DEFAULT=YES` subtitle track is not selected automatically after `MANIFEST_PARSED`, so it now selects the first track on `SUBTITLE_TRACKS_UPDATED`; otherwise the track exists but its cues are never fetched. **Unverified**: pixel-level subtitle layout (the probe reads video-element pixels, which exclude the text-track overlay), font and position styling, macOS, iOS and live sources; a source that exposes no `SUBTITLES` group has nothing to show.
+The fixture puts English first (`DEFAULT=NO`) and Chinese second (`DEFAULT=YES`). The actual Windows WebView defaults to Chinese: `activeSubtitleCues=2`, text `字幕渲染检查`, modes `disabled,showing`, and paused `2.103s` resumes at `2.103s` (`E:/Temp/desktop-subtitle-choice-default.log`). With both tracks changed to `DEFAULT=NO`, the negative control reports `cues=0`, modes `disabled,disabled`, makes no subtitle playlist/VTT request and exits 1 (`E:/Temp/desktop-subtitle-no-default.log`). The probe now accepts only active cues on showing tracks; `-video-subs-text` can check the language, so cached cues on disabled tracks cannot pass.
+
+The Lead navigated the actual Video/search/details/episode/player windows and saw Chinese text over the video. Screenshot: `E:/Temp/desktop-subtitle-visible-window.png`; receipt: `E:/Temp/desktop-subtitle-choice-receipt.json`. This supplies pixel evidence for Chinese in that window. **Still unverified**: manual language switching/Off (the desktop tool returned `foreground_unavailable` and sent no key), font/position styling, macOS, iOS and live subtitles. The older `bcbe602` 0.2.2 package does not include this selector; canvas video-frame readback still excludes subtitle overlays.
 
 ## Audio decode pipeline (2026-11-02)
 
@@ -49,7 +51,7 @@ The earlier `desktop-player-ui-probe7.log` establishes the MP4 picture and clock
 
 Fixed here: MP4 decoder selection no longer depends on native HLS capability. Saving and opening an episode share one completion rule, allowing a two-second position in a ten-second clip to resume. Fractional seconds survive; HLS seeks after metadata, and Continue Watching uses the saved provider rather than the current search picker. Fixtures and rerun commands: [testdata](../internal/player/testdata/README.en.md). The production application does not require FFmpeg.
 
-Ordinary video-source file/URL installation, restart restoration and video read cancellation have separate acceptance records in the preceding two sections. **Not verified**: subtitles, picture-in-picture, macOS execution, live online sites or audio tracks (the HLS fixture has none). These fixes are not included in the older `7dc3051` portable package below.
+Ordinary video-source file/URL installation, restart restoration and video read cancellation have the separate records above; audio decoding, active subtitle text and Chinese window rendering have their own evidence. **Not verified**: manual subtitle switching/Off, picture-in-picture, macOS execution, live online sites and speaker output. Source installation, cancellation and early subtitle delivery are in the `bcbe602` 0.2.2 package; this round's subtitle selector is not yet packaged.
 
 ## Desktop video media transport (2026-11-02)
 

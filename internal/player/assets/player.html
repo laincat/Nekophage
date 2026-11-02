@@ -13,7 +13,10 @@
   video { width: 100%; height: 100%; object-fit: contain; }
   #bar { display: flex; gap: 10px; align-items: center; padding: 8px 12px;
     border-top: 1px solid #2a2a2e; }
-  #title { flex: 1; color: #a9a9b0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #title { flex: 1; min-width: 0; color: #a9a9b0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #subtitle-choice { display: flex; align-items: center; gap: 6px; white-space: nowrap; }
+  #subtitle-choice[hidden] { display: none; }
+  #subtitles { max-width: min(13em, 35vw); font: inherit; }
   #err { color: #ff8686; }
 </style>
 </head>
@@ -24,6 +27,9 @@
   </div>
   <div id="bar">
     <span id="title"></span>
+    <label id="subtitle-choice" hidden>字幕
+      <select id="subtitles" aria-label="字幕"><option value="-1">关闭</option></select>
+    </label>
     <span id="err" role="status"></span>
   </div>
 </div>
@@ -44,6 +50,52 @@
   document.title = title || 'Nekophage';
 
   let hls = null;
+  const subtitleSelect = document.getElementById('subtitles');
+  const subtitleLabel = document.getElementById('subtitle-choice');
+  // null follows the manifest/browser default; false remembers an explicit
+  // "off" choice even when HLS refreshes its list of tracks.
+  let subtitleChoice = null;
+  function trackName(track) { return track.name || track.label || track.lang || track.language || ''; }
+  function trackLanguage(track) { return track.lang || track.language || ''; }
+  function subtitleOptions(tracks, selected) {
+    subtitleSelect.replaceChildren(new Option('关闭', '-1'));
+    Array.from(tracks).forEach(function (track, i) {
+      subtitleSelect.add(new Option(trackName(track) || ('字幕 ' + (i + 1)), String(i)));
+    });
+    subtitleLabel.hidden = tracks.length === 0;
+    subtitleSelect.value = String(selected);
+  }
+  function chosenSubtitle(tracks) {
+    if (subtitleChoice === false) return -1;
+    return tracks.findIndex(function (track) {
+      return subtitleChoice === null ? track.default
+        : trackName(track) === subtitleChoice.name && trackLanguage(track) === subtitleChoice.language;
+    });
+  }
+  function updateHLSSubtitles() {
+    const tracks = hls.subtitleTracks || [];
+    const selected = chosenSubtitle(tracks);
+    hls.subtitleTrack = selected;
+    hls.subtitleDisplay = selected >= 0;
+    subtitleOptions(tracks, selected);
+  }
+  function updateNativeSubtitles() {
+    if (hls) return;
+    const tracks = Array.from(video.textTracks);
+    if (subtitleChoice !== null) {
+      const selected = chosenSubtitle(tracks);
+      tracks.forEach(function (track, i) { track.mode = i === selected ? 'showing' : 'disabled'; });
+    }
+    subtitleOptions(tracks, tracks.findIndex(function (track) { return track.mode === 'showing'; }));
+  }
+  subtitleSelect.addEventListener('change', function () {
+    const tracks = hls ? hls.subtitleTracks : Array.from(video.textTracks);
+    const track = tracks[Number(subtitleSelect.value)];
+    subtitleChoice = track ? { name: trackName(track), language: trackLanguage(track) } : false;
+    if (hls) updateHLSSubtitles(); else updateNativeSubtitles();
+  });
+  video.textTracks.addEventListener('addtrack', updateNativeSubtitles);
+  video.textTracks.addEventListener('change', updateNativeSubtitles);
   const forced = params.get('mode') === 'hls';
   let lastPost = 0;
   let restoring = Number.isFinite(start) && start > 0;
@@ -114,14 +166,13 @@
       if (!data || !data.fatal) return;
       fail(data.details ? String(data.details) : '播放中断');
     });
+    hls.on(Hls.Events.MANIFEST_PARSED, function () { noteAudio(true); });
+    hls.on(Hls.Events.SUBTITLE_TRACKS_UPDATED, updateHLSSubtitles);
+    hls.on(Hls.Events.SUBTITLE_TRACK_SWITCH, function (_event, data) {
+      subtitleSelect.value = String(data.id);
+    });
     hls.loadSource(source.href);
     hls.attachMedia(video);
-    hls.on(Hls.Events.MANIFEST_PARSED, function () { noteAudio(true); });
-    // A subtitle group is only usable once its track is selected; the default
-    // track from DEFAULT=YES is not applied automatically here.
-    hls.on(Hls.Events.SUBTITLE_TRACKS_UPDATED, function () {
-      if (hls.subtitleTracks && hls.subtitleTracks.length && hls.subtitleTrack < 0) hls.subtitleTrack = 0;
-    });
   }
 
   video.addEventListener('timeupdate', function () { post(false); });

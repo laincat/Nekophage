@@ -6,9 +6,11 @@
 
 ## 字幕链路(2026-11-02)
 
-新增带 `EXT-X-MEDIA:TYPE=SUBTITLES` 的 HLS 夹具(`internal/player/testdata/hls-subs`)。真实 Windows WebView 中,播放器经媒体代理取到 `subs.m3u8` 与五个 `.vtt`(每条都带源声明的 Referer/Cookie,日志见 `E:/Temp/desktop-hls-subs-text.log`),HLS.js 把字幕轨设为 `showing`,读回 10 条 cue,首条文本正是夹具里的 `字幕渲染检查`;暂停 `2.007s` 重开恢复 `2.007s`。没有字幕组的素材得到 `cues=0` 并退出码 1(`E:/Temp/desktop-hls-subs-negative2.log`)。
+字幕组经媒体代理读取,请求带源声明的 Referer/Cookie。早期 `41a89da` 强制选第一条;本轮改为尊重 `DEFAULT=YES`,没有默认轨时关闭,并增加「字幕」语言/关闭选择框,在列表刷新时保留本页显式选择。
 
-播放器为此补了一处真实行为:`MANIFEST_PARSED` 后不会自动选中 `DEFAULT=YES` 的字幕轨,现在在 `SUBTITLE_TRACKS_UPDATED` 里选中第一条,否则轨存在但不下载 cue。**未验证**:像素级字幕排版(探针回读的是视频元素像素,不含文本轨叠加层)、字号/位置样式、macOS、iOS 与真实在线源的字幕;源接口若不提供 `SUBTITLES` 组则无字幕可显示。
+夹具将英文放第一条(`DEFAULT=NO`)、中文第二条(`DEFAULT=YES`)。真实 Windows WebView 的默认轨为中文,`activeSubtitleCues=2`、文本 `字幕渲染检查`、模式 `disabled,showing`,暂停 `2.103s` 后恢复 `2.103s`;日志 `E:/Temp/desktop-subtitle-choice-default.log`。两条都改为 `DEFAULT=NO` 的反例得到 `cues=0`、模式 `disabled,disabled`,未请求字幕清单/VTT,探针以退出码 1 结束(`E:/Temp/desktop-subtitle-no-default.log`)。探针现在只接受 showing 轨的活动 cue,可用 `-video-subs-text` 校验语言,停用轨的缓存 cue 不算通过。
+
+Lead 经真实窗口的「视频→搜索→详情→剧集→播放」操作看到中文字幕叠加,截图 `E:/Temp/desktop-subtitle-visible-window.png`,回执 `E:/Temp/desktop-subtitle-choice-receipt.json`。这补上了中文在该窗口中的像素证据。**仍未验证**:手动切换语言/关闭(桌面工具返回 `foreground_unavailable`,没有发送按键)、字号/位置样式、macOS、iOS 与真实在线字幕。`bcbe602` 的旧 0.2.2 包尚无本轮选择框;视频 canvas 截帧仍不包含字幕叠层。
 
 ## 音轨解码管线(2026-11-02)
 
@@ -44,7 +46,7 @@ H.264+AAC 的 fMP4 HLS 夹具在真实 Windows WebView 中播放后,`webkitAudio
 
 本轮修复:MP4 不再依赖浏览器的 HLS 能力选择解码器;保存与打开剧集共用同一完成判断,10 秒短片的两秒进度可续播;位置保留小数秒,HLS 等待 metadata 后恢复位置;「继续观看」使用历史所属源而非当前源选择器。媒体夹具及复跑命令见 [testdata](../internal/player/testdata/README.md),正式程序不依赖 FFmpeg。
 
-普通用户的视频源文件/URL 安装、重启恢复与视频读取取消的验收分别记录在前两节。**未验证**:字幕、画中画、macOS 实机运行、在线真实站点及音轨(HLS 夹具没有音轨)。本轮代码修复尚未包含在下文 `7dc3051` 的旧便携包中。
+普通用户的视频源文件/URL 安装、重启恢复与视频读取取消见前述记录;音轨解码、字幕活动文本及中文窗口显示分别有独立证据。**未验证**:字幕选择框的手动切换/关闭、画中画、macOS 实机运行、在线真实站点与扬声器输出。源安装、取消与早期字幕链路已在 `bcbe602` 的 0.2.2 包中;本轮字幕选择框尚未打入该包。
 
 ## 桌面视频媒体传输层(2026-11-02)
 

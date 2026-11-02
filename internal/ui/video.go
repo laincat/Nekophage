@@ -82,7 +82,7 @@ func (a *App) videoView(c *ui.Context) {
 	ui.Column(c).Fill().Children(func() {
 		ui.Column(c).Padding(16).Gap(8).Children(func() {
 			ui.Text(c, "视频").FontSize(16).Bold()
-			ui.Text(c, "搜索、打开详情并选择线路播放。播放请求经本机媒体代理转发,源站 Cookie 与请求头不进入页面。").FontSize(12).TextColor(t.TextMuted)
+			ui.Text(c, "选择视频源，搜索后打开详情，选择线路和剧集播放。").FontSize(12).TextColor(t.TextMuted)
 			if len(sources) == 0 {
 				ui.Text(c, "还没有可用的视频源。在「源管理」选择视频源或 Kazumi 规则,从链接或文件安装。").FontSize(12).TextColor(t.TextMuted)
 			}
@@ -534,16 +534,16 @@ func (a *App) runVideoProbe(query, out string, quit bool) {
 		}
 		decoder, _ := view.Page().Eval("document.getElementById('v').dataset.decoder || ''")
 		audioDeclared, _ := view.Page().Eval("document.getElementById('v').dataset.audioDeclared || 'unknown'")
-		// Cue text, not just a count: it shows the proxy returned the fixture's
-		// bytes rather than an empty but well-formed playlist. Rendering is the
-		// browser's job and is not read back here, because the frame capture
-		// copies video pixels and never the text-track overlay.
+		// Inspect active cues on the showing track. Cached cues on a disabled
+		// track cannot prove the right subtitles are selected at this time.
+		// Video frame readback excludes the browser's text-track overlay.
 		subtitleEval, _ := view.Page().Eval(`(function(v){
 			var cues = 0, text = '', modes = [];
 			for (var i = 0; i < v.textTracks.length; i++) {
 				var t = v.textTracks[i];
 				modes.push(t.mode);
-				var c = t.cues;
+				if (t.mode !== 'showing') continue;
+				var c = t.activeCues;
 				if (!c) continue;
 				cues += c.length;
 				if (!text && c.length) text = String(c[0].text || '').replace(/\s+/g, ' ').trim();
@@ -560,7 +560,11 @@ func (a *App) runVideoProbe(query, out string, quit bool) {
 		audioBytes, counterAvailable := audioCounter.(float64)
 		if a.dev.VideoRequireSubtitles {
 			if subtitleCues <= 0 || subtitleText == "" {
-				report(false, fmt.Sprintf("no subtitle text was loaded: cues=%v modes=%v", subtitleCues, subtitleModes))
+				report(false, fmt.Sprintf("no active subtitle text: cues=%v modes=%v", subtitleCues, subtitleModes))
+				return
+			}
+			if want := a.dev.VideoSubtitleText; want != "" && !strings.Contains(subtitleText, want) {
+				report(false, fmt.Sprintf("wrong subtitle: want=%q got=%q", want, subtitleText))
 				return
 			}
 		}
@@ -663,7 +667,7 @@ func (a *App) runVideoProbe(query, out string, quit bool) {
 			report(false, fmt.Sprintf("resume failed: saved=%.3f observed=%.3f", disk.Position, resumed))
 			return
 		}
-		report(true, fmt.Sprintf("frame=%s decoder=%v audioDeclared=%v audioDecodedBytes=%v subtitleCues=%v subtitle=%q subtitleModes=%v size=%vx%v duration=%.1f time=%.2f->%.2f disk=%s@%.3fs reopened=%.3fs",
+		report(true, fmt.Sprintf("frame=%s decoder=%v audioDeclared=%v audioDecodedBytes=%v activeSubtitleCues=%v subtitle=%q subtitleModes=%v size=%vx%v duration=%.1f time=%.2f->%.2f disk=%s@%.3fs reopened=%.3fs",
 			out, decoder, audioDeclared, audioCounter, subtitleCues, subtitleText, subtitleModes, after.W, after.H, after.Duration, before.Time, after.Time,
 			disk.EpisodeName, disk.Position, resumed))
 	}()

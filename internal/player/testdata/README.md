@@ -26,9 +26,9 @@ go run ./cmd/uicheck -dir /path/to/new-test-profile \
 
 探针要求真实解码的尺寸和自行前进的时钟,回读实际视频帧,用页面自己的暂停事件保存进度,重新读取磁盘书架,再通过「继续观看」恢复该位置。失败会以非零退出码结束。`-video-auth` 要求所有媒体请求带上声明的 Referer 和搜索时从 `/login` 获得的 Cookie;不满足会返回 403。每个媒体请求的路径、Range 与鉴权结果写入日志,不输出 Cookie 内容。
 
-`hls-audio/` 是同一片段的另一版:320×180、H.264 + AAC 立体声 48 kHz,仍是 fMP4 共享文件加 `BYTERANGE`。重建时把上一条命令里的 `-an` 换成 `-f lavfi -i sine=frequency=440:sample_rate=48000:duration=10 -shortest -c:a aac -b:a 64k -ac 2` 并把输出目录改为 `hls-audio/`(`hls_time`、分片参数保持一致)。它用于验证播放器确实处理了音轨:页面把 HLS.js 解析到的音轨/编解码器写进 `data-audio`,探针加 `-video-audio` 时要求为 `yes`,而纯视频夹具会得到 `no` 并以非零退出。这证明的是**解码管线看到并处理了音轨**,不是扬声器实际发声。
+`hls-audio/` 是同一片段的另一版:320×180、H.264 + AAC 立体声 48 kHz,仍是 fMP4 共享文件加 `BYTERANGE`。重建时把上一条命令里的 `-an` 换成 `-f lavfi -i sine=frequency=440:sample_rate=48000:duration=10 -shortest -c:a aac -b:a 64k -ac 2` 并把输出目录改为 `hls-audio/`(`hls_time`、分片参数保持一致)。探针 `-video-audio` 要求播放后的 `webkitAudioDecodedByteCount` 大于零;`data-audioDeclared` 仅记录清单元数据,不能证明解码。无音轨媒体即使在清单里声明 AAC,实际解码计数仍为 0 并以非零退出。这证明音频进入解码管线,未验证扬声器实际发声。
 
-`hls-subs/` 给同一视频加了字幕组:主清单用 `EXT-X-MEDIA:TYPE=SUBTITLES` 指向 `subs.m3u8`,五个 WebVTT 分片合计 10 条字幕,其中 `sub0.vtt` 另有一条 0→10 秒的长字幕,便于任何取样时刻都有文本。它验证的是字幕链路而不是排版:Core 会重写 `EXT-X-MEDIA` 的 URI,播放器按代理地址取到 `subs.m3u8` 与五个 `.vtt`(日志里可见 `auth=true`),HLS.js 把轨设为 `showing` 并把首条文本读回为 `字幕渲染检查`。用 `hls_subs_probe.js` 加 `-video-subs` 时要求字幕条数与文本都非空;没有字幕组的素材得到 0 并退出非零。
+`hls-subs/` 有两条字幕轨:英文在前且 `DEFAULT=NO`,中文在后且 `DEFAULT=YES`。中文 `subs.m3u8` 的五个 WebVTT 分片合计 10 条 cue,包括一条 0→10 秒的 `字幕渲染检查`;英文 `subs-en.m3u8` 使用 `sub-en.vtt`。这样“强制选第一条”的实现会选错语言。`hls_subs_probe.js -video-subs-text 字幕渲染检查` 要求当前 `showing` 轨在播放时刻有活动 cue,且文本匹配;不能用已缓存但停用的 cue 通过验证。把两条声明都改为 `DEFAULT=NO` 时应保持关闭,该探针以非零退出。真实窗口中文字叠加已另行截图,不由视频帧的 canvas 回读判定。
 
 `mp4-audio/` 是同一带音轨素材的非分片用法:把 `hls-audio/main.m3u8` 里的 `EXT-X-MAP` 初始化片段与全部 `EXT-X-BYTERANGE` 媒体分片按顺序拼成一个 `clip.mp4`(262,284 字节,SHA-256 `ed70a8687bbdaac74ef1342edc4bedf44c7c9ab67c15d7a56501dc5a332d7e59`),不需要重新编码。它让原生 MP4 解码路径也能被检查:用 `mp4_probe.js` 加 `-video-audio` 应得到 `decoder=native` 且解码字节数大于零;把 `hls/` 同样拼出的无音轨文件用作反例应得到 0 并以非零退出。
 
