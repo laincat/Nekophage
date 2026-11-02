@@ -97,6 +97,14 @@ go run ./cmd/readercheck -script internal/reader/testdata/loopback_source.js \
 	>"$out/reader-scroll.log" 2>&1 || rc=$?
 report "$rc" "reopening a chapter returns to its place" "$out/reader-scroll.log"
 
+# Video is the one path where a window can open and show nothing: the page has
+# to keep decoding, the position has to advance on its own, and the player has
+# to report progress. A local clip through the media proxy needs no site.
+rc=0
+go run ./cmd/videocheck -media internal/player/testdata/hls/stream.mp4 \
+	-out "$out/video.png" >"$out/video.log" 2>&1 || rc=$?
+report "$rc" "a local clip plays and reports progress" "$out/video.log"
+
 # A thread the source answers, in a window, with no network: the comment screen is
 # the one part of the source contract a capture tool can drive on its own.
 if [ -n "${NK_PROBE_SRC:-}" ]; then

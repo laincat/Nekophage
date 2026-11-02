@@ -52,6 +52,12 @@ Nekophage 的 pin 从 `214e7782` 升到 `8e14aad`,也就是包含 `b2610a5`(异�
 
 一个操作坑:在 bash 里直接 `./setup.exe /S` 会静默退出而不安装(参数被 shell 拧了),必须走 PowerShell 的 `Start-Process -ArgumentList '/S'`。日志 `E:/Temp/nk-package-head-build.log`。
 
+## 视频播放进入默认窗口套件(2026-11-03)
+
+`cmd/videocheck` 早就有,但只在手动跑。现在它进了 `scripts/desktop-probes.sh`:仓内夹具 `internal/player/testdata/hls/stream.mp4` 经媒体代理播放,判据是三条——位置**自己**前进(`currentTime` 两次读取递增)、页面没有错误文本、播放器在暂停时上报了进度。窗口截图只拍到原生层,所以证据是页面自己报的数字。
+
+实测:`readyState=4 videoWidth=320 duration=10.066667 time=2.0684 -> 4.0696 hls.js=1.7.4 err=""`,退出 0。窗口套件因此变成无外部变量 **10 PASS / 3 SKIP**,给齐变量 **16 PASS / 0 FAIL / 0 SKIP**。日志 `E:/Temp/nk-video-head.log`、`E:/Temp/nk-probes-with-video.log`。
+
 ## 进度上报与阅读位置进入默认窗口套件(2026-11-03)
 
 `-progress` 和 `-scroll` 原来只能手动跑。现在两者都用仓内夹具(readercheck 在 18731 供图),进了 `scripts/desktop-probes.sh`:
