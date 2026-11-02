@@ -9,6 +9,12 @@ The four CI jobs of Core's `6e07429` are green (three Go platforms plus Apple's 
 
 **Pin moved to `6e07429` (2026-11-01)**: Core gained the three standard AI entry points and the optional chunked transport (`HostStream`), and it fixed a deadlock in the package bridge — the package pushed to `__magpieChatPush` from inside its own hook while the reader stopped at the end marker, so the writer waited for a reader that had gone. The desktop client **does not implement `HostStream` yet**, so replies still arrive whole; `scripts/fetch-core.sh` has aligned `build/core` to that commit and `scripts/check-core-pin.sh` passes.
 
+## Windows portable-package acceptance (2026-11-02, commit `dbbaf0a`)
+
+`python scripts/package-windows.py` produced `build/releases/Nekophage-0.1.0-windows-amd64-dbbaf0a.zip` (20,755,698 bytes). ZIP CRC, per-file SHA-256 and extracted `-version` checks all passed, reporting Core `214e7782190d` and commit `dbbaf0a`. The extracted production executable was also launched with isolated APPDATA/LOCALAPPDATA in that child process only. The host window receipt confirmed the Nekophage title and search/browse/shelf/source-manager/AI controls; using its close button exited and the postcondition confirmed the window disappeared.
+
+This is an unsigned portable build, not an installer; nothing was published remotely. Window capture: `build/probes/package-dbbaf0a/packaged-window.png`; packaging log: `E:/Temp/windows-package-build.log`; UI receipt: `E:/Temp/windows-package-ui-receipt.json`. Evidence on this Windows host does not verify macOS or another Windows machine.
+
 ## Current Windows window rerun (2026-11-02, code `00a1055`)
 
 Using an independent test profile and loopback image fixture, `cmd/uicheck` displayed Probe Comic, its cover, tags and Chapter 1 in the native detail window and opened the reader. The on-disk `shelf.json` recorded `callback_probe / Chapter 1 / page 1`. An independent `cmd/readercheck` then verified `figures=1 images=1 decoded=1 first=8x8`. This is actual Windows-window and decoding evidence after the cancellation/cache changes; screenshot size is not used to infer reader contents, and a fixture does not establish current live-site availability.

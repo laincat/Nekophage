@@ -4,6 +4,12 @@
 
 更新:2026-10-31。下列结论来自 **Windows** 本机实测,包括真实漫画源与真实网络。当天新增的内容集中在三处:传输层重定向 Cookie 的真 bug(`CheckRoute` 读错了字段)、错误提示的中文化(与 iOS 同一规则:只翻认得的,其余保留 Core 原文)、以及 `live-sources.sh` 的重复跑与 `FLAKY` 分类。
 
+## Windows 便携包验收(2026-11-02,提交 `dbbaf0a`)
+
+`python scripts/package-windows.py` 生成 `build/releases/Nekophage-0.1.0-windows-amd64-dbbaf0a.zip`(20,755,698 字节)。ZIP CRC、逐文件 SHA-256、解压后 `-version` 全部通过,程序报告 Core `214e7782190d` 与提交 `dbbaf0a`。另直接启动解压后的正式程序,只在子进程中改用独立 APPDATA/LOCALAPPDATA:宿主窗口回执确认标题 Nekophage 及搜索/浏览/书架/漫画源/AI 控件存在,通过窗口关闭按钮退出且后置检查确认窗口消失。
+
+这是未签名便携包,不是安装程序,没有推送远端。窗口截图 `build/probes/package-dbbaf0a/packaged-window.png`;打包日志 `E:/Temp/windows-package-build.log`,界面回执 `E:/Temp/windows-package-ui-receipt.json`。Windows 本机证据不代表 macOS 或另一台 Windows 已验证。
+
 ## 当前 Windows 窗口复跑(2026-11-02,代码 `00a1055`)
 
 用独立测试 profile 与 loopback 图片夹具运行 `cmd/uicheck`:原生详情实际显示 `Probe Comic`、封面、标签与 Chapter 1,并打开阅读器。磁盘 `shelf.json` 读回 `callback_probe / Chapter 1 / page 1`。独立 `cmd/readercheck` 再次验证 `figures=1 images=1 decoded=1 first=8x8`。这是当前取消/缓存改动后的真实 Windows 窗口与解码证据,不使用截图体积推断阅读器内容;夹具不证明真实站点当前可用。
