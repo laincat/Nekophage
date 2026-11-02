@@ -1,8 +1,11 @@
 # Nekophage
 
-<img src="Assets/brand/nekophage-logo.png" alt="nekophage" width="720">
-
 English | [简体中文](README.md)
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/brand/nekophage-logo-dark.png">
+  <img src="docs/assets/brand/nekophage-logo.png" alt="Nekophage" width="720">
+</picture>
 
 The desktop companion of Nekularity: read comics from Venera-compatible sources, with video playback and authoring or publishing of extensions as later modules. Written in Go, with an interface [MyGo](https://github.com/egoist/mygo) draws; licensed GPL-3.0-or-later.
 

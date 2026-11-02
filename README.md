@@ -2,7 +2,10 @@
 
 [English](README.en.md) | 简体中文
 
-<img src="Assets/brand/nekophage-logo.png" alt="nekophage" width="720">
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/brand/nekophage-logo-dark.png">
+  <img src="docs/assets/brand/nekophage-logo.png" alt="Nekophage" width="720">
+</picture>
 
 Nekularity 的桌面端:用 Venera 兼容的漫画源阅读,并把视频播放与扩展的制作分发作为后续模块。Go 编写,界面由 [MyGo](https://github.com/egoist/mygo) 绘制,许可证 GPL-3.0-or-later。
 
