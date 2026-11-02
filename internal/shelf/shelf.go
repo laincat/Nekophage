@@ -107,19 +107,28 @@ type Folder struct {
 
 // Shelf is the profile's records. Safe for concurrent use.
 type Shelf struct {
-	mu       sync.Mutex
-	root     string
-	history  []History
-	folders  []Folder
-	pictures []ImageFavourite
-	videos   []VideoHistory
+	mu        sync.Mutex
+	root      string
+	history   []History
+	folders   []Folder
+	pictures  []ImageFavourite
+	videos    []VideoHistory
+	subtitles []videoSubtitleRecord
+}
+
+type videoSubtitleRecord struct {
+	Source    string        `json:"source"`
+	ItemID    string        `json:"itemId"`
+	EpisodeID string        `json:"episodeId,omitempty"`
+	Choice    VideoSubtitle `json:"choice"`
 }
 
 type file struct {
-	History  []History        `json:"history"`
-	Folders  []Folder         `json:"folders"`
-	Pictures []ImageFavourite `json:"pictures,omitempty"`
-	Videos   []VideoHistory   `json:"videos,omitempty"`
+	Subtitles []videoSubtitleRecord `json:"videoSubtitles,omitempty"`
+	History   []History             `json:"history"`
+	Folders   []Folder              `json:"folders"`
+	Pictures  []ImageFavourite      `json:"pictures,omitempty"`
+	Videos    []VideoHistory        `json:"videos,omitempty"`
 }
 
 // Open reads the profile's records; a profile without any starts empty.
@@ -141,6 +150,26 @@ func Open(root string) (*Shelf, error) {
 	}
 	s.history, s.folders, s.pictures = f.History, f.Folders, f.Pictures
 	s.videos = f.Videos
+	s.subtitles = f.Subtitles
+	// Migrate choices from the previous history-only format before a finished
+	// episode or history limit can discard the corresponding progress record.
+	for i := range s.videos {
+		v := &s.videos[i]
+		if v.Subtitle == nil {
+			continue
+		}
+		found := false
+		for _, entry := range s.subtitles {
+			if entry.Source == v.Source && entry.ItemID == v.ItemID && entry.EpisodeID == v.EpisodeID {
+				found = true
+				break
+			}
+		}
+		if !found {
+			s.subtitles = append(s.subtitles, videoSubtitleRecord{Source: v.Source, ItemID: v.ItemID, EpisodeID: v.EpisodeID, Choice: *v.Subtitle})
+		}
+		v.Subtitle = nil
+	}
 	return s, nil
 }
 
@@ -557,29 +586,49 @@ func (s *Shelf) RecordVideo(v VideoHistory) error {
 	return s.save()
 }
 
-// SetVideoSubtitle remembers the subtitle track chosen for an episode. It
-// updates an existing record and reports false for an episode the shelf does
-// not know yet, so a preference never creates history on its own.
+// SetVideoSubtitle stores a choice independently of playback history, including
+// when the viewer chooses a track before the first progress report.
 func (s *Shelf) SetVideoSubtitle(source, itemID, episodeID string, choice *VideoSubtitle) (bool, error) {
 	if source == "" || itemID == "" {
 		return false, errors.New("shelf: video history needs a source and an item")
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	out := s.subtitles[:0:0]
+	for _, e := range s.subtitles {
+		if e.Source != source || e.ItemID != itemID || e.EpisodeID != episodeID {
+			out = append(out, e)
+		}
+	}
+	if choice != nil {
+		out = append(out, videoSubtitleRecord{Source: source, ItemID: itemID, EpisodeID: episodeID, Choice: *choice})
+	}
+	s.subtitles = out
+	// Clear the old embedded representation so clearing a choice stays cleared.
 	for i := range s.videos {
 		e := &s.videos[i]
-		if e.Source != source || e.ItemID != itemID || e.EpisodeID != episodeID {
-			continue
-		}
-		if choice == nil {
+		if e.Source == source && e.ItemID == itemID && e.EpisodeID == episodeID {
 			e.Subtitle = nil
-		} else {
-			copy := *choice
-			e.Subtitle = &copy
 		}
-		return true, s.save()
 	}
-	return false, nil
+	return true, s.save()
+}
+
+// VideoSubtitle returns a saved choice, including choices from older history records.
+func (s *Shelf) VideoSubtitle(source, itemID, episodeID string) (VideoSubtitle, bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for _, e := range s.subtitles {
+		if e.Source == source && e.ItemID == itemID && e.EpisodeID == episodeID {
+			return e.Choice, true
+		}
+	}
+	for _, e := range s.videos {
+		if e.Source == source && e.ItemID == itemID && e.EpisodeID == episodeID && e.Subtitle != nil {
+			return *e.Subtitle, true
+		}
+	}
+	return VideoSubtitle{}, false
 }
 
 // VideoProgress returns the saved position of one episode.
@@ -654,7 +703,7 @@ func (s *Shelf) save() error {
 	if videos == nil {
 		videos = []VideoHistory{}
 	}
-	b, err := json.MarshalIndent(file{History: history, Folders: folders, Pictures: pictures, Videos: videos}, "", "  ")
+	b, err := json.MarshalIndent(file{History: history, Folders: folders, Pictures: pictures, Videos: videos, Subtitles: s.subtitles}, "", "  ")
 	if err != nil {
 		return err
 	}

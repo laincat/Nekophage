@@ -116,12 +116,7 @@ func main() {
 	}
 	meta := player.Meta{Source: "sub_check", ItemID: "clip", Title: "Local HLS clip",
 		LineID: "local", EpisodeID: "ep1", EpisodeName: "Episode 1"}
-	// A choice belongs to an episode already in history, as it does in the app.
-	if err := records.RecordVideo(shelf.VideoHistory{Source: meta.Source, ItemID: meta.ItemID,
-		Title: meta.Title, LineID: meta.LineID, EpisodeID: meta.EpisodeID,
-		EpisodeName: meta.EpisodeName, Position: 1, Duration: 10}); err != nil {
-		log.Fatal(err)
-	}
+	// Start with no playback history to exercise choosing before progress exists.
 
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
 	defer cancel()
@@ -161,12 +156,11 @@ func main() {
 	defer server.Close()
 	// The same two hooks internal/ui/video.go installs.
 	server.Subtitle = func(m player.Meta) (player.Subtitle, bool) {
-		record, ok := records.VideoProgress(m.Source, m.ItemID, m.EpisodeID)
-		if !ok || record.Subtitle == nil {
+		choice, ok := records.VideoSubtitle(m.Source, m.ItemID, m.EpisodeID)
+		if !ok {
 			return player.Subtitle{}, false
 		}
-		return player.Subtitle{Off: record.Subtitle.Off, Name: record.Subtitle.Name,
-			Language: record.Subtitle.Language}, true
+		return player.Subtitle{Off: choice.Off, Name: choice.Name, Language: choice.Language}, true
 	}
 	server.OnSubtitle = func(m player.Meta, choice player.Subtitle) {
 		if _, err := records.SetVideoSubtitle(m.Source, m.ItemID, m.EpisodeID,
@@ -254,9 +248,9 @@ func main() {
 		// The page reports the change to the app; wait for it to land.
 		stored := false
 		for deadline = time.Now().Add(10 * time.Second); time.Now().Before(deadline); {
-			if record, ok := records.VideoProgress(meta.Source, meta.ItemID, meta.EpisodeID); ok && record.Subtitle != nil {
+			if choice, ok := records.VideoSubtitle(meta.Source, meta.ItemID, meta.EpisodeID); ok {
 				stored = true
-				log.Printf("stored: %+v", *record.Subtitle)
+				log.Printf("stored: %+v", choice)
 				break
 			}
 			time.Sleep(300 * time.Millisecond)

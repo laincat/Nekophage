@@ -79,6 +79,29 @@ func TestVideoProgressSurvivesReopenAndReplacesThePosition(t *testing.T) {
 	}
 }
 
+func TestLegacySubtitleSurvivesFinishedEpisode(t *testing.T) {
+	root := t.TempDir()
+	legacy := `{"videos":[{"source":"probe","itemId":"show","episodeId":"ep1","subtitle":{"name":"English","language":"en"}}]}`
+	if err := os.WriteFile(filepath.Join(root, "shelf.json"), []byte(legacy), 0600); err != nil {
+		t.Fatal(err)
+	}
+	s, err := Open(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := s.ForgetVideo("probe", "show", "ep1"); err != nil {
+		t.Fatal(err)
+	}
+	reopened, err := Open(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	choice, ok := reopened.VideoSubtitle("probe", "show", "ep1")
+	if !ok || choice.Name != "English" || choice.Language != "en" {
+		t.Fatalf("legacy choice after finished episode: %+v, %v", choice, ok)
+	}
+}
+
 func TestVideoSubtitleSurvivesProgressAndReopen(t *testing.T) {
 	root := t.TempDir()
 	s, err := Open(root)
@@ -89,8 +112,8 @@ func TestVideoSubtitleSurvivesProgressAndReopen(t *testing.T) {
 		Position: 30, Duration: 600}); err != nil {
 		t.Fatal(err)
 	}
-	// A preference for an unknown episode must not create history on its own.
-	if ok, err := s.SetVideoSubtitle("probe", "show", "ep9", &VideoSubtitle{Name: "English"}); err != nil || ok {
+	// A preference for an unknown episode is saved without creating history.
+	if ok, err := s.SetVideoSubtitle("probe", "show", "ep9", &VideoSubtitle{Name: "English"}); err != nil || !ok {
 		t.Fatalf("unknown episode = %v, %v", ok, err)
 	}
 	if ok, err := s.SetVideoSubtitle("probe", "show", "ep1",
@@ -111,8 +134,9 @@ func TestVideoSubtitleSurvivesProgressAndReopen(t *testing.T) {
 	if !ok || got.Position != 90 {
 		t.Fatalf("progress after reopen = %+v, %v", got, ok)
 	}
-	if got.Subtitle == nil || got.Subtitle.Name != "English" || got.Subtitle.Language != "en" || got.Subtitle.Off {
-		t.Fatalf("subtitle after progress and reopen = %+v", got.Subtitle)
+	choice, ok := reopened.VideoSubtitle("probe", "show", "ep1")
+	if !ok || choice.Name != "English" || choice.Language != "en" || choice.Off {
+		t.Fatalf("subtitle after progress and reopen = %+v", choice)
 	}
 	// An explicit "off" is a choice, and it is distinguishable from unset.
 	if ok, err := reopened.SetVideoSubtitle("probe", "show", "ep1", &VideoSubtitle{Off: true}); err != nil || !ok {
@@ -122,11 +146,24 @@ func TestVideoSubtitleSurvivesProgressAndReopen(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	off, _ := again.VideoProgress("probe", "show", "ep1")
-	if off.Subtitle == nil || !off.Subtitle.Off || off.Subtitle.Name != "" {
-		t.Fatalf("off choice = %+v", off.Subtitle)
+	off, ok := again.VideoSubtitle("probe", "show", "ep1")
+	if !ok || !off.Off || off.Name != "" {
+		t.Fatalf("off choice = %+v", off)
 	}
-	if history := again.VideoHistory(0); len(history) != 1 {
+	if err := again.ForgetVideo("probe", "show", "ep1"); err != nil {
+		t.Fatal(err)
+	}
+	last, err := Open(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if saved, ok := last.VideoSubtitle("probe", "show", "ep1"); !ok || !saved.Off {
+		t.Fatalf("choice after removing progress = %+v, %v", saved, ok)
+	}
+	if saved, ok := last.VideoSubtitle("probe", "show", "ep9"); !ok || saved.Name != "English" {
+		t.Fatalf("first-play choice = %+v, %v", saved, ok)
+	}
+	if history := again.VideoHistory(0); len(history) != 0 {
 		t.Fatalf("a preference created history: %+v", history)
 	}
 }
