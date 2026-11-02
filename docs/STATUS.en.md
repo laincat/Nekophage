@@ -25,6 +25,17 @@ Launch check: after `open build/macos/Nekophage.app` the process exists, and Cor
 
 The round also found and fixed an environment defect: pointing `fetch-core.sh` at an external Core checkout still hit go.mod's `./build/core` replacement and failed to build. The workspace now carries a `go work edit -replace`, and external mode skips `go mod tidy` with the reason stated; both modes were rechecked (external fetch/build/test pass, and the default path still fetches the pin and passes `check.sh`), commit `16025c4`. Limits: this is a development build, not a release artifact; playback, subtitles and live sites were not exercised inside this `.app`.
 
+## The Windows package after the pin move (2026-11-03)
+
+Rebuilt on `daf55ac` (Core `8e14aad`) and installed once more:
+
+| artefact | bytes | SHA-256 |
+|---|---|---|
+| `…-windows-amd64-daf55ac.zip` | 21,561,961 | `d7dc173b…4d79bf` |
+| `…-windows-amd64-daf55ac-setup.exe` | 18,716,090 | `b70d7799…fec015` |
+
+`Start-Process setup.exe -ArgumentList '/S' -Wait` exits 0; the installed binary reports `Nekophage 0.2.7`, `Core 8e14aade75f563a95f50d4ec80be27bae0d02c63` and commit `daf55ac`, matching the file name; `Uninstall.exe /S` exits 0 and the install directory is gone three seconds later while `APPDATA/Nekophage` stays. The earlier package (`5c5ce67`) recorded Core `214e7782`; both are real artefacts of their own commits and neither stands in for the other. Log `E:/Temp/nk-package-pin-build.log`.
+
 ## The Core pin moved to `8e14aad` (2026-11-03)
 
 Nekophage's pin goes from `214e7782` to `8e14aad`, the Core commit that carries `b2610a5` (async rejections keep their error name). The rule was to roll production changes into the next client build, and this is that moment.

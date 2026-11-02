@@ -20,6 +20,17 @@
 
 这一轮还暴露并修掉了一个环境缺陷:`fetch-core.sh` 传外部 Core 路径时,`go.mod` 里指向 `./build/core` 的 replace 仍生效,构建直接失败。现在工作区改用 `go work edit -replace`,外部模式跳过 `go mod tidy` 并说明原因;两种模式都复验过(外部 fetch/build/test 通过,默认模式仍取到 pin 并通过 `check.sh`),提交 `16025c4`。限制:这是开发构建打包,不是发布产物;播放、字幕与真实站点未在这个 `.app` 内验证。
 
+## 升 pin 后的 Windows 包(2026-11-03)
+
+`daf55ac`(Core `8e14aad`)上重打并装了一遍:
+
+| 产物 | 字节 | SHA-256 |
+|---|---|---|
+| `…-windows-amd64-daf55ac.zip` | 21,561,961 | `d7dc173b…4d79bf` |
+| `…-windows-amd64-daf55ac-setup.exe` | 18,716,090 | `b70d7799…fec015` |
+
+`Start-Process setup.exe -ArgumentList '/S' -Wait` 退出 0;装出来的可执行自报 `Nekophage 0.2.7`、`Core 8e14aade75f563a95f50d4ec80be27bae0d02c63`、commit `daf55ac`,与包名一致;`Uninstall.exe /S` 退出 0,三秒后安装目录消失,`APPDATA/Nekophage` 保留。前一份包(`5c5ce67`)记录的是 Core `214e7782`,两份都是各自提交上的真实产物,不互相替代。日志 `E:/Temp/nk-package-pin-build.log`。
+
 ## Core pin 推到 `8e14aad`(2026-11-03)
 
 Nekophage 的 pin 从 `214e7782` 升到 `8e14aad`,也就是包含 `b2610a5`(异步 `rejection` 保留错误名)的那个 Core 提交。按既定规则,生产改动在下一次客户端构建时随版本升 pin,这次正是那个时点。
