@@ -82,6 +82,7 @@ func main() {
 	videoMedia := flag.String("video-media", "", "MP4 or fixture directory to serve on 127.0.0.1:18732")
 	videoAuth := flag.Bool("video-auth", false, "require fixture Referer and a Cookie obtained at /login for every media request")
 	videoHLS := flag.Bool("video-hlsjs", false, "verify the bundled HLS.js decoder even where native HLS is available")
+	videoNative := flag.Bool("video-native", false, "force the browser's own HLS decoder, to exercise the fallback")
 	videoAudio := flag.Bool("video-audio", false, "require a positive decoded-audio byte counter after playback")
 	videoSubs := flag.Bool("video-subs", false, "require active subtitle text on a showing track")
 	videoSubsText := flag.String("video-subs-text", "", "require this text in the active subtitle cue")
@@ -155,7 +156,7 @@ func main() {
 		Tag:      *tag,
 		KeepPage: *keepPage, Favourite: *favourite, OpenSettings: *settingsShot, BackupCookies: *backupCookies,
 		SetSetting: *setSetting, AI: *aiShot, AITest: *aiTest, AIPrompt: *aiPrompt, AIModel: *aiModel,
-		Video: *videoQuery, VideoOut: *videoFrame, VideoQuit: *videoQuery != "", VideoForceHLS: *videoHLS, VideoRequireAudio: *videoAudio, VideoRequireSubtitles: *videoSubs || *videoSubsText != "", VideoSubtitleText: *videoSubsText})
+		Video: *videoQuery, VideoOut: *videoFrame, VideoQuit: *videoQuery != "", VideoForceHLS: *videoHLS, VideoForceNative: *videoNative, VideoRequireAudio: *videoAudio, VideoRequireSubtitles: *videoSubs || *videoSubsText != "", VideoSubtitleText: *videoSubsText})
 
 	if *videoMedia != "" {
 		stop, err := serveMedia(*videoMedia, "127.0.0.1:18732", *videoAuth)

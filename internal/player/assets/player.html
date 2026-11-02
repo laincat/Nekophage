@@ -96,7 +96,7 @@
   });
   video.textTracks.addEventListener('addtrack', updateNativeSubtitles);
   video.textTracks.addEventListener('change', updateNativeSubtitles);
-  const forced = params.get('mode') === 'hls';
+  const forced = params.get('mode') || '';
   let lastPost = 0;
   let restoring = Number.isFinite(start) && start > 0;
   const source = new URL(src, location.href);
@@ -143,21 +143,20 @@
       keepalive: true }).catch(function () { /* progress is best effort */ });
   }
 
-  function nativeHLS() {
-    return video.canPlayType('application/vnd.apple.mpegurl') !== '';
-  }
-
   function play() {
     if (!src) { fail('没有可播放的媒体地址'); return; }
-    if (format !== 'hls' || (!forced && nativeHLS())) {
+    // Native HLS is not preferred. WebView2's native path ignores EXT-X-MEDIA
+    // subtitle groups, so the same source played with or without subtitles
+    // depending on the engine. The bundled HLS.js covers both; native remains
+    // only as a fallback when HLS.js cannot run here.
+    // `mode=native` exists so the fallback can still be exercised by the probe.
+    const useHLS = format === 'hls' && forced !== 'native' &&
+      typeof Hls !== 'undefined' && Hls.isSupported();
+    if (!useHLS) {
       video.dataset.decoder = 'native';
       video.src = source.href;
       video.addEventListener('error', function () { fail('这个格式在这里无法解码'); });
       video.addEventListener('loadedmetadata', function () { noteAudio(false); }, { once: true });
-      return;
-    }
-    if (typeof Hls === 'undefined' || !Hls.isSupported()) {
-      fail(nativeHLS() ? 'HLS.js 不可用' : '这个格式在这里无法解码');
       return;
     }
     video.dataset.decoder = 'hls.js';

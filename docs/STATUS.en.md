@@ -11,6 +11,8 @@ The four CI jobs of Core's `6e07429` are green (three Go platforms plus Apple's 
 
 ## Subtitle delivery (2026-11-02)
 
+Previously the default was the browser's own HLS: the same fixture in an actual WebView **requested no `subs.m3u8` and had no subtitle track at all** (`decoder=native`, `activeSubtitleCues=0`), while forcing HLS.js worked. That is a product defect, not a fixture problem — WebView2's native HLS ignores `EXT-X-MEDIA` subtitle groups. HLS sessions now prefer the bundled HLS.js and fall back to native only when HLS.js cannot run; `-video-native` still exercises the fallback, where missing subtitles are an accepted, recorded limitation. The default path measures `decoder=hls.js`, `activeSubtitleCues=2` and a `2.006s` resume (`E:/Temp/desktop-subtitle-prefer-hls.log`).
+
 Subtitle groups load through the media proxy with source Referer/Cookie headers. Early `41a89da` forced the first track; this round respects `DEFAULT=YES`, keeps subtitles off when there is no default, and adds a subtitle language/Off selector that retains an explicit choice within the page across track-list updates.
 
 The fixture puts English first (`DEFAULT=NO`) and Chinese second (`DEFAULT=YES`). The actual Windows WebView defaults to Chinese: `activeSubtitleCues=2`, text `字幕渲染检查`, modes `disabled,showing`, and paused `2.103s` resumes at `2.103s` (`E:/Temp/desktop-subtitle-choice-default.log`). With both tracks changed to `DEFAULT=NO`, the negative control reports `cues=0`, modes `disabled,disabled`, makes no subtitle playlist/VTT request and exits 1 (`E:/Temp/desktop-subtitle-no-default.log`). The probe now accepts only active cues on showing tracks; `-video-subs-text` can check the language, so cached cues on disabled tracks cannot pass.

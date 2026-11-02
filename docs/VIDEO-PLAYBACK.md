@@ -10,7 +10,7 @@
 
 主窗口「视频」已接到搜索/详情/线路分集/播放。Windows 真实 WebView 已验证原生 MP4(`640×360`)与内置 HLS.js 1.7.4(`320×180`):实际视频帧回读、时钟前进、Referer/Cookie、HLS 主/子清单和 fMP4 字节范围、页面暂停落盘与重新打开续播。HLS 夹具和命令在 [testdata](../internal/player/testdata/README.md);无音轨与带 AAC 音轨两份都已验证,后者在 HLS.js 与原生 MP4 两条路径上分别实读 `18537` 与 `17802` 个解码音频字节(`E:/Temp/desktop-audio-decoded-counter.log`、`E:/Temp/desktop-mp4-audio-native.log`),无音轨反例均为 0 且探针非零退出。HLS 日志 `E:/Temp/desktop-hls-browser-playback.log`,原生 MP4 日志 `E:/Temp/desktop-mp4-auth-real-resume.log`。
 
-已移除探针残留的手工 `3s` 进度 POST,失败改为非零退出;保存和续播使用同一个完成判断,保留小数秒。普通源管理已接类型选择、文件/URL 安装与持久化,真实 Windows 原生 UI 安装后关闭/重启仍能选择视频源,恢复后的 HLS 播放通过。视频搜索/分页、详情和播放准备已分代取消,慢 HTTP 的真实断连与下一次读取成功有竞态测试,迟到播放地址在主线程再次判定归属;HLS 默认字幕的选择、活动文本与中文窗口叠加已验证;字幕选择框支持语言与关闭,手动操作因桌面工具 `foreground_unavailable` 尚未验收。PiP、macOS 与真实在线站点仍待验证;音轨只验证到解码字节计数,未验证扬声器实际输出。嗅探、DRM 和 DASH 明确不支持。
+已移除探针残留的手工 `3s` 进度 POST,失败改为非零退出;保存和续播使用同一个完成判断,保留小数秒。普通源管理已接类型选择、文件/URL 安装与持久化,真实 Windows 原生 UI 安装后关闭/重启仍能选择视频源,恢复后的 HLS 播放通过。视频搜索/分页、详情和播放准备已分代取消,慢 HTTP 的真实断连与下一次读取成功有竞态测试,迟到播放地址在主线程再次判定归属;HLS 会话改为优先内置 HLS.js(原生 HLS 会丢掉 `EXT-X-MEDIA` 字幕组,实测不请求字幕清单),回退原生路径仅作兜底且无字幕;默认路径的字幕选择、活动文本与中文窗口叠加已验证;字幕选择框支持语言与关闭,手动操作因桌面工具 `foreground_unavailable` 尚未验收。PiP、macOS 与真实在线站点仍待验证;音轨只验证到解码字节计数,未验证扬声器实际输出。嗅探、DRM 和 DASH 明确不支持。
 
 ## 现在已有的东西
 

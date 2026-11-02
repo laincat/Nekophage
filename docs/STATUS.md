@@ -6,6 +6,8 @@
 
 ## 字幕链路(2026-11-02)
 
+此前默认走浏览器原生 HLS:同一夹具在真实 WebView 中**既不请求 `subs.m3u8` 也没有任何字幕轨**(`decoder=native`,`activeSubtitleCues=0`),而强制 HLS.js 时字幕正常。这是产品缺陷而非夹具问题——WebView2 的原生 HLS 忽略 `EXT-X-MEDIA` 字幕组。现在 HLS 会话一律优先内置 HLS.js,只在 HLS.js 不可用时回退原生;`-video-native` 仍可复现回退路径,该路径无字幕是有意接受、并已记录的限制。默认路径实测 `decoder=hls.js`、`activeSubtitleCues=2`、`2.006s` 续播(`E:/Temp/desktop-subtitle-prefer-hls.log`)。
+
 字幕组经媒体代理读取,请求带源声明的 Referer/Cookie。早期 `41a89da` 强制选第一条;本轮改为尊重 `DEFAULT=YES`,没有默认轨时关闭,并增加「字幕」语言/关闭选择框,在列表刷新时保留本页显式选择。
 
 夹具将英文放第一条(`DEFAULT=NO`)、中文第二条(`DEFAULT=YES`)。真实 Windows WebView 的默认轨为中文,`activeSubtitleCues=2`、文本 `字幕渲染检查`、模式 `disabled,showing`,暂停 `2.103s` 后恢复 `2.103s`;日志 `E:/Temp/desktop-subtitle-choice-default.log`。两条都改为 `DEFAULT=NO` 的反例得到 `cues=0`、模式 `disabled,disabled`,未请求字幕清单/VTT,探针以退出码 1 结束(`E:/Temp/desktop-subtitle-no-default.log`)。探针现在只接受 showing 轨的活动 cue,可用 `-video-subs-text` 校验语言,停用轨的缓存 cue 不算通过。

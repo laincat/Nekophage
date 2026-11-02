@@ -253,6 +253,9 @@ type DevOptions struct {
 	// VideoForceHLS uses the bundled HLS.js decoder in a playback probe even
 	// when the WebView also reports native HLS support.
 	VideoForceHLS bool
+	// VideoForceNative forces the browser's own HLS decoder, to check the
+	// fallback used only where HLS.js cannot run.
+	VideoForceNative bool
 	// AIPrompt, with -ai, sends this text once the connection and the
 	// catalogue are in, so a capture shows a real streamed answer.
 	AIPrompt string

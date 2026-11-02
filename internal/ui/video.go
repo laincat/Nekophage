@@ -342,6 +342,9 @@ func (a *App) openPlayer(play *video.Play, meta player.Meta, title string, start
 	if a.dev.VideoForceHLS {
 		pageURL += "&mode=hls"
 	}
+	if a.dev.VideoForceNative {
+		pageURL += "&mode=native"
+	}
 	if err := a.playerView.Page().LoadURL(pageURL); err != nil {
 		return err
 	}
