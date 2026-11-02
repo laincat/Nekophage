@@ -748,6 +748,12 @@ Cookie 字段名(`ipb_member_id` 等)**不翻译**:那是 Cookie 名,不是界�
 | `manwaba` | 封面「不是图片」 | **实测**:取回那张 13328 字节的封面,`Content-Type: image/jpeg` 但首字节是 `aa254a…` 而不是 `ffd8`,即站点返回的是加密/混淆字节。客户端拒绝把它当图片是对的 |
 | `mh1234` | `Cannot read properties of null` | 源脚本解析站点结构时期望的元素不存在,属源侧脆弱 |
 
+## 十二项窗口探针在字幕上限提交上复跑(2026-11-03,提交 `cc85ad9`)
+
+字幕记录上限合入后,用四个环境变量跑了一遍真实窗口探针(`NK_OFFICIAL_SRC` + `NK_PROBE_SRC` + `NK_FAV_SRC` + `NK_READ_SRC`):**exit=0,PASS=12,FAIL=0,SKIP=0**,日志 `E:/Temp/nk-desk-probes-full-cc85ad9.log`。覆盖登录窗口(成功/超时/回调失败/迟到 Cookie/关闭)、挑战页、关闭源对话框释放调用方、关闭窗口后仍接更新与取页、源收藏列表、阅读器解码 loopback 页面、评论线程、浏览分区跟随声明、阅读落书架、分类页绘制与加载,以及 34 份官方脚本的回调与标签契约。同一提交的 `scripts/check.sh` 也通过(`E:/Temp/nk-desk-check-shelf.log`)。
+
+这是开发构建的真实 WebView2 窗口,不是 0.2.6 安装包内的可执行文件;夹具与官方脚本均为本地文件,不涉及在线站点或账号。
+
 ## 十二项全部通过,无一跳过(2026-11-01)
 
 四个环境变量全给(`NK_OFFICIAL_SRC` + `NK_PROBE_SRC` + `NK_FAV_SRC` + `NK_READ_SRC`)的一次完整运行:
