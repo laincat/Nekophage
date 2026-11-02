@@ -46,6 +46,7 @@ func main() {
 	favorites := flag.Bool("favorites", false, "capture the source's own favorites")
 	servePort := flag.Int("serve", 0, "also serve one PNG on this port, for a source whose chapter points at loopback")
 	expect := flag.String("expect", "", "fail unless the first result's title contains this")
+	expectDetail := flag.String("expect-detail", "", "fail unless the opened comic's title contains this and it lists chapters")
 	callback := flag.String("callback", "", "run one of the source's setting callbacks")
 	tag := flag.String("tag", "", "press a tag on the opened comic, as namespace|tag")
 	dialogShot := flag.Bool("dialog", false, "open a source dialog window and capture it")
@@ -204,6 +205,17 @@ func main() {
 				log.Printf("capture: %s (%d bytes)", *out, len(data))
 			}
 			shotErr = inspect(data)
+			if *openFirst {
+				title, chapters, errText := app.DetailForCheck()
+				log.Printf("detail: title=%q chapters=%d err=%q", title, chapters, errText)
+				if *expectDetail != "" {
+					if !strings.Contains(title, *expectDetail) {
+						shotErr = fmt.Errorf("detail title %q does not contain %q", title, *expectDetail)
+					} else if chapters == 0 {
+						shotErr = fmt.Errorf("the detail page lists no chapters")
+					}
+				}
+			}
 			if *expect != "" {
 				// A grid that renders and a grid that found nothing capture to
 				// almost the same size, so the count and the first title are what

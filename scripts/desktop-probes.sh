@@ -118,9 +118,9 @@ report "$rc" "a subtitle choice survives reopening" "$out/subtitle.log"
 # many results the window holds and what the first one is called.
 rc=0
 go run ./cmd/uicheck -script internal/reader/testdata/loopback_source.js \
-	-query probe -serve 18731 -open -expect "Loopback Comic" \
+	-query probe -serve 18731 -open -expect "Loopback Comic" -expect-detail "Loopback Comic" \
 	-out "$out/search.png" >"$out/search.log" 2>&1 || rc=$?
-report "$rc" "a search finds the fixture comic in the window" "$out/search.log"
+report "$rc" "a search opens a comic whose detail lists its chapters" "$out/search.log"
 
 # A thread the source answers, in a window, with no network: the comment screen is
 # the one part of the source contract a capture tool can drive on its own.

@@ -1991,6 +1991,17 @@ func (a *App) CategoryForCheck() (parts, values, page, comics int, errText strin
 	return parts, values, page, comics, a.errText
 }
 
+// DetailForCheck reports what the detail page is showing: the title it loaded and
+// how many chapters it lists. A page whose load failed draws an empty list, which
+// a capture cannot tell from a comic that genuinely has no chapters.
+func (a *App) DetailForCheck() (title string, chapters int, errText string) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	title = a.detailComic.Title
+	chapters = len(a.detail.Chapters)
+	return title, chapters, a.errText
+}
+
 // SearchForCheck reports what the results grid holds: how many comics the last
 // search produced, the title of the first, and the sentence shown when it failed.
 // A capture cannot tell a rendered grid from an empty one, so a tool needs the

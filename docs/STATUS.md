@@ -61,7 +61,9 @@ Nekophage 的 pin 从 `214e7782` 升到 `8e14aad`,也就是包含 `b2610a5`(异�
 
 两个方向都实测过:`-expect 'Loopback Comic'` → `search: count=1 first="Loopback Comic" err=""`、退出 0;`-expect 'Nonexistent Title'` → `first result "Loopback Comic" does not contain "Nonexistent Title"`、退出 1。
 
-窗口套件因此变成无外部变量 **12 PASS / 3 SKIP**,给齐变量 **16 PASS / 0 FAIL / 0 SKIP**。日志 `E:/Temp/nk-uicheck-ok.log`、`E:/Temp/nk-uicheck-neg.log`、`E:/Temp/nk-probes-with-search.log`。
+同一条检查还打开了第一部漫画,判据是详情页**自己报告**的标题与章节数:`detail: title="Loopback Comic" chapters=1 err=""`;`-expect-detail 'Wrong Comic'` 会以 `detail title "Loopback Comic" does not contain "Wrong Comic"` 非零退出。空白详情页与「这部漫画没有章节」截图几乎一样,所以只看图不算数。
+
+窗口套件因此保持无外部变量 **12 PASS / 3 SKIP**(断言加在既有条目里),给齐变量 **16 PASS / 0 FAIL / 0 SKIP**。日志 `E:/Temp/nk-uicheck-ok.log`、`E:/Temp/nk-uicheck-neg.log`、`E:/Temp/nk-detail-ok.log`、`E:/Temp/nk-detail-neg.log`、`E:/Temp/nk-probes-detail.log`。
 
 ## 字幕选择进入默认窗口套件(2026-11-03)
 

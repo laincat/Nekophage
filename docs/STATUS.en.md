@@ -66,7 +66,9 @@ Last round I set `uicheck` aside as a check that could only ever be green: it ca
 
 Both directions were measured: `-expect 'Loopback Comic'` gives `search: count=1 first="Loopback Comic" err=""` and exit 0; `-expect 'Nonexistent Title'` gives `first result "Loopback Comic" does not contain "Nonexistent Title"` and exit 1.
 
-The window suite is therefore **12 PASS / 3 SKIP** with no external variables and **16 PASS / 0 FAIL / 0 SKIP** with all of them. Logs `E:/Temp/nk-uicheck-ok.log`, `E:/Temp/nk-uicheck-neg.log` and `E:/Temp/nk-probes-with-search.log`.
+The same check now opens the first comic as well, and the detail page has to report its own title and chapter count: `detail: title="Loopback Comic" chapters=1 err=""`; `-expect-detail 'Wrong Comic'` exits non-zero with `detail title "Loopback Comic" does not contain "Wrong Comic"`. An empty detail page and a comic with no chapters capture to nearly the same picture, so the picture is not the evidence.
+
+The window suite therefore stays at **12 PASS / 3 SKIP** with no external variables (the assertion went into the existing entry) and **16 PASS / 0 FAIL / 0 SKIP** with all of them. Logs `E:/Temp/nk-uicheck-ok.log`, `E:/Temp/nk-uicheck-neg.log`, `E:/Temp/nk-detail-ok.log`, `E:/Temp/nk-detail-neg.log` and `E:/Temp/nk-probes-detail.log`.
 
 ## The subtitle choice joins the default window suite (2026-11-03)
 
