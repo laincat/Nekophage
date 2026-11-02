@@ -4,6 +4,12 @@
 
 更新:2026-11-02。以下按章节区分 Windows 真实站点、loopback 媒体夹具、原生窗口与单测的证据。最新一轮完成 HLS.js 与原生 MP4 的真实解码、页面暂停落盘和重新打开续播;不以本地夹具代替真实账号或站点验证。
 
+## Windows 0.2.5 本地测试包(2026-11-03,提交 `e1c2da4`)
+
+已把字幕偏好独立存储及迁移修复打包:便携 ZIP `21,556,043` 字节,SHA-256 `a43520be5753c7d983a151f681b4c5fbd287a47cf581950ea08740534bda2e6e`;setup `18,711,551` 字节,SHA-256 `e7db5370ec9a3d948a08680fde552cc4b7fd08a4809df5edbc783384c887980e`。`package-windows.py` 的 ZIP CRC、逐文件哈希、解压程序版本检查通过;隔离 `/S /NOREGISTER` 安装后的程序报 0.2.5、Core `214e7782`、提交 `e1c2da4`。真实安装包窗口完成视频搜索→详情→第 1 集→中文字幕显示,截图 `E:/Temp/desktop-package-025-dropdown.png`;Range、字幕清单/VTT 请求的本地鉴权日志均为 auth=true。
+
+用户要求底层优先后停止进一步界面操作。包内语言切换和偏好恢复未完成验收,不沿用开发工具的通过结论。任务窗口已关闭、进程退出、夹具停止、安装目录卸载且隔离 APPDATA 标记保留,日志 `E:/Temp/nk-package-025-cleanup.log`;回执 `E:/Temp/nk-package-025-acceptance/receipt.json`。包未签名,仅本地交付,没有远端发布;SmartScreen、无 WebView2、macOS 和 iOS 不在本轮范围。
+
 ## Windows 0.2.4 安装包(2026-11-02,提交 `29bab49`)
 
 便携 ZIP `21,547,137` 字节,SHA-256 `da5098c58b519c91544e6d5decee79a690cbf0a501d518f8347df0c4f04f336c`;按用户 setup `18,705,377` 字节,SHA-256 `f089f62aa5429ffee6a8adc345fe044f3f048d11f8dce5d04661c9dafb55e105`。回执 `E:/Temp/desktop-package-0.2.4-receipt.json`。

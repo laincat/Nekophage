@@ -9,6 +9,12 @@ The four CI jobs of Core's `6e07429` are green (three Go platforms plus Apple's 
 
 **Pin moved to `6e07429` (2026-11-01)**: Core gained the three standard AI entry points and the optional chunked transport (`HostStream`), and it fixed a deadlock in the package bridge — the package pushed to `__magpieChatPush` from inside its own hook while the reader stopped at the end marker, so the writer waited for a reader that had gone. The desktop client **does not implement `HostStream` yet**, so replies still arrive whole; `scripts/fetch-core.sh` has aligned `build/core` to that commit and `scripts/check-core-pin.sh` passes.
 
+## Windows 0.2.5 local test package (2026-11-03, commit `e1c2da4`)
+
+Packages the independent subtitle-preference storage and migration fixes: portable ZIP **21,556,043 bytes**, SHA-256 `a43520be5753c7d983a151f681b4c5fbd287a47cf581950ea08740534bda2e6e`; setup **18,711,551 bytes**, SHA-256 `e7db5370ec9a3d948a08680fde552cc4b7fd08a4809df5edbc783384c887980e`. `package-windows.py` passes ZIP CRC, extracted-file hashes and executable version checks. The isolated `/S /NOREGISTER` installation reports 0.2.5, Core `214e7782`, commit `e1c2da4`. The actual installed window completed video search, details, Episode 1 and visible Chinese subtitles (`E:/Temp/desktop-package-025-dropdown.png`); local Range, subtitle playlist and VTT requests all logged auth=true.
+
+Further interface operation stopped when the user prioritized underlying work. Packaged language switching and preference restoration remain unverified and do not inherit development-tool results. Task windows closed, the app exited, the fixture stopped, uninstall removed the install directory and retained the isolated APPDATA marker (`E:/Temp/nk-package-025-cleanup.log`); receipt `E:/Temp/nk-package-025-acceptance/receipt.json`. The unsigned package is delivered locally only, with no remote publication; SmartScreen, missing WebView2, macOS and iOS are outside this round.
+
 ## Windows 0.2.4 package (2026-11-02, commit `29bab49`)
 
 Portable ZIP `21,547,137` bytes, SHA-256 `da5098c58b519c91544e6d5decee79a690cbf0a501d518f8347df0c4f04f336c`; per-user setup `18,705,377` bytes, SHA-256 `f089f62aa5429ffee6a8adc345fe044f3f048d11f8dce5d04661c9dafb55e105`. Receipt: `E:/Temp/desktop-package-0.2.4-receipt.json`.
