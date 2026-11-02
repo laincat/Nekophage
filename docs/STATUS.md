@@ -20,6 +20,12 @@
 
 这一轮还暴露并修掉了一个环境缺陷:`fetch-core.sh` 传外部 Core 路径时,`go.mod` 里指向 `./build/core` 的 replace 仍生效,构建直接失败。现在工作区改用 `go work edit -replace`,外部模式跳过 `go mod tidy` 并说明原因;两种模式都复验过(外部 fetch/build/test 通过,默认模式仍取到 pin 并通过 `check.sh`),提交 `16025c4`。限制:这是开发构建打包,不是发布产物;播放、字幕与真实站点未在这个 `.app` 内验证。
 
+## 夹具页改成可滚动尺寸(2026-11-03)
+
+`probesite.ServeOnePage` 原来供一张 8×8 的 PNG:读者能解码,但一页比窗口矮,读位置永远是 0,`-progress` 与 `-scroll` 只能证明上报链路,证明不了「位置被记住」。现在供 **320×1200** 的页(每 100 行一条色带,截图里能看出滚到哪),单测断言文档高度与宽度。
+
+本地复跑(`callback_probe.js`、`-serve 18731`):`decoded=1 first=320x1200`;`-progress` 得到 `y=1335 h=3388`、HTTP 200;`-scroll` 重开章节后 **scrollY=1200**,说明位置真的被保存并恢复,而不是恒等于顶部的 0。日志 `E:/Temp/nk-reader-tall.log`、`E:/Temp/nk-reader-scroll.log`。
+
 ## macOS 阅读主线(2026-11-03,提交 `3c42463`)
 
 仓库没有远端,代码以 git bundle 经私有 gist 传到 Mac(base64 `3,190,624` 字节,SHA-256 `093cbfc4…c2e3a173`;bundle `2,392,967` 字节)。`git bundle verify` 通过,clone 后 HEAD 为 `3c42463`,Core 由 `scripts/fetch-core.sh` 取到 pin `214e7782`。macOS 27.0.1 arm64 / Go 1.27.3 上 `go build ./...` 通过。

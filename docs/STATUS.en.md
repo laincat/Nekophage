@@ -25,6 +25,12 @@ Launch check: after `open build/macos/Nekophage.app` the process exists, and Cor
 
 The round also found and fixed an environment defect: pointing `fetch-core.sh` at an external Core checkout still hit go.mod's `./build/core` replacement and failed to build. The workspace now carries a `go work edit -replace`, and external mode skips `go mod tidy` with the reason stated; both modes were rechecked (external fetch/build/test pass, and the default path still fetches the pin and passes `check.sh`), commit `16025c4`. Limits: this is a development build, not a release artifact; playback, subtitles and live sites were not exercised inside this `.app`.
 
+## The fixture page is now scrollable (2026-11-03)
+
+`probesite.ServeOnePage` served an 8×8 PNG: the reader could decode it, but a page shorter than the window keeps the reading position at zero, so `-progress` and `-scroll` only proved the reporting path, not that a position is remembered. It now serves **320×1200** with a colour band every 100 rows, so a capture shows where the page is scrolled, and the unit test asserts the document's height and width.
+
+Local rerun (`callback_probe.js`, `-serve 18731`): `decoded=1 first=320x1200`; `-progress` reports `y=1335 h=3388` over HTTP 200; `-scroll` reopens the chapter at **scrollY=1200**, so the position is really saved and restored rather than pinned to the top. Logs `E:/Temp/nk-reader-tall.log` and `E:/Temp/nk-reader-scroll.log`.
+
 ## macOS reading mainline (2026-11-03, commit `3c42463`)
 
 The repository has no remote, so the code travelled as a git bundle through a private gist (base64 3,190,624 bytes, SHA-256 `093cbfc4…c2e3a173`; bundle 2,392,967 bytes). `git bundle verify` passed, the clone's HEAD is `3c42463`, and `scripts/fetch-core.sh` fetched Core at pin `214e7782`. `go build ./...` passed on macOS 27.0.1 arm64 with Go 1.27.3.

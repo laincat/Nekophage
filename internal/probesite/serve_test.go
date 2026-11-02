@@ -1,6 +1,8 @@
 package probesite
 
 import (
+	"bytes"
+	"image/png"
 	"io"
 	"net/http"
 	"testing"
@@ -44,5 +46,14 @@ func TestServedPageIsAPNG(t *testing.T) {
 	}
 	if len(body) < 8 || string(body[:8]) != "\x89PNG\r\n\x1a\n" {
 		t.Fatalf("body is not a PNG: %d bytes, starts %q", len(body), string(body[:min(8, len(body))]))
+	}
+	// The page has to be taller than a window, or a reading-position check can only
+	// ever report zero.
+	cfg, err := png.DecodeConfig(bytes.NewReader(body))
+	if err != nil {
+		t.Fatalf("decode config: %v", err)
+	}
+	if cfg.Height <= 800 || cfg.Width < 200 {
+		t.Fatalf("page is %dx%d, want a scrollable page", cfg.Width, cfg.Height)
 	}
 }
