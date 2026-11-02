@@ -9,6 +9,12 @@ The four CI jobs of Core's `6e07429` are green (three Go platforms plus Apple's 
 
 **Pin moved to `6e07429` (2026-11-01)**: Core gained the three standard AI entry points and the optional chunked transport (`HostStream`), and it fixed a deadlock in the package bridge — the package pushed to `__magpieChatPush` from inside its own hook while the reader stopped at the end marker, so the writer waited for a reader that had gone. The desktop client **does not implement `HostStream` yet**, so replies still arrive whole; `scripts/fetch-core.sh` has aligned `build/core` to that commit and `scripts/check-core-pin.sh` passes.
 
+## Image cache and download budgets (2026-11-02)
+
+Downloads are bounded at 32 MiB and 400 entries; bitmaps at 128 MiB and 160 entries. The first reached bound evicts the oldest entry. Accounting uses download slice capacity and reserves RGBA pixels and the complete mip pyramid. MyGo's `DecodeBitmap` closure retains encoded data for re-decoding, so that data is included in the bitmap budget: clearing the download map never proved it was freed. Individually over-budget images use a placeholder with a failure marker instead of repeatedly downloading or decoding; dimensions are checked before allocating over-budget pixels. GPU textures and other process overhead are outside this cache budget; no process peak-memory bound is claimed.
+
+Covers and saved-page images share four download slots. Queued cancellation does not start a download; completion releases the slot. A loopback HTTP case verifies peak concurrency and subsequent progress, with race testing of queued cancellation. Cache cases cover byte eviction, replacement accounting, retained encoded data, odd-dimension mips, corrupt-data release, huge header sizes and revisiting keys. The entry-eviction case also fixes its ineffective `a-0` lookup: the actual first key was `a/0`.
+
 ## Search cancellation (2026-11-02)
 
 Search generations now own a cancellable context. Starting a new search, changing source or leaving search mode stops the old search's HTTP work. Pasted links, single-source pages and multi-source searches all use that context; multi-source jobs can also leave while waiting for a concurrency slot. Pages retain individual timeouts, so completing one does not cancel another. A stale ticket starting late receives an already-cancelled context rather than joining the new search.

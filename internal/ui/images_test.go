@@ -44,7 +44,7 @@ func TestImageCacheStartsEachDownloadOnce(t *testing.T) {
 	}
 }
 
-func TestImageCacheDecodesOnceAndFreesTheDownload(t *testing.T) {
+func TestImageCacheDecodesOnceAndDropsTheDownloadReference(t *testing.T) {
 	c := newImageCache()
 	c.finishCover("a", pngBytes(t))
 	if c.decoded("a") == nil {
@@ -94,10 +94,10 @@ func TestImageCacheStaysWithinItsBounds(t *testing.T) {
 		t.Fatalf("bitmaps = %d: the bound evicted far too aggressively", bitmaps)
 	}
 	// The oldest entries are gone and will be fetched again when shown.
-	if c.decoded("a-0") != nil {
-		t.Log("the first entry survived the bound; eviction order is not strict, which is allowed")
+	if c.decoded("a/0") != nil {
+		t.Fatal("the oldest bitmap survived the entry bound")
 	}
-	if !c.want("a-0", "https://example.test/again.png") {
+	if !c.want("a/0", "https://example.test/again.png") {
 		t.Fatal("an evicted bitmap was not requested again")
 	}
 }

@@ -71,7 +71,8 @@ type App struct {
 
 	// covers and bitmaps: downloaded bytes and the decoded images the grid
 	// draws, bounded by imageCache so a long session does not keep every cover.
-	images imageCache
+	images         imageCache
+	imageDownloads imageDownloads
 
 	grid ui.GridState
 
@@ -1158,7 +1159,9 @@ func (a *App) pageImage(source, comicID, chapterID, url string) {
 	go func() {
 		ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 		defer cancel()
-		data, _, err := a.core.FetchImage(ctx, source, url, comicID, chapterID)
+		data, _, err := a.imageDownloads.do(ctx, func(ctx context.Context) ([]byte, string, error) {
+			return a.core.FetchImage(ctx, source, url, comicID, chapterID)
+		})
 		a.win.Update(func() {
 			a.mu.Lock()
 			defer a.mu.Unlock()
@@ -1183,7 +1186,9 @@ func (a *App) cover(key, id, url string) {
 	go func() {
 		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 		defer cancel()
-		data, ctype, err := a.core.FetchThumbnail(ctx, key, url, id)
+		data, ctype, err := a.imageDownloads.do(ctx, func(ctx context.Context) ([]byte, string, error) {
+			return a.core.FetchThumbnail(ctx, key, url, id)
+		})
 		debugLog("cover %s/%s: %d bytes, %s, err %v", key, id, len(data), ctype, err)
 		a.win.Update(func() {
 			a.mu.Lock()
