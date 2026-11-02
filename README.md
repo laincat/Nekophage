@@ -2,6 +2,8 @@
 
 [English](README.en.md) | 简体中文
 
+<img src="Assets/brand/nekophage-logo.png" alt="nekophage" width="720">
+
 Nekularity 的桌面端:用 Venera 兼容的漫画源阅读,并把视频播放与扩展的制作分发作为后续模块。Go 编写,界面由 [MyGo](https://github.com/egoist/mygo) 绘制,许可证 GPL-3.0-or-later。
 
 业务逻辑来自 [VeneraCat Core](https://github.com/laincat/VeneraCat-Core),直接编译进同一个可执行文件:不需要 FFI,不需要 cgo,也不需要单独的 Core 进程。
