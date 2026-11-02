@@ -1,7 +1,6 @@
 package ui
 
 import (
-	"context"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -24,16 +23,21 @@ import (
 // local media proxy.
 type videoState struct {
 	// key is the chosen provider; empty means the first enabled one.
-	key      string
-	query    string
-	results  []video.Item
-	next     string
-	busy     string
-	errText  string
-	notice   string
-	selected *video.Item
-	details  *video.Details
-	line     int
+	key         string
+	query       string
+	searchQuery string
+	resultsKey  string
+	results     []video.Item
+	next        string
+	busy        string // list search/pagination only
+	errText     string
+	notice      string
+	detailKey   string
+	detailBusy  string // details/play resolution only
+	detailErr   string
+	selected    *video.Item
+	details     *video.Details
+	line        int
 	// playing names the episode in the player window.
 	playing  string
 	probeErr error
@@ -53,11 +57,15 @@ func (a *App) videoSources() []plugin.Record {
 
 // openVideo shows the video window, creating it once.
 func (a *App) openVideo() {
-	if a.videoWin == nil {
-		a.videoWin = mygo.NewWindow(mygo.WindowOptions{
+	if a.videoWin == nil || a.videoWin.IsDestroyed() {
+		window := mygo.NewWindow(mygo.WindowOptions{
 			Title: "视频", Width: 860, Height: 720, Content: ui.View(a.videoView),
 		})
-		a.videoWin.Show()
+		a.mu.Lock()
+		a.videoWin = window
+		a.mu.Unlock()
+		window.OnClosed(func() { a.closeVideoList() })
+		window.Show()
 		return
 	}
 	a.videoWin.Show()
@@ -95,17 +103,16 @@ func (a *App) videoView(c *ui.Context) {
 					if ui.Select(c, &sel, labels).Width(220).Label("视频源").Changed() {
 						if indexOfOption(labels, sel) >= 0 {
 							a.mu.Lock()
-							a.video.key = sources[indexOfOption(labels, sel)].Key
-							a.video.results, a.video.next = nil, ""
+							a.selectVideoSourceLocked(sources[indexOfOption(labels, sel)].Key)
 							a.mu.Unlock()
-							a.videoWin.Update(func() {})
+							a.refreshVideoViews()
 						}
 					}
 				}
 				if ui.SearchField(c, &a.video.query).Width(280).Submitted() {
 					a.videoSearch()
 				}
-				if ui.Button(c, "搜索").Disabled(state.busy != "").Clicked() {
+				if ui.Button(c, "搜索").Disabled(len(sources) == 0).Clicked() {
 					a.videoSearch()
 				}
 				if ui.Button(c, "更多").Disabled(state.busy != "" || state.next == "").Clicked() {
@@ -121,7 +128,7 @@ func (a *App) videoView(c *ui.Context) {
 			if state.notice != "" {
 				ui.Text(c, state.notice).FontSize(12).TextColor(t.TextMuted)
 			}
-			if limit := len(a.shelf.VideoHistory(5)); limit > 0 {
+			if a.shelf != nil && len(a.shelf.VideoHistory(5)) > 0 {
 				ui.Text(c, "继续观看").FontSize(13).Bold()
 				for _, entry := range a.shelf.VideoHistory(5) {
 					entry := entry
@@ -187,104 +194,6 @@ func twoDigits(v int) string {
 	return strconv.Itoa(v)
 }
 
-// videoKey is the provider the win
-func (a *App) videoKey() string {
-	if a.video.key != "" {
-		return a.video.key
-	}
-	if sources := a.videoSources(); len(sources) > 0 {
-		return sources[0].Key
-	}
-	return ""
-}
-
-func (a *App) videoSearch() {
-	key := a.videoKey()
-	if key == "" {
-		return
-	}
-	query := strings.TrimSpace(a.video.query)
-	a.mu.Lock()
-	a.video.busy, a.video.errText, a.video.notice = "正在搜索…", "", ""
-	a.mu.Unlock()
-	if a.videoWin != nil {
-		a.videoWin.Update(func() {})
-	}
-	go func() {
-		ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
-		defer cancel()
-		page, err := a.core.VideoSearch(ctx, key, query, "")
-		a.mu.Lock()
-		a.video.busy = ""
-		if err != nil {
-			a.video.errText = explain(err)
-		} else {
-			a.video.results, a.video.next = page.Items, page.Next
-			a.video.notice = strconv.Itoa(len(page.Items)) + " 个结果"
-		}
-		a.mu.Unlock()
-		a.videoWin.Update(func() {})
-	}()
-}
-
-func (a *App) videoMore() {
-	key := a.videoKey()
-	a.mu.Lock()
-	query, cursor := a.video.query, a.video.next
-	a.video.busy, a.video.errText = "正在加载下一页…", ""
-	a.mu.Unlock()
-	a.videoWin.Update(func() {})
-	go func() {
-		ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
-		defer cancel()
-		page, err := a.core.VideoSearch(ctx, key, query, cursor)
-		a.mu.Lock()
-		a.video.busy = ""
-		if err != nil {
-			a.video.errText = explain(err)
-		} else {
-			a.video.results = append(a.video.results, page.Items...)
-			a.video.next = page.Next
-		}
-		a.mu.Unlock()
-		a.videoWin.Update(func() {})
-	}()
-}
-
-// openVideoDetails loads one item's lines and episodes.
-func (a *App) openVideoDetails(item video.Item) {
-	key := a.videoKey()
-	a.mu.Lock()
-	a.video.busy, a.video.errText, a.video.notice = "正在读取详情…", "", ""
-	a.video.selected = &item
-	a.video.details, a.video.line = nil, 0
-	a.mu.Unlock()
-	if a.detailWin == nil {
-		a.detailWin = mygo.NewWindow(mygo.WindowOptions{
-			Title: "视频详情", Width: 760, Height: 680, Content: ui.View(a.videoDetailView),
-		})
-	}
-	a.detailWin.SetTitle(item.Title)
-	a.detailWin.Show()
-	a.detailWin.Focus()
-	a.detailWin.Update(func() {})
-	go func() {
-		ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
-		defer cancel()
-		details, err := a.core.VideoDetails(ctx, key, item.ID)
-		a.mu.Lock()
-		a.video.busy = ""
-		if err != nil {
-			a.video.errText = explain(err)
-		} else {
-			a.video.details = details
-			a.video.notice = ""
-		}
-		a.mu.Unlock()
-		a.detailWin.Update(func() {})
-	}()
-}
-
 func (a *App) videoDetailView(c *ui.Context) {
 	t := c.Theme()
 	a.mu.Lock()
@@ -302,14 +211,14 @@ func (a *App) videoDetailView(c *ui.Context) {
 			if details != nil && details.Description != "" {
 				ui.Text(c, details.Description).FontSize(12).TextColor(t.TextMuted).MaxLines(3)
 			}
-			if state.busy != "" {
-				ui.Text(c, state.busy).FontSize(12).TextColor(t.TextMuted)
+			if state.detailBusy != "" {
+				ui.Text(c, state.detailBusy).FontSize(12).TextColor(t.TextMuted)
 			}
-			if state.errText != "" {
-				ui.Text(c, state.errText).FontSize(12).TextColor(ui.RGB(224, 49, 49)).Selectable()
+			if state.detailErr != "" {
+				ui.Text(c, state.detailErr).FontSize(12).TextColor(ui.RGB(224, 49, 49)).Selectable()
 			}
 			if details == nil || len(details.Lines) == 0 {
-				if state.busy == "" && state.errText == "" {
+				if state.detailBusy == "" && state.detailErr == "" {
 					ui.Text(c, "这个视频没有可播放的线路。").FontSize(12).TextColor(t.TextMuted)
 				}
 				return
@@ -330,7 +239,8 @@ func (a *App) videoDetailView(c *ui.Context) {
 				if ui.Select(c, &sel, names).Width(220).Label("线路").Changed() {
 					if index := indexOfOption(names, sel); index >= 0 {
 						a.mu.Lock()
-						a.video.line = index
+						a.videoPlayGen.next()
+						a.video.line, a.video.detailBusy = index, ""
 						a.mu.Unlock()
 						a.detailWin.Update(func() {})
 					}
@@ -339,7 +249,7 @@ func (a *App) videoDetailView(c *ui.Context) {
 		})
 		ui.Divider(c)
 		ui.Scroll(c).Grow(1).Padding(12, 16).Children(func() {
-			if details == nil {
+			if details == nil || len(details.Lines) == 0 {
 				return
 			}
 			line := details.Lines[clampIndex(state.line, len(details.Lines))]
@@ -352,8 +262,8 @@ func (a *App) videoDetailView(c *ui.Context) {
 				// The saved position is shown next to the episode, so a
 				// resumed episode reads as resumed before it is clicked.
 				label := name
-				if item != nil {
-					if saved, ok := a.shelf.VideoProgress(a.videoKey(), item.ID, episode.ID); ok && saved.Position > 0 {
+				if item != nil && a.shelf != nil {
+					if saved, ok := a.shelf.VideoProgress(state.detailKey, item.ID, episode.ID); ok && saved.Position > 0 {
 						label += "  · " + clockText(saved.Position)
 					}
 				}
@@ -374,126 +284,6 @@ func clampIndex(index, length int) int {
 	return index
 }
 
-// playVideo opens one episode in the player window.
-func (a *App) playVideo(episodeIndex int) {
-	a.mu.Lock()
-	state := a.video
-	a.mu.Unlock()
-	item, details := state.selected, state.details
-	if item == nil || details == nil || len(details.Lines) == 0 {
-		return
-	}
-	line := details.Lines[clampIndex(state.line, len(details.Lines))]
-	if episodeIndex < 0 || episodeIndex >= len(line.Episodes) {
-		return
-	}
-	episode := line.Episodes[episodeIndex]
-	name := episode.Title
-	if name == "" {
-		name = "第 " + strconv.Itoa(episodeIndex+1) + " 集"
-	}
-	key := a.videoKey()
-	a.mu.Lock()
-	a.video.busy = "正在准备播放…"
-	a.video.errText = ""
-	a.mu.Unlock()
-	a.detailWin.Update(func() {})
-
-	go func() {
-		ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
-		defer cancel()
-		play, err := a.core.VideoPlay(ctx, key, item.ID, line.ID, episode.ID)
-		a.mu.Lock()
-		a.video.busy = ""
-		if err != nil {
-			a.video.errText = explain(err)
-			a.mu.Unlock()
-			a.detailWin.Update(func() {})
-			return
-		}
-		a.mu.Unlock()
-
-		meta := player.Meta{Source: key, ItemID: item.ID, Title: item.Title,
-			LineID: line.ID, LineName: line.Name, EpisodeID: episode.ID, EpisodeName: name}
-		var start float64
-		if a.shelf != nil {
-			if saved, ok := a.shelf.VideoProgress(key, item.ID, episode.ID); ok && !videoFinished(saved.Position, saved.Duration) {
-				start = saved.Position
-			}
-		}
-		if err := a.openPlayer(play, meta, item.Title+" · "+name, start); err != nil {
-			a.mu.Lock()
-			a.video.errText = explain(err)
-			a.mu.Unlock()
-			a.detailWin.Update(func() {})
-			return
-		}
-		a.mu.Lock()
-		a.video.playing = name
-		a.mu.Unlock()
-		a.detailWin.Update(func() {})
-	}()
-}
-
-// videoResume re-opens the last episode of a saved entry.
-func (a *App) videoResume(entry shelf.VideoHistory) {
-	a.mu.Lock()
-	a.video.notice = "正在读取 " + entry.Title + " 的线路…"
-	a.mu.Unlock()
-	if a.videoWin != nil {
-		a.videoWin.Update(func() {})
-	}
-	go func() {
-		ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
-		defer cancel()
-		details, err := a.core.VideoDetails(ctx, entry.Source, entry.ItemID)
-		a.mu.Lock()
-		a.video.notice = ""
-		if err != nil {
-			a.video.errText = explain(err)
-			a.mu.Unlock()
-			a.videoWin.Update(func() {})
-			return
-		}
-		item := video.Item{ID: entry.ItemID, Title: entry.Title}
-		a.video.selected, a.video.details = &item, details
-		// The saved entry owns its provider even if the search picker was
-		// moved to another source before the user pressed Continue Watching.
-		a.video.key = entry.Source
-		line := 0
-		episode := -1
-		for i, l := range details.Lines {
-			if l.ID != entry.LineID {
-				continue
-			}
-			line = i
-			for j, ep := range l.Episodes {
-				if ep.ID == entry.EpisodeID {
-					episode = j
-				}
-			}
-		}
-		a.video.line = line
-		a.mu.Unlock()
-		if episode < 0 {
-			a.mu.Lock()
-			a.video.errText = "这个视频源已经没有这一集了"
-			a.mu.Unlock()
-			a.videoWin.Update(func() {})
-			return
-		}
-		if a.detailWin == nil {
-			a.detailWin = mygo.NewWindow(mygo.WindowOptions{
-				Title: "视频详情", Width: 760, Height: 680, Content: ui.View(a.videoDetailView),
-			})
-		}
-		a.detailWin.SetTitle(entry.Title)
-		a.detailWin.Show()
-		a.detailWin.Update(func() {})
-		a.playVideo(episode)
-	}()
-}
-
 // openPlayer shows the player window for one play declaration. Only one
 // player is open at a time: a second episode replaces the first, and the old
 // session stops so its media requests do not keep running.
@@ -504,7 +294,9 @@ func (a *App) openPlayer(play *video.Play, meta player.Meta, title string, start
 			return err
 		}
 		server.OnProgress = a.saveVideoProgress
+		a.mu.Lock()
 		a.playerSrv = server
+		a.mu.Unlock()
 		debugLog("video: player server started")
 	}
 	session, err := a.playerSrv.Open(a.core, meta.Source, play, meta)
@@ -521,9 +313,13 @@ func (a *App) openPlayer(play *video.Play, meta player.Meta, title string, start
 			win.Destroy()
 			return err
 		}
+		a.mu.Lock()
 		a.playerWin, a.playerView = win, view
+		a.mu.Unlock()
 		win.OnClosed(func() {
 			a.mu.Lock()
+			a.videoPlayGen.next()
+			a.video.detailBusy = ""
 			if a.playerSess != nil {
 				a.playerSess.Close()
 				a.playerSess = nil
@@ -536,7 +332,9 @@ func (a *App) openPlayer(play *video.Play, meta player.Meta, title string, start
 	if old := a.playerSess; old != nil {
 		old.Close()
 	}
+	a.mu.Lock()
 	a.playerSess = session
+	a.mu.Unlock()
 	a.playerWin.SetTitle(title)
 	a.playerWin.Show()
 	a.playerWin.Focus()
@@ -661,13 +459,13 @@ func (a *App) runVideoProbe(query, out string, quit bool) {
 		if !a.waitFor(60, func() bool {
 			a.mu.Lock()
 			defer a.mu.Unlock()
-			return a.video.details != nil || a.video.errText != ""
+			return a.video.details != nil || a.video.detailErr != ""
 		}) {
 			report(false, "the video details never answered")
 			return
 		}
 		a.mu.Lock()
-		details, detailErr := a.video.details, a.video.errText
+		details, detailErr := a.video.details, a.video.detailErr
 		a.mu.Unlock()
 		if detailErr != "" || details == nil || len(details.Lines) == 0 || len(details.Lines[0].Episodes) == 0 {
 			report(false, "the video details had no episode: "+detailErr)
@@ -677,13 +475,13 @@ func (a *App) runVideoProbe(query, out string, quit bool) {
 		if !a.waitFor(80, func() bool {
 			a.mu.Lock()
 			defer a.mu.Unlock()
-			return a.playerView != nil || a.video.errText != ""
+			return a.playerView != nil || a.video.detailErr != ""
 		}) {
 			report(false, "the player window never opened")
 			return
 		}
 		a.mu.Lock()
-		playErr := a.video.errText
+		playErr := a.video.detailErr
 		view := a.playerView
 		a.mu.Unlock()
 		if playErr != "" || view == nil {

@@ -10,7 +10,7 @@
 
 主窗口「视频」已接到搜索/详情/线路分集/播放。Windows 真实 WebView 已验证原生 MP4(`640×360`)与内置 HLS.js 1.7.4(`320×180`):实际视频帧回读、时钟前进、Referer/Cookie、HLS 主/子清单和 fMP4 字节范围、页面暂停落盘与重新打开续播。HLS 夹具和命令在 [testdata](../internal/player/testdata/README.md),无音轨。HLS 日志 `E:/Temp/desktop-hls-browser-playback.log`,原生 MP4 日志 `E:/Temp/desktop-mp4-auth-real-resume.log`。
 
-已移除探针残留的手工 `3s` 进度 POST,失败改为非零退出;保存和续播使用同一个完成判断,保留小数秒。普通源管理已接类型选择、文件/URL 安装与持久化,真实 Windows 原生 UI 安装后关闭/重启仍能选择视频源,恢复后的 HLS 播放通过。视频读取代次取消仍需接入;字幕、PiP、macOS、音轨与真实在线站点尚未验证。嗅探、DRM 和 DASH 明确不支持。
+已移除探针残留的手工 `3s` 进度 POST,失败改为非零退出;保存和续播使用同一个完成判断,保留小数秒。普通源管理已接类型选择、文件/URL 安装与持久化,真实 Windows 原生 UI 安装后关闭/重启仍能选择视频源,恢复后的 HLS 播放通过。视频搜索/分页、详情和播放准备已分代取消,慢 HTTP 的真实断连与下一次读取成功有竞态测试,迟到播放地址在主线程再次判定归属;字幕、PiP、macOS、音轨与真实在线站点尚未验证。嗅探、DRM 和 DASH 明确不支持。
 
 ## 现在已有的东西
 

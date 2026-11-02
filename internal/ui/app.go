@@ -167,13 +167,16 @@ type App struct {
 	ai     aiState
 	manage manageState
 	// video is the video window and its player.
-	video      videoState
-	videoWin   *mygo.Window
-	detailWin  *mygo.Window
-	playerWin  *mygo.Window
-	playerView *mygo.WebView
-	playerSrv  *player.Server
-	playerSess *player.Session
+	video          videoState
+	videoSearchGen generation
+	videoDetailGen generation
+	videoPlayGen   generation
+	videoWin       *mygo.Window
+	detailWin      *mygo.Window
+	playerWin      *mygo.Window
+	playerView     *mygo.WebView
+	playerSrv      *player.Server
+	playerSess     *player.Session
 	// defaultIndex is the index URL tried first in the manager.
 	defaultIndex string
 

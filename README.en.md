@@ -30,7 +30,7 @@ Logic comes from [VeneraCat Core](https://github.com/laincat/VeneraCat-Core), co
 
 ## Status
 
-The reading path (add a source → search → details → read) has real-source and offline-fixture evidence on Windows. The current tree has rerun native details, actual reader decoding and persisted shelf progress; request cancellation and image budgets have race tests. Evidence remains specific to its commit and platform: Windows success does not validate current macOS/Linux behavior. Local MP4/HLS, installation through normal source management and restoration after restart have Windows execution evidence. Video-request generation cancellation remains to be connected; the studio comes later. See [docs/STATUS.en.md](docs/STATUS.en.md).
+The reading path (add a source → search → details → read) has real-source and offline-fixture evidence on Windows. The current tree has rerun native details, actual reader decoding and persisted shelf progress; request cancellation and image budgets have race tests. Evidence remains specific to its commit and platform: Windows success does not validate current macOS/Linux behavior. Local MP4/HLS, installation through normal source management and restoration after restart have Windows execution evidence. Real Core/HTTP race cases verify video replacement/closure cancellation, retained pagination queries and rejection of late results; the studio comes later. See [docs/STATUS.en.md](docs/STATUS.en.md).
 
 ## Building
 

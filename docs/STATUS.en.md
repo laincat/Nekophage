@@ -9,6 +9,14 @@ The four CI jobs of Core's `6e07429` are green (three Go platforms plus Apple's 
 
 **Pin moved to `6e07429` (2026-11-01)**: Core gained the three standard AI entry points and the optional chunked transport (`HostStream`), and it fixed a deadlock in the package bridge — the package pushed to `__magpieChatPush` from inside its own hook while the reader stopped at the end marker, so the writer waited for a reader that had gone. The desktop client **does not implement `HostStream` yet**, so replies still arrive whole; `scripts/fetch-core.sh` has aligned `build/core` to that commit and `scripts/check-core-pin.sh` passes.
 
+## Video read cancellation (2026-11-02)
+
+Video lists, details and play-URL resolution use separate cancellable generations. A new search stops the previous search/pagination and old detail preparation; switching providers stops all three kinds of reads. Closing a list stops its HTTP; closing details stops details and unresolved playback preparation. Lists and independent detail windows have separate loading/error state, so finishing details cannot clear an active search. An already running media session stays independent of the search window.
+
+Pagination retains the provider and keyword that produced its list, rather than later unsubmitted input. Changing episodes or lines cancels older play preparation; a returned URL must still own the current generation on the main thread before a player opens. Closed list/detail windows can be recreated, and empty-line details no longer index an empty array.
+
+`go test -race` uses real Core, JS video sources and a slow loopback HTTP server for replacement searches/pages, provider changes, list/detail closure, canceled history resume and replaced playback preparation. The server must observe cancellation, followed by an actual successful next read. Additional cases reject late same-provider/same-ID completions, keep list/detail state independent and prevent pagination from using an edited keyword. Log: `E:/Temp/desktop-video-cancel-targeted.log`. These are controller/HTTP checks. A separate actual Windows WebView rerun verifies HLS.js decoding, authentication/Range, pause persistence and `2.051s → 2.051s` resume: `E:/Temp/desktop-video-cancel-hls-window.log`. Network cases are not native-window gesture validation.
+
 ## Video-source installation and restart restoration (2026-11-02)
 
 源管理 now selects comic sources, video sources or Kazumi rules, with URL installation and a native file picker. The library handles explicitly typed installs, same-kind replacement and persistence; the comic default remains, while shared Core rejects cross-type key collisions. Files and URL downloads share the 4 MiB bound. Settings are shown for JS kinds; the video picker includes video JS, Kazumi and existing built-in video records, while the comic picker lists only comics.
@@ -27,7 +35,7 @@ The earlier `desktop-player-ui-probe7.log` establishes the MP4 picture and clock
 
 Fixed here: MP4 decoder selection no longer depends on native HLS capability. Saving and opening an episode share one completion rule, allowing a two-second position in a ten-second clip to resume. Fractional seconds survive; HLS seeks after metadata, and Continue Watching uses the saved provider rather than the current search picker. Fixtures and rerun commands: [testdata](../internal/player/testdata/README.en.md). The production application does not require FFmpeg.
 
-**Engineering still required**: video search/detail generation cancellation remains to be connected. Ordinary video-source file/URL installation and restart restoration are independently accepted in the section above. **Not verified**: subtitles, picture-in-picture, macOS execution, live online sites or audio tracks (the HLS fixture has none). These fixes are not included in the older `7dc3051` portable package below.
+Ordinary video-source file/URL installation, restart restoration and video read cancellation have separate acceptance records in the preceding two sections. **Not verified**: subtitles, picture-in-picture, macOS execution, live online sites or audio tracks (the HLS fixture has none). These fixes are not included in the older `7dc3051` portable package below.
 
 ## Desktop video media transport (2026-11-02)
 
