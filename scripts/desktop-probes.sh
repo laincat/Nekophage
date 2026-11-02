@@ -105,6 +105,14 @@ go run ./cmd/videocheck -media internal/player/testdata/hls/stream.mp4 \
 	-out "$out/video.png" >"$out/video.log" 2>&1 || rc=$?
 report "$rc" "a local clip plays and reports progress" "$out/video.log"
 
+# A subtitle choice has to outlive the page: choosing English, closing and
+# reopening used to fall back to the manifest default. The cue itself must be
+# the one rendered after the reopen, not merely the name stored.
+rc=0
+go run ./cmd/subcheck -dir internal/player/testdata/hls-subs \
+	-out "$out/subtitle.png" >"$out/subtitle.log" 2>&1 || rc=$?
+report "$rc" "a subtitle choice survives reopening" "$out/subtitle.log"
+
 # A thread the source answers, in a window, with no network: the comment screen is
 # the one part of the source contract a capture tool can drive on its own.
 if [ -n "${NK_PROBE_SRC:-}" ]; then

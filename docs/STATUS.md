@@ -52,6 +52,12 @@ Nekophage 的 pin 从 `214e7782` 升到 `8e14aad`,也就是包含 `b2610a5`(异�
 
 一个操作坑:在 bash 里直接 `./setup.exe /S` 会静默退出而不安装(参数被 shell 拧了),必须走 PowerShell 的 `Start-Process -ArgumentList '/S'`。日志 `E:/Temp/nk-package-head-build.log`。
 
+## 字幕选择进入默认窗口套件(2026-11-03)
+
+`cmd/subcheck` 也进了 `scripts/desktop-probes.sh`。判据不是「存下了名字」,而是重开后**渲染的正是那条字幕**:`chosen: selected="English" active="Subtitle rendering proof" cues=[en:1]` → `reopened: selected="English" active="Subtitle rendering proof" cues=[en:1]`。这条路径以前真的错过:选择只活在页面里,关掉播放器再打开会退回清单默认值。
+
+窗口套件因此变成无外部变量 **11 PASS / 3 SKIP**,给齐变量 **16 PASS / 0 FAIL / 0 SKIP**(两处跳过的仍是需要外部脚本的那三项)。日志 `E:/Temp/nk-sub-head.log`、`E:/Temp/nk-probes-with-subs.log`。
+
 ## 视频播放进入默认窗口套件(2026-11-03)
 
 `cmd/videocheck` 早就有,但只在手动跑。现在它进了 `scripts/desktop-probes.sh`:仓内夹具 `internal/player/testdata/hls/stream.mp4` 经媒体代理播放,判据是三条——位置**自己**前进(`currentTime` 两次读取递增)、页面没有错误文本、播放器在暂停时上报了进度。窗口截图只拍到原生层,所以证据是页面自己报的数字。

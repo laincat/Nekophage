@@ -57,6 +57,12 @@ Install: `Start-Process setup.exe -ArgumentList '/S' -Wait` exits 0, `LOCALAPPDA
 
 One operational trap: `./setup.exe /S` from bash exits silently without installing because the shell mangles the arguments; it has to go through PowerShell's `Start-Process -ArgumentList '/S'`. Logs in `E:/Temp/nk-package-head-build.log`.
 
+## The subtitle choice joins the default window suite (2026-11-03)
+
+`cmd/subcheck` is in `scripts/desktop-probes.sh` now. The check is not "the name was stored" but "the cue rendered after reopening is the one that was chosen": `chosen: selected="English" active="Subtitle rendering proof" cues=[en:1]` → `reopened: selected="English" active="Subtitle rendering proof" cues=[en:1]`. This path has been wrong before: the choice lived only in the page, so closing the player and opening it again fell back to the manifest default.
+
+The window suite is therefore **11 PASS / 3 SKIP** with no external variables and **16 PASS / 0 FAIL / 0 SKIP** with all of them (the three skips still need external scripts). Logs `E:/Temp/nk-sub-head.log` and `E:/Temp/nk-probes-with-subs.log`.
+
 ## Video playback joins the default window suite (2026-11-03)
 
 `cmd/videocheck` existed but only ran by hand. It is now part of `scripts/desktop-probes.sh`: the repository clip `internal/player/testdata/hls/stream.mp4` plays through the media proxy, and three things have to hold — the position advances **by itself** (two reads of `currentTime` increase), the page shows no error text, and the player reports progress when paused. The window capture only holds the native layer, so the numbers the page reports are the evidence.
