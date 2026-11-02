@@ -79,7 +79,9 @@ func main() {
 	videoScript := flag.String("video-script", "", "video source script to install")
 	videoQuery := flag.String("video", "", "search the video window for this text, open the first result and play it")
 	videoFrame := flag.String("video-frame", "", "where to write the frame read back from the player")
-	videoMedia := flag.String("video-media", "", "mp4 to serve on 127.0.0.1:18732 for a video source whose play URL points there")
+	videoMedia := flag.String("video-media", "", "MP4 or fixture directory to serve on 127.0.0.1:18732")
+	videoAuth := flag.Bool("video-auth", false, "require fixture Referer and a Cookie obtained at /login for every media request")
+	videoHLS := flag.Bool("video-hlsjs", false, "verify the bundled HLS.js decoder even where native HLS is available")
 	// dir reuses a profile, so the shelf and installed sources carry over
 	// from an earlier import.
 	dir := flag.String("dir", "", "profile directory; a fresh one under the temp directory when empty")
@@ -154,10 +156,10 @@ func main() {
 		Tag:      *tag,
 		KeepPage: *keepPage, Favourite: *favourite, OpenSettings: *settingsShot, BackupCookies: *backupCookies,
 		SetSetting: *setSetting, AI: *aiShot, AITest: *aiTest, AIPrompt: *aiPrompt, AIModel: *aiModel,
-		Video: *videoQuery, VideoOut: *videoFrame, VideoQuit: *videoQuery != ""})
+		Video: *videoQuery, VideoOut: *videoFrame, VideoQuit: *videoQuery != "", VideoForceHLS: *videoHLS})
 
 	if *videoMedia != "" {
-		stop, err := serveMedia(*videoMedia, "127.0.0.1:18732")
+		stop, err := serveMedia(*videoMedia, "127.0.0.1:18732", *videoAuth)
 		if err != nil {
 			log.Fatalf("serve media: %v", err)
 		}
@@ -322,6 +324,11 @@ func main() {
 	if shotErr != nil {
 		log.Fatal(shotErr)
 	}
+	if *videoQuery != "" {
+		if err := app.VideoProbeError(); err != nil {
+			log.Fatal(err)
+		}
+	}
 	log.Println("done")
 }
 
@@ -358,21 +365,50 @@ func bytesReader(b []byte) *os.File {
 
 var _ image.Image
 
-// serveMedia serves one file with byte ranges on a fixed loopback address, so a
-// video fixture can hand the player a real URL without a site.
-func serveMedia(path, address string) (func(), error) {
-	body, err := os.ReadFile(path)
+// serveMedia supplies local MP4/HLS resources. Optional fixture authentication
+// makes browser decoding fail if the proxy drops source headers or cookies.
+func serveMedia(path, address string, checkAuth bool) (func(), error) {
+	info, err := os.Stat(path)
 	if err != nil {
 		return nil, err
+	}
+	var files http.Handler
+	if info.IsDir() {
+		files = http.FileServer(http.Dir(path))
+	} else {
+		body, err := os.ReadFile(path)
+		if err != nil {
+			return nil, err
+		}
+		files = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.URL.Path != "/clip.mp4" {
+				http.NotFound(w, r)
+				return
+			}
+			w.Header().Set("Content-Type", "video/mp4")
+			http.ServeContent(w, r, "clip.mp4", time.Time{}, bytes.NewReader(body))
+		})
 	}
 	ln, err := net.Listen("tcp", address)
 	if err != nil {
 		return nil, err
 	}
 	mux := http.NewServeMux()
-	mux.HandleFunc("/clip.mp4", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "video/mp4")
-		http.ServeContent(w, r, "clip.mp4", time.Time{}, bytes.NewReader(body))
+	mux.HandleFunc("/login", func(w http.ResponseWriter, r *http.Request) {
+		http.SetCookie(w, &http.Cookie{Name: "video_fixture", Value: "signed-in", Path: "/"})
+		w.WriteHeader(http.StatusNoContent)
+	})
+	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		if checkAuth {
+			cookie, err := r.Cookie("video_fixture")
+			if r.Header.Get("Referer") != "https://fixture.invalid/" || err != nil || cookie.Value != "signed-in" {
+				log.Printf("media fixture: auth rejected path=%s", r.URL.Path)
+				http.Error(w, "fixture authentication missing", http.StatusForbidden)
+				return
+			}
+		}
+		log.Printf("media fixture: path=%s range=%q auth=%v", r.URL.Path, r.Header.Get("Range"), checkAuth)
+		files.ServeHTTP(w, r)
 	})
 	srv := &http.Server{Handler: mux}
 	go func() { _ = srv.Serve(ln) }()

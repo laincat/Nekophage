@@ -2,17 +2,19 @@
 
 [English](STATUS.en.md) | 简体中文
 
-更新:2026-10-31。下列结论来自 **Windows** 本机实测,包括真实漫画源与真实网络。当天新增的内容集中在三处:传输层重定向 Cookie 的真 bug(`CheckRoute` 读错了字段)、错误提示的中文化(与 iOS 同一规则:只翻认得的,其余保留 Core 原文)、以及 `live-sources.sh` 的重复跑与 `FLAKY` 分类。
+更新:2026-11-02。以下按章节区分 Windows 真实站点、loopback 媒体夹具、原生窗口与单测的证据。最新一轮完成 HLS.js 与原生 MP4 的真实解码、页面暂停落盘和重新打开续播;不以本地夹具代替真实账号或站点验证。
 
 ## 桌面视频播放器(2026-11-02)
 
-主窗口新增「视频」入口:视频源搜索 → 详情(线路/分集)→ 播放窗口。播放页由 `player.Server` 在 `127.0.0.1` 上提供,会话 URL 带随机 token,页面只能拿到代理资源 ID;页面同时内置 HLS.js 1.7.4(Apache-2.0,`internal/player/assets`),Safari/原生支持 HLS 时优先用原生解码,Windows WebView2 用 HLS.js。观看位置写入 `shelf.json` 的 `videos`(与漫画历史分开,同一 key 不冲突),重开详情时显示已看时长,再次点击从上次位置续播;看到最后 2% 且距结尾 10 秒内视为看完,下次从头开始。
+主窗口新增「视频」入口:视频源搜索 → 详情(线路/分集)→ 播放窗口。播放页由 `player.Server` 在 `127.0.0.1` 上提供,会话 URL 带随机 token,页面只能拿到代理资源 ID;页面同时内置 HLS.js 1.7.4(Apache-2.0,`internal/player/assets`),MP4 使用原生解码,HLS 在浏览器原生支持时优先原生,否则使用 HLS.js。观看位置写入 `shelf.json` 的 `videos`(与漫画历史分开,同一 key 不冲突),重开详情时显示已看时长,再次点击从上次位置续播;看到最后 2% 且距结尾 10 秒内视为看完,下次从头开始。
 
-真实窗口证据(`cmd/uicheck -video …`):搜索 → 详情 → 播放全程无人工点击,页面报告 `readyState=4`、`640x360`、`duration=10.0`,时钟自行推进,并从 `<video>` 读回一帧 PNG(`E:/Temp/desktop-player-frame.png`,解码出实际画面)、暂停后位置写入书架(`Episode 1@2.07s`)。日志 `E:/Temp/desktop-player-ui-probe7.log`;独立探针 `cmd/videocheck` 日志 `E:/Temp/desktop-player-check.log`。
+最新真实窗口证据(`cmd/uicheck -video …`,独立新 profile):HLS.js 解码 `320×180`、时钟自行推进,回读真实视频帧 `build/probes/hls-playback/frame.png`;页面暂停事件将 `2.0381s` 写入磁盘,重新打开书架并经「继续观看」实际恢复到 `2.0381s`。主清单、子清单、初始化片段和五个 fMP4 分片全部带源声明的 Referer 和搜索时取得的 Cookie;上游日志记录了 `bytes=0-1122` 等真实字节范围请求。日志 `E:/Temp/desktop-hls-browser-playback.log`。原生 MP4 同样通过鉴权、`640×360` 解码及 `2.0921s → 2.0921s` 真实续播,日志 `E:/Temp/desktop-mp4-auth-real-resume.log`。
 
-本轮修复:视频源不再被主窗口当成漫画源(以前会把 `not this kind of plugin` 当作搜索筛选错误报出来);短片段不会被“接近结尾即算看完”的规则立即删除续播点。
+此前 `desktop-player-ui-probe7.log` 只能证明 MP4 画面与时钟:探针残留的手工 `3s` 进度 POST 污染了保存判据,而且失败仍以退出码 0 结束。该注入已移除,现在只接受页面自身暂停事件、磁盘重读和重新打开后的实际播放位置。负向验证缺失登录 Cookie 时返回 403,探针以退出码 1 结束,日志 `E:/Temp/desktop-video-negative-check.log`。
 
-**未验证**:HLS 清单在浏览器内真正解码(本地没有 fMP4/TS 夹具,也没有 ffmpeg 重新封装);字幕、画中画、macOS 实机运行。媒体代理自身的 HLS 改写/Range/请求头另见上节测试。
+本轮修复:MP4 不再依赖浏览器的 HLS 能力选择解码器;保存与打开剧集共用同一完成判断,10 秒短片的两秒进度可续播;位置保留小数秒,HLS 等待 metadata 后恢复位置;「继续观看」使用历史所属源而非当前源选择器。媒体夹具及复跑命令见 [testdata](../internal/player/testdata/README.md),正式程序不依赖 FFmpeg。
+
+**仍需工程验收**:源管理目前按漫画类型安装,视频源由开发工具安装,需补普通用户的视频源安装与持久化入口;视频搜索/详情切换的取消还要接入。**未验证**:字幕、画中画、macOS 实机运行、在线真实站点及音轨(HLS 夹具没有音轨)。本轮代码修复尚未包含在下文 `7dc3051` 的旧便携包中。
 
 ## 桌面视频媒体传输层(2026-11-02)
 
@@ -20,7 +22,7 @@
 
 `internal/player.MediaProxy` 是每次播放的媒体代理:播放器只能访问代理生成的资源 ID,HLS 清单解析与改写仍调用 Core。loopback 端到端用例覆盖主清单重定向后的相对地址、子清单、AES 密钥、初始化片段、Referer、Range/206/Content-Range;首块数据在响应结束前可读,关闭代理会话会取消上游 HTTP。声明为 `Encrypted` 的媒体(例如未支持的 DRM)、待嗅探与 DASH 明确返回不支持;HLS AES-128 密钥资源按清单代理,不等同于已实现 DRM。
 
-这些用例验证的是媒体传输层,**主界面的视频搜索入口、播放器 WebView、HLS 浏览器解码和观看进度尚未接入**,不能记为“桌面视频已可播放”。验证日志 `E:/Temp/desktop-media-proxy-tests.log`。既有漫画请求仍保留整包大小限制;媒体流不复用整包超时,生命周期由调用方上下文与播放会话关闭控制。
+这些传输层用例的历史日志为 `E:/Temp/desktop-media-proxy-tests.log`;当前的界面、HLS 解码与续播证据单列在上节,不把网络单测当作浏览器解码验证。既有漫画请求仍保留整包大小限制;媒体流不复用整包超时,生命周期由调用方上下文与播放会话关闭控制。
 
 ## Windows 便携包 0.2.0(2026-11-02,提交 `7dc3051`)
 

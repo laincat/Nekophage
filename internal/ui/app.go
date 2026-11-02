@@ -239,6 +239,9 @@ type DevOptions struct {
 	// VideoQuit ends the app once the video probe has reported, so a tool can
 	// run it and read the exit code.
 	VideoQuit bool
+	// VideoForceHLS uses the bundled HLS.js decoder in a playback probe even
+	// when the WebView also reports native HLS support.
+	VideoForceHLS bool
 	// AIPrompt, with -ai, sends this text once the connection and the
 	// catalogue are in, so a capture shows a real streamed answer.
 	AIPrompt string

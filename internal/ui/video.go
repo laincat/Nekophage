@@ -5,7 +5,6 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"log"
 	"os"
 	"strconv"
 	"strings"
@@ -36,7 +35,8 @@ type videoState struct {
 	details  *video.Details
 	line     int
 	// playing names the episode in the player window.
-	playing string
+	playing  string
+	probeErr error
 }
 
 // videoSources lists enabled providers. A comic source and a video source can
@@ -416,10 +416,8 @@ func (a *App) playVideo(episodeIndex int) {
 		meta := player.Meta{Source: key, ItemID: item.ID, Title: item.Title,
 			LineID: line.ID, LineName: line.Name, EpisodeID: episode.ID, EpisodeName: name}
 		var start float64
-		if saved, ok := a.shelf.VideoProgress(key, item.ID, episode.ID); ok {
-			// Within ten seconds of the end the episode is finished, not
-			// paused: resuming there is a rewind to the credits.
-			if saved.Position > 5 && (saved.Duration <= 0 || saved.Position < saved.Duration-10) {
+		if a.shelf != nil {
+			if saved, ok := a.shelf.VideoProgress(key, item.ID, episode.ID); ok && !videoFinished(saved.Position, saved.Duration) {
 				start = saved.Position
 			}
 		}
@@ -459,6 +457,9 @@ func (a *App) videoResume(entry shelf.VideoHistory) {
 		}
 		item := video.Item{ID: entry.ItemID, Title: entry.Title}
 		a.video.selected, a.video.details = &item, details
+		// The saved entry owns its provider even if the search picker was
+		// moved to another source before the user pressed Continue Watching.
+		a.video.key = entry.Source
 		line := 0
 		episode := -1
 		for i, l := range details.Lines {
@@ -539,7 +540,11 @@ func (a *App) openPlayer(play *video.Play, meta player.Meta, title string, start
 	a.playerWin.SetTitle(title)
 	a.playerWin.Show()
 	a.playerWin.Focus()
-	if err := a.playerView.Page().LoadURL(session.URL(title, start)); err != nil {
+	pageURL := session.URL(title, start)
+	if a.dev.VideoForceHLS {
+		pageURL += "&mode=hls"
+	}
+	if err := a.playerView.Page().LoadURL(pageURL); err != nil {
 		return err
 	}
 	return nil
@@ -585,8 +590,7 @@ func (a *App) saveVideoProgress(meta player.Meta, progress player.Progress) {
 	// Finished means the credits, not "a short clip is nearly over": the last
 	// two percent within ten seconds of the end. Anything earlier is a
 	// position worth resuming, including on a ten-second fixture.
-	if progress.Duration > 0 && progress.Paused &&
-		progress.Duration-progress.Time <= 10 && progress.Time/progress.Duration >= 0.98 {
+	if progress.Paused && videoFinished(progress.Time, progress.Duration) {
 		_ = a.shelf.ForgetVideo(meta.Source, meta.ItemID, meta.EpisodeID)
 		return
 	}
@@ -600,12 +604,23 @@ func (a *App) saveVideoProgress(meta player.Meta, progress player.Progress) {
 	}
 }
 
+// videoFinished is shared by the save and resume paths; otherwise a short
+// clip can keep a valid position on disk but still start from zero.
+func videoFinished(position, duration float64) bool {
+	return duration > 0 && duration-position <= 10 && position/duration >= 0.98
+}
+
 // runVideoProbe drives the whole video path with no human clicking: search,
 // details, play, then asks the player page what it decoded and saves a frame
 // read back from the video element. It is only used by the development tools
 // (cmd/uicheck), never by the app's own flows.
 func (a *App) runVideoProbe(query, out string, quit bool) {
 	report := func(ok bool, detail string) {
+		a.mu.Lock()
+		if !ok {
+			a.video.probeErr = fmt.Errorf("video probe: %s", detail)
+		}
+		a.mu.Unlock()
 		fmt.Printf("video-probe: ok=%v %s\n", ok, detail)
 		if quit {
 			mygo.App.Quit()
@@ -691,6 +706,17 @@ func (a *App) runVideoProbe(query, out string, quit bool) {
 			}
 			state, _ := raw.(string)
 			firstState = state
+			var observation struct {
+				Err string `json:"err"`
+			}
+			if err := json.Unmarshal([]byte(state), &observation); err != nil {
+				report(false, "the page returned no playback state")
+				return
+			}
+			if observation.Err != "" {
+				report(false, "the player reported: "+observation.Err)
+				return
+			}
 			if strings.Contains(state, `"w":0`) {
 				continue
 			}
@@ -706,6 +732,11 @@ func (a *App) runVideoProbe(query, out string, quit bool) {
 		}
 		if secondState == "" {
 			report(false, "the player never decoded the media: "+firstState)
+			return
+		}
+		decoder, _ := view.Page().Eval("document.getElementById('v').dataset.decoder || ''")
+		if a.dev.VideoForceHLS && decoder != "hls.js" {
+			report(false, fmt.Sprintf("the HLS.js probe used a different decoder: %v", decoder))
 			return
 		}
 		var before, after struct {
@@ -758,24 +789,59 @@ func (a *App) runVideoProbe(query, out string, quit bool) {
 		// Pausing makes the page report its position; the shelf is what the
 		// window would resume from next time.
 		_, _ = view.Page().Eval("document.getElementById('v').pause(); 0")
-		if raw, err := view.Page().Eval(`fetch('progress', {method: 'POST', body: JSON.stringify({time: 3, duration: 10, paused: true})}).then(r => r.status)`); err == nil {
-			log.Printf("video probe: progress POST status=%v shelf=%v", raw, a.shelf != nil)
-		}
-		saved := false
-		for i := 0; i < 20; i++ {
-			time.Sleep(300 * time.Millisecond)
-			if entries := a.shelf.VideoHistory(3); len(entries) > 0 {
-				saved = entries[0].Position > 0
-				if saved {
-					report(true, fmt.Sprintf("frame=%s size=%vx%v duration=%.1f time=%.2f->%.2f saved=%s@%.2fs",
-						out, after.W, after.H, after.Duration, before.Time, after.Time,
-						entries[0].EpisodeName, entries[0].Position))
-					return
-				}
+		key := a.videoKey()
+		episodeID := details.Lines[0].Episodes[0].ID
+		var saved shelf.VideoHistory
+		if !a.waitFor(60, func() bool {
+			entry, ok := a.shelf.VideoProgress(key, first.ID, episodeID)
+			if ok && entry.Position >= after.Time-0.4 && entry.Position > 0 {
+				saved = entry
+				return true
 			}
+			return false
+		}) {
+			report(false, "the pause event never saved the actual position")
+			return
 		}
-		report(false, "the player never saved a position")
+		// Read a fresh shelf from disk, then use the real Continue Watching
+		// action. Never synthesize a progress POST or set currentTime here.
+		reopened, err := shelf.Open(a.core.DataDir())
+		if err != nil {
+			report(false, "reopening persisted history failed: "+err.Error())
+			return
+		}
+		disk, ok := reopened.VideoProgress(key, first.ID, episodeID)
+		if !ok || disk.Position < after.Time-0.4 {
+			report(false, fmt.Sprintf("the disk position did not match the page: %+v", disk))
+			return
+		}
+		oldURL, _ := view.Page().Eval("location.href")
+		a.videoResume(saved)
+		var resumed float64
+		if !a.waitFor(100, func() bool {
+			currentURL, err := view.Page().Eval("location.href")
+			if err != nil || currentURL == oldURL {
+				return false
+			}
+			position, err := view.Page().Eval("document.getElementById('v') ? document.getElementById('v').currentTime : 0")
+			resumed, _ = position.(float64)
+			return err == nil && resumed >= disk.Position-0.3
+		}) {
+			report(false, fmt.Sprintf("resume failed: saved=%.3f observed=%.3f", disk.Position, resumed))
+			return
+		}
+		report(true, fmt.Sprintf("frame=%s decoder=%v size=%vx%v duration=%.1f time=%.2f->%.2f disk=%s@%.3fs reopened=%.3fs",
+			out, decoder, after.W, after.H, after.Duration, before.Time, after.Time,
+			disk.EpisodeName, disk.Position, resumed))
 	}()
+}
+
+// VideoProbeError lets the development command return a failing exit status
+// when its actual playback/progress/resume observation failed.
+func (a *App) VideoProbeError() error {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	return a.video.probeErr
 }
 
 // waitFor polls a condition for up to n tenths of a second.

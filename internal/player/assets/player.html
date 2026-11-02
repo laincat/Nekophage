@@ -15,10 +15,6 @@
     border-top: 1px solid #2a2a2e; }
   #title { flex: 1; color: #a9a9b0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   #err { color: #ff8686; }
-  button { background: #26262a; color: inherit; border: 1px solid #34343a;
-    border-radius: 6px; padding: 4px 10px; font: inherit; cursor: pointer; }
-  button:hover { background: #303036; }
-  .hidden { display: none !important; }
 </style>
 </head>
 <body>
@@ -28,8 +24,7 @@
   </div>
   <div id="bar">
     <span id="title"></span>
-    <span id="err"></span>
-    <button id="hlsmode" class="hidden">强制 HLS.js</button>
+    <span id="err" role="status"></span>
   </div>
 </div>
 <script src="hls.js"></script>
@@ -42,20 +37,36 @@
   const title = params.get('title') || '';
   const start = Number(params.get('start') || '0');
   const token = params.get('token') || '';
+  const format = params.get('format') || 'auto';
   const video = document.getElementById('v');
   const err = document.getElementById('err');
-  const button = document.getElementById('hlsmode');
   document.getElementById('title').textContent = title;
   document.title = title || 'Nekophage';
 
   let hls = null;
-  let forced = params.get('mode') === 'hls';
+  const forced = params.get('mode') === 'hls';
   let lastPost = 0;
+  let restoring = Number.isFinite(start) && start > 0;
+  const source = new URL(src, location.href);
+  if (source.origin !== location.origin ||
+      !source.pathname.startsWith('/s/' + token + '/media/')) {
+    err.textContent = '无效的媒体地址';
+    return;
+  }
+
+  // Both the native decoder and HLS.js have metadata before seeking. Setting
+  // currentTime when only the manifest exists can drop the requested position.
+  video.addEventListener('loadedmetadata', function () {
+    if (!restoring) return;
+    const end = Number.isFinite(video.duration) ? Math.max(0, video.duration - 0.01) : start;
+    video.currentTime = Math.min(start, end);
+  }, { once: true });
+  video.addEventListener('seeked', function () { restoring = false; });
 
   function fail(text) { err.textContent = text; }
 
   function post(force) {
-    if (!token) return;
+    if (!token || restoring || !video.videoWidth) return;
     const now = Date.now();
     if (!force && now - lastPost < 4000) return;
     lastPost = now;
@@ -74,11 +85,9 @@
 
   function play() {
     if (!src) { fail('没有可播放的媒体地址'); return; }
-    if (!forced && nativeHLS()) {
-      video.src = src;
-      if (start > 0) {
-        video.addEventListener('loadedmetadata', function () { video.currentTime = start; }, { once: true });
-      }
+    if (format !== 'hls' || (!forced && nativeHLS())) {
+      video.dataset.decoder = 'native';
+      video.src = source.href;
       video.addEventListener('error', function () { fail('这个格式在这里无法解码'); });
       return;
     }
@@ -86,29 +95,14 @@
       fail(nativeHLS() ? 'HLS.js 不可用' : '这个格式在这里无法解码');
       return;
     }
-    hls = new Hls({ enableWorker: true, lowLatencyMode: false });
+    video.dataset.decoder = 'hls.js';
+    hls = new Hls({ enableWorker: true, lowLatencyMode: false, startPosition: restoring ? start : -1 });
     hls.on(Hls.Events.ERROR, function (_event, data) {
       if (!data || !data.fatal) return;
       fail(data.details ? String(data.details) : '播放中断');
     });
-    hls.loadSource(src);
+    hls.loadSource(source.href);
     hls.attachMedia(video);
-    hls.on(Hls.Events.MANIFEST_PARSED, function () {
-      if (start > 0) video.currentTime = start;
-    });
-  }
-
-  // The native path is preferred where it exists (macOS); the button exposes
-  // HLS.js for comparing the two decoders on the same file.
-  if (nativeHLS() && !forced) {
-    button.classList.remove('hidden');
-    button.addEventListener('click', function () {
-      forced = true; button.classList.add('hidden');
-      if (hls) { hls.destroy(); hls = null; }
-      video.removeAttribute('src'); video.load();
-      err.textContent = '';
-      play();
-    });
   }
 
   video.addEventListener('timeupdate', function () { post(false); });

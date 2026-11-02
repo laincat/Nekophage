@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"strings"
 	"testing"
 	"time"
@@ -77,7 +78,7 @@ func TestServerServesPageScriptAndSortedProgress(t *testing.T) {
 	if ct := page.Header.Get("Content-Type"); !strings.HasPrefix(ct, "text/html") {
 		t.Fatalf("player page content type = %q", ct)
 	}
-	if !strings.Contains(pageURL, "start=42") {
+	if !strings.Contains(pageURL, "start=42.7") {
 		t.Fatalf("page URL lost the resume position: %s", pageURL)
 	}
 
@@ -188,6 +189,42 @@ func TestServerSessionTokensAreNotGuessed(t *testing.T) {
 	response.Body.Close()
 	if response.StatusCode != http.StatusNotFound {
 		t.Fatalf("another session's token reached the first session's media (%d)", response.StatusCode)
+	}
+}
+
+func TestSessionPreservesMediaFormatAndFractionalResume(t *testing.T) {
+	server, err := NewServer()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer server.Close()
+	for _, tc := range []struct {
+		url    string
+		format video.Format
+		want   video.Format
+	}{
+		{"https://fixture.invalid/clip.mp4", video.FormatMP4, video.FormatMP4},
+		{"https://fixture.invalid/play?id=1", video.FormatHLS, video.FormatHLS},
+		{"https://fixture.invalid/main.m3u8?signature=private", video.FormatAuto, video.FormatHLS},
+	} {
+		session, err := server.Open(httpSource{client: http.DefaultClient}, "fixture", testPlay(t, tc.url, tc.format), Meta{})
+		if err != nil {
+			t.Fatal(err)
+		}
+		page, err := url.Parse(session.URL("Clip", 2.375))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got := page.Query().Get("format"); got != string(tc.want) {
+			t.Fatalf("%s playback is routed as %s, want %s", tc.url, got, tc.want)
+		}
+		if got := page.Query().Get("start"); got != "2.375" {
+			t.Fatalf("resume position was rounded: %s", got)
+		}
+		if strings.Contains(page.String(), "fixture.invalid") || strings.Contains(page.String(), "private") {
+			t.Fatal("the page URL exposed an upstream URL or signature")
+		}
+		session.Close()
 	}
 }
 

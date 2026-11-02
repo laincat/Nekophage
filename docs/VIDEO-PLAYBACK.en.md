@@ -2,17 +2,15 @@
 
 [简体中文](VIDEO-PLAYBACK.md) | English
 
-Updated 2026-10-31. This is **material for a decision**, not a chosen plan. Playback is a product
-call (Core's `OPEN-QUESTIONS.md`, item 3); the page exists because the three routes differ by an
-order of magnitude, and picking one from memory would mean rework.
+Updated 2026-11-02. The roadmap now implements route A (WebView and media proxy). Other options remain as tradeoff background; the verification record below states actual progress and limits.
 
 ## Implementation progress (2026-11-02)
 
 The client media transport and `internal/player.MediaProxy` are implemented: they use the Core provider's search/detail/play declarations, share source cookie and redirect policy, stream media and use Core HLS rewriting to route child playlists, keys, initialization fragments and segments through proxy resources. Loopback cases verify relative paths after redirects, Referer, Range/206, data before response completion and upstream HTTP cancellation on session close.
 
-This is not yet a usable player. The video UI entry, WebView page, Windows/Linux HLS decoding dependency and watch progress remain unconnected. Nothing silently falls back to the system player; sniffing and DRM are not implemented. Route A's transport is the first implemented step; the remaining boundaries and acceptance below still apply.
+The main window's 视频 entry reaches search, details, lines/episodes and playback. An actual Windows WebView now verifies native MP4 (`640×360`) and bundled HLS.js 1.7.4 (`320×180`): frame readback, an advancing clock, Referer/Cookie, HLS master/child playlists and fMP4 byte ranges, the page's pause event writing progress, and real resume after reopening. The HLS fixture and commands are in [testdata](../internal/player/testdata/README.en.md); it has no audio. HLS log: `E:/Temp/desktop-hls-browser-playback.log`; native MP4: `E:/Temp/desktop-mp4-auth-real-resume.log`.
 
-**Update, 2026-11-02 (after the paragraph above):** Route A is now connected to the interface: 视频 in the main window → search/details/line-episodes → player window. The page is served by the local `player.Server` and bundles HLS.js 1.7.4 (native HLS preferred where available); positions are stored in `shelf.json` and resume. Measured in a real window: a progressive MP4 decodes actual pixels (`readyState=4`, `640x360`, frame read back as PNG) and a paused position is persisted. Still unverified: **HLS decoded in the browser** (no local fMP4/TS fixture), subtitles, picture-in-picture and a run on macOS.
+The probe's leftover synthetic `3s` POST is removed and failures return nonzero status. Save and resume share a completion rule and preserve fractional seconds. Video sources are currently installed through development tools; type selection and persistence in normal source management, and video-request generation cancellation, remain to be connected. Subtitles, PiP, macOS, audio tracks and live online sites remain unverified. Sniffing, DRM and DASH explicitly return unsupported errors.
 
 ## What already exists
 

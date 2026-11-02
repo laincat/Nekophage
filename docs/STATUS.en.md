@@ -2,7 +2,7 @@
 
 English | [简体中文](STATUS.md)
 
-Updated 2026-10-31. Every result below comes from **Windows** on this machine, with real comic sources and the real network. That day's additions are three: a real bug in redirect cookies on the transport (it read the wrong field), Chinese error text under the same rule the iOS client uses, and `live-sources.sh` gaining repeat runs and a `FLAKY` class.
+Updated 2026-11-02. Sections distinguish Windows live sites, loopback media fixtures, native windows and unit tests. The latest round verified HLS.js and native MP4 decoding, progress from the page's pause event, and actual resume after reopening. Local fixtures do not establish real-account or live-site behavior.
 
 
 The four CI jobs of Core's `6e07429` are green (three Go platforms plus Apple's xcframework with two Swift smoke tests), checked on 2026-11-01.
@@ -11,13 +11,15 @@ The four CI jobs of Core's `6e07429` are green (three Go platforms plus Apple's 
 
 ## Desktop video player (2026-11-02)
 
-The main window now has a 视频 entry: provider search → details (lines/episodes) → player window. `player.Server` serves the page on `127.0.0.1`; session URLs carry a random token and the page only ever sees proxy resource IDs. The page bundles HLS.js 1.7.4 (Apache-2.0, `internal/player/assets`), prefers native HLS where the engine has it and uses HLS.js otherwise. Positions are stored in `shelf.json` under `videos`, separate from comic history so a shared key cannot collide; the details list shows watched time and reopening resumes; reaching the last two percent within ten seconds of the end counts as finished and the next open starts from zero.
+The main window now has a 视频 entry: provider search → details (lines/episodes) → player window. `player.Server` serves the page on `127.0.0.1`; session URLs carry a random token and the page only ever sees proxy resource IDs. The page bundles HLS.js 1.7.4 (Apache-2.0, `internal/player/assets`); MP4 uses native decoding, while HLS prefers native support and otherwise uses HLS.js. Positions are stored in `shelf.json` under `videos`, separate from comic history so a shared key cannot collide; the details list shows watched time and reopening resumes; reaching the last two percent within ten seconds of the end counts as finished and the next open starts from zero.
 
-Real-window evidence (`cmd/uicheck -video …`): search → details → play with no human clicking; the page reports `readyState=4`, `640x360`, `duration=10.0`, the clock advances by itself, a frame read back from `<video>` is decoded pixels (`E:/Temp/desktop-player-frame.png`), and the paused position is written to the shelf (`Episode 1@2.07s`). Log `E:/Temp/desktop-player-ui-probe7.log`; the standalone probe `cmd/videocheck` logs to `E:/Temp/desktop-player-check.log`.
+Latest real-window evidence (`cmd/uicheck -video …`, fresh isolated profiles): HLS.js decodes `320×180`, the clock advances, and an actual frame is read back to `build/probes/hls-playback/frame.png`. The page's pause event writes `2.0381s` to disk; reopening the shelf and using Continue Watching really restores `2.0381s`. The master playlist, child playlist, initialization fragment and five fMP4 fragments all carry the declared Referer and the Cookie acquired during search; upstream logs record actual byte ranges such as `bytes=0-1122`. Log: `E:/Temp/desktop-hls-browser-playback.log`. Native MP4 also passes authentication, `640×360` decoding and actual `2.0921s → 2.0921s` resume: `E:/Temp/desktop-mp4-auth-real-resume.log`.
 
-Fixed here: the comic window no longer treats a video provider as a manga source (it used to report `not this kind of plugin` as a search-filter error), and short clips are not immediately treated as finished.
+The earlier `desktop-player-ui-probe7.log` establishes the MP4 picture and clock only: a leftover synthetic `3s` progress POST contaminated the save criterion, and failures still exited with status 0. That injection is removed. Acceptance now requires the page's pause event, a fresh disk read and the actual reopened position. The negative case omits the login Cookie, gets 403 and exits with status 1: `E:/Temp/desktop-video-negative-check.log`.
 
-**Not verified**: HLS manifests decoded inside the browser (no local fMP4/TS fixture and no ffmpeg to remux one); subtitles, picture-in-picture, and a run on macOS. The proxy's own HLS rewriting, Range and request headers are covered by the section below.
+Fixed here: MP4 decoder selection no longer depends on native HLS capability. Saving and opening an episode share one completion rule, allowing a two-second position in a ten-second clip to resume. Fractional seconds survive; HLS seeks after metadata, and Continue Watching uses the saved provider rather than the current search picker. Fixtures and rerun commands: [testdata](../internal/player/testdata/README.en.md). The production application does not require FFmpeg.
+
+**Engineering still required**: generic source management installs comic types; video sources are currently installed by development tools and need a user installation/persistence entry. Video search/detail replacement cancellation also remains to be connected. **Not verified**: subtitles, picture-in-picture, macOS execution, live online sites or audio tracks (the HLS fixture has none). These fixes are not included in the older `7dc3051` portable package below.
 
 ## Desktop video media transport (2026-11-02)
 
@@ -25,7 +27,7 @@ Fixed here: the comic window no longer treats a video provider as a manga source
 
 `internal/player.MediaProxy` is a per-play media proxy. The player accesses generated resource IDs; HLS parsing and rewriting stay in Core. Loopback end-to-end cases cover relative references after a master-playlist redirect, child playlists, AES keys, initialization fragments, Referer, Range/206/Content-Range, first data before response completion and upstream HTTP cancellation when the session closes. Media marked `Encrypted` (such as unsupported DRM), sniff-required and DASH playback return explicit unsupported errors. Proxying HLS AES-128 keys does not establish DRM support.
 
-This verifies the media transport, **not** a working desktop video player: the main-window video search entry, player WebView, browser HLS decoding and watch progress are not connected yet. Log: `E:/Temp/desktop-media-proxy-tests.log`. Existing comic requests retain their bounded whole-body behavior; media does not use that whole-response timeout and is controlled by the caller context and session close.
+The historical transport-test log is `E:/Temp/desktop-media-proxy-tests.log`; current UI, HLS decoding and resume evidence are listed separately above. Network unit tests are not browser-decoding evidence. Existing comic requests retain their bounded whole-body behavior; media does not use that whole-response timeout and is controlled by the caller context and session close.
 
 ## Windows portable package 0.2.0 (2026-11-02, commit `7dc3051`)
 

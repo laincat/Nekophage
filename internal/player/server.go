@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"math"
 	"net"
 	"net/http"
 	"net/url"
@@ -78,6 +79,7 @@ type Session struct {
 	server *Server
 	token  string
 	proxy  *MediaProxy
+	format video.Format
 
 	mu   sync.Mutex
 	meta Meta
@@ -95,7 +97,13 @@ func (s *Server) Open(source MediaSource, key string, play *video.Play, meta Met
 	if err != nil {
 		return nil, err
 	}
-	session := &Session{server: s, token: token, proxy: proxy, meta: meta}
+	format := play.Format
+	if format == "" || format == video.FormatAuto {
+		if target, err := url.Parse(play.URL); err == nil && strings.HasSuffix(strings.ToLower(target.Path), ".m3u8") {
+			format = video.FormatHLS
+		}
+	}
+	session := &Session{server: s, token: token, proxy: proxy, meta: meta, format: format}
 	s.mu.Lock()
 	s.sessions[token] = session
 	s.mu.Unlock()
@@ -115,8 +123,9 @@ func (s *Session) URL(title string, start float64) string {
 	query.Set("src", s.proxy.RootPath())
 	query.Set("title", title)
 	query.Set("token", s.token)
-	if start > 0.5 {
-		query.Set("start", strconv.Itoa(int(start)))
+	query.Set("format", string(s.format))
+	if start > 0 && !math.IsNaN(start) && !math.IsInf(start, 0) {
+		query.Set("start", strconv.FormatFloat(start, 'f', -1, 64))
 	}
 	return "http://" + s.server.ln.Addr().String() + "/s/" + s.token + "/play?" + query.Encode()
 }
