@@ -787,7 +787,7 @@ That repository is **not a theme plugin** — it is a complete Android client wh
 
 ## Twelve window probes rerun after the header and installer fixes (2026-11-03, commit `580f9fd`)
 
-After dropping the header hint, adding `SetOutPath` to the uninstaller, the install rollback and the subtitle cap, all four environment variables ran again: exit=0, **PASS=12, FAIL=0, SKIP=0**, log `E:/Temp/nk-desk-probes-6f120fe.log`. The coverage is the same as the previous round (login, challenge, dialog, page reads after close, favourites, reader decoding, comments, browse chips, shelf, category page, official callbacks and tags), so those changes did not break window behaviour. Still development-build windows with local fixtures, not acceptance inside a package.
+After dropping the header hint, adding `SetOutPath` to the uninstaller, the install rollback and the subtitle cap, all four environment variables ran again: exit=0, **PASS=12, FAIL=0, SKIP=0**, log `E:/Temp/nk-desk-probes-6f120fe.log`. The coverage is the same as the previous round (login, challenge, dialog, page reads after close, favourites, reader decoding, comments, browse chips, shelf, category page, official callbacks and tags), so those changes did not break window behaviour. Still development-build windows with local fixtures, not acceptance inside a package. After the fixture page became 320×1200 and `-progress` started reading only the page's own state, the suite ran again at `fdfa83f`: still 12 PASS / 0 FAIL / 0 SKIP (`E:/Temp/nk-desk-probes-fdfa83f.log`).
 
 ## Twelve window probes rerun on the subtitle-cap commit (2026-11-03, commit `cc85ad9`)
 
