@@ -242,6 +242,9 @@ type DevOptions struct {
 	// VideoQuit ends the app once the video probe has reported, so a tool can
 	// run it and read the exit code.
 	VideoQuit bool
+	// VideoRequireSubtitles fails the playback probe unless a text track has
+	// cues, which is what shows the subtitle playlist was fetched and parsed.
+	VideoRequireSubtitles bool
 	// VideoRequireAudio requires a positive decoded-audio byte counter after
 	// playback, rather than relying on a manifest codec declaration.
 	VideoRequireAudio bool

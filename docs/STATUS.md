@@ -4,6 +4,12 @@
 
 更新:2026-11-02。以下按章节区分 Windows 真实站点、loopback 媒体夹具、原生窗口与单测的证据。最新一轮完成 HLS.js 与原生 MP4 的真实解码、页面暂停落盘和重新打开续播;不以本地夹具代替真实账号或站点验证。
 
+## 字幕链路(2026-11-02)
+
+新增带 `EXT-X-MEDIA:TYPE=SUBTITLES` 的 HLS 夹具(`internal/player/testdata/hls-subs`)。真实 Windows WebView 中,播放器经媒体代理取到 `subs.m3u8` 与五个 `.vtt`(每条都带源声明的 Referer/Cookie,日志见 `E:/Temp/desktop-hls-subs-text.log`),HLS.js 把字幕轨设为 `showing`,读回 10 条 cue,首条文本正是夹具里的 `字幕渲染检查`;暂停 `2.007s` 重开恢复 `2.007s`。没有字幕组的素材得到 `cues=0` 并退出码 1(`E:/Temp/desktop-hls-subs-negative2.log`)。
+
+播放器为此补了一处真实行为:`MANIFEST_PARSED` 后不会自动选中 `DEFAULT=YES` 的字幕轨,现在在 `SUBTITLE_TRACKS_UPDATED` 里选中第一条,否则轨存在但不下载 cue。**未验证**:像素级字幕排版(探针回读的是视频元素像素,不含文本轨叠加层)、字号/位置样式、macOS、iOS 与真实在线源的字幕;源接口若不提供 `SUBTITLES` 组则无字幕可显示。
+
 ## 音轨解码管线(2026-11-02)
 
 H.264+AAC 的 fMP4 HLS 夹具在真实 Windows WebView 中播放后,`webkitAudioDecodedByteCount` 实读为 **18,537 字节**,画面 `320×180`、鉴权/Range 正常,暂停 `1.975s` 重开恢复 `1.975s`;日志 `E:/Temp/desktop-audio-decoded-counter.log`。探针 `-video-audio` 现在要求实际解码字节数大于零;不提供计数的浏览器只能记为未观测。

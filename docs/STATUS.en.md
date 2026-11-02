@@ -9,6 +9,12 @@ The four CI jobs of Core's `6e07429` are green (three Go platforms plus Apple's 
 
 **Pin moved to `6e07429` (2026-11-01)**: Core gained the three standard AI entry points and the optional chunked transport (`HostStream`), and it fixed a deadlock in the package bridge — the package pushed to `__magpieChatPush` from inside its own hook while the reader stopped at the end marker, so the writer waited for a reader that had gone. The desktop client **does not implement `HostStream` yet**, so replies still arrive whole; `scripts/fetch-core.sh` has aligned `build/core` to that commit and `scripts/check-core-pin.sh` passes.
 
+## Subtitle delivery (2026-11-02)
+
+A new HLS fixture with `EXT-X-MEDIA:TYPE=SUBTITLES` (`internal/player/testdata/hls-subs`). In an actual Windows WebView the player fetched `subs.m3u8` and five `.vtt` files through the media proxy, each carrying the source's Referer/Cookie (`E:/Temp/desktop-hls-subs-text.log`); HLS.js set the subtitle track to `showing`, 10 cues were read back, and the first cue text is the fixture's `字幕渲染检查`. Paused `2.007s` reopens at `2.007s`. Media without a subtitle group reports `cues=0` and exits 1 (`E:/Temp/desktop-hls-subs-negative2.log`).
+
+The player gained one real behaviour for this: a `DEFAULT=YES` subtitle track is not selected automatically after `MANIFEST_PARSED`, so it now selects the first track on `SUBTITLE_TRACKS_UPDATED`; otherwise the track exists but its cues are never fetched. **Unverified**: pixel-level subtitle layout (the probe reads video-element pixels, which exclude the text-track overlay), font and position styling, macOS, iOS and live sources; a source that exposes no `SUBTITLES` group has nothing to show.
+
 ## Audio decode pipeline (2026-11-02)
 
 After playing the H.264+AAC fMP4 HLS fixture in an actual Windows WebView, `webkitAudioDecodedByteCount` reads **18,537 bytes**, the picture is `320×180`, authentication/Range work, and paused `1.975s` resumes at `1.975s`. Log: `E:/Temp/desktop-audio-decoded-counter.log`. The probe's `-video-audio` now requires a positive actual decoded-byte counter; browsers without that counter remain unobserved.

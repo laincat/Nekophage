@@ -1,0 +1,22 @@
+class HLSProbe extends VideoSource {
+  name = "Local HLS subtitle probe";
+  key = "hls_subs_probe";
+  version = "1.0.0";
+  search = {
+    load: async () => {
+      await Network.get("http://127.0.0.1:18732/login", {});
+      return { videos: [{ id: "clip", title: "Local HLS clip with subtitles" }], maxPage: 1 };
+    },
+  };
+  video = {
+    loadInfo: async () => ({
+      id: "clip", title: "Local HLS clip with subtitles",
+      lines: [{ id: "local", name: "Local", episodes: [{ id: "ep1", title: "Episode 1" }] }],
+    }),
+    loadPlay: async () => ({
+      url: "http://127.0.0.1:18732/master.m3u8",
+      format: "hls",
+      headers: { Referer: "https://fixture.invalid/" },
+    }),
+  };
+}

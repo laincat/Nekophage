@@ -83,6 +83,7 @@ func main() {
 	videoAuth := flag.Bool("video-auth", false, "require fixture Referer and a Cookie obtained at /login for every media request")
 	videoHLS := flag.Bool("video-hlsjs", false, "verify the bundled HLS.js decoder even where native HLS is available")
 	videoAudio := flag.Bool("video-audio", false, "require a positive decoded-audio byte counter after playback")
+	videoSubs := flag.Bool("video-subs", false, "require subtitle cues to be loaded")
 	// dir reuses a profile, so the shelf and installed sources carry over
 	// from an earlier import.
 	dir := flag.String("dir", "", "profile directory; a fresh one under the temp directory when empty")
@@ -153,7 +154,7 @@ func main() {
 		Tag:      *tag,
 		KeepPage: *keepPage, Favourite: *favourite, OpenSettings: *settingsShot, BackupCookies: *backupCookies,
 		SetSetting: *setSetting, AI: *aiShot, AITest: *aiTest, AIPrompt: *aiPrompt, AIModel: *aiModel,
-		Video: *videoQuery, VideoOut: *videoFrame, VideoQuit: *videoQuery != "", VideoForceHLS: *videoHLS, VideoRequireAudio: *videoAudio})
+		Video: *videoQuery, VideoOut: *videoFrame, VideoQuit: *videoQuery != "", VideoForceHLS: *videoHLS, VideoRequireAudio: *videoAudio, VideoRequireSubtitles: *videoSubs})
 
 	if *videoMedia != "" {
 		stop, err := serveMedia(*videoMedia, "127.0.0.1:18732", *videoAuth)

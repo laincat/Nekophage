@@ -534,8 +534,36 @@ func (a *App) runVideoProbe(query, out string, quit bool) {
 		}
 		decoder, _ := view.Page().Eval("document.getElementById('v').dataset.decoder || ''")
 		audioDeclared, _ := view.Page().Eval("document.getElementById('v').dataset.audioDeclared || 'unknown'")
+		// Cue text, not just a count: it shows the proxy returned the fixture's
+		// bytes rather than an empty but well-formed playlist. Rendering is the
+		// browser's job and is not read back here, because the frame capture
+		// copies video pixels and never the text-track overlay.
+		subtitleEval, _ := view.Page().Eval(`(function(v){
+			var cues = 0, text = '', modes = [];
+			for (var i = 0; i < v.textTracks.length; i++) {
+				var t = v.textTracks[i];
+				modes.push(t.mode);
+				var c = t.cues;
+				if (!c) continue;
+				cues += c.length;
+				if (!text && c.length) text = String(c[0].text || '').replace(/\s+/g, ' ').trim();
+			}
+			return [cues, text, modes.join(',')];
+		})(document.getElementById('v'))`)
+		subtitleCues, subtitleText, subtitleModes := 0.0, "", ""
+		if parts, ok := subtitleEval.([]interface{}); ok && len(parts) == 3 {
+			subtitleCues, _ = parts[0].(float64)
+			subtitleText, _ = parts[1].(string)
+			subtitleModes, _ = parts[2].(string)
+		}
 		audioCounter, _ := view.Page().Eval("typeof document.getElementById('v').webkitAudioDecodedByteCount === 'number' ? document.getElementById('v').webkitAudioDecodedByteCount : -1")
 		audioBytes, counterAvailable := audioCounter.(float64)
+		if a.dev.VideoRequireSubtitles {
+			if subtitleCues <= 0 || subtitleText == "" {
+				report(false, fmt.Sprintf("no subtitle text was loaded: cues=%v modes=%v", subtitleCues, subtitleModes))
+				return
+			}
+		}
 		if a.dev.VideoRequireAudio && (!counterAvailable || audioBytes <= 0) {
 			report(false, fmt.Sprintf("audio decoding was not observed: declared=%v decodedBytes=%v", audioDeclared, audioCounter))
 			return
@@ -635,8 +663,8 @@ func (a *App) runVideoProbe(query, out string, quit bool) {
 			report(false, fmt.Sprintf("resume failed: saved=%.3f observed=%.3f", disk.Position, resumed))
 			return
 		}
-		report(true, fmt.Sprintf("frame=%s decoder=%v audioDeclared=%v audioDecodedBytes=%v size=%vx%v duration=%.1f time=%.2f->%.2f disk=%s@%.3fs reopened=%.3fs",
-			out, decoder, audioDeclared, audioCounter, after.W, after.H, after.Duration, before.Time, after.Time,
+		report(true, fmt.Sprintf("frame=%s decoder=%v audioDeclared=%v audioDecodedBytes=%v subtitleCues=%v subtitle=%q subtitleModes=%v size=%vx%v duration=%.1f time=%.2f->%.2f disk=%s@%.3fs reopened=%.3fs",
+			out, decoder, audioDeclared, audioCounter, subtitleCues, subtitleText, subtitleModes, after.W, after.H, after.Duration, before.Time, after.Time,
 			disk.EpisodeName, disk.Position, resumed))
 	}()
 }

@@ -117,6 +117,11 @@
     hls.loadSource(source.href);
     hls.attachMedia(video);
     hls.on(Hls.Events.MANIFEST_PARSED, function () { noteAudio(true); });
+    // A subtitle group is only usable once its track is selected; the default
+    // track from DEFAULT=YES is not applied automatically here.
+    hls.on(Hls.Events.SUBTITLE_TRACKS_UPDATED, function () {
+      if (hls.subtitleTracks && hls.subtitleTracks.length && hls.subtitleTrack < 0) hls.subtitleTrack = 0;
+    });
   }
 
   video.addEventListener('timeupdate', function () { post(false); });
