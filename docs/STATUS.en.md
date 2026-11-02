@@ -57,6 +57,15 @@ Install: `Start-Process setup.exe -ArgumentList '/S' -Wait` exits 0, `LOCALAPPDA
 
 One operational trap: `./setup.exe /S` from bash exits silently without installing because the shell mangles the arguments; it has to go through PowerShell's `Start-Process -ArgumentList '/S'`. Logs in `E:/Temp/nk-package-head-build.log`.
 
+## Progress reporting and the reading place join the default window suite (2026-11-03)
+
+`-progress` and `-scroll` used to be manual runs. Both now use the repository fixture (readercheck serves the pages on 18731) and are part of `scripts/desktop-probes.sh`:
+
+- **progress**: it only reads the report key the page itself writes; a request from the probe would prove the endpoint answers, not that the page reports;
+- **the reading place**: scroll, reopen, and require at least 80% of the distance the page can actually move.
+
+Measured: **9 PASS / 3 SKIP** with no external variables and **16 PASS / 0 FAIL / 0 SKIP** with all of them. Logs `E:/Temp/nk-probes-7plus.log` and `E:/Temp/nk-probes-7plus-full.log`.
+
 ## The failed-page notice and its retry now have an end-to-end check (2026-11-03)
 
 The reader shows "page N failed to load / retry" when a picture does not arrive, and nothing had ever exercised that path. `probesite.ServeOnePageFailing(port, failures)` answers the first N requests with a server error and the rest with the page, and `readercheck` grew `-fail N` and `-retry`.

@@ -52,6 +52,15 @@ Nekophage 的 pin 从 `214e7782` 升到 `8e14aad`,也就是包含 `b2610a5`(异�
 
 一个操作坑:在 bash 里直接 `./setup.exe /S` 会静默退出而不安装(参数被 shell 拧了),必须走 PowerShell 的 `Start-Process -ArgumentList '/S'`。日志 `E:/Temp/nk-package-head-build.log`。
 
+## 进度上报与阅读位置进入默认窗口套件(2026-11-03)
+
+`-progress` 和 `-scroll` 原来只能手动跑。现在两者都用仓内夹具(readercheck 在 18731 供图),进了 `scripts/desktop-probes.sh`:
+
+- **进度**:只读页面自己写入的上报键——探针自己发一次请求只能证明端点能答,不能证明页面在报告;
+- **阅读位置**:滚动后重开,按页面实际可滚动距离的 80% 判断。
+
+实测:不给外部变量 **9 PASS / 3 SKIP**,给齐变量 **16 PASS / 0 FAIL / 0 SKIP**。日志 `E:/Temp/nk-probes-7plus.log`、`E:/Temp/nk-probes-7plus-full.log`。
+
 ## 失败页的提示与重试有了端到端检查(2026-11-03)
 
 阅读器在图片加载失败时会显示「第 N 页加载失败 / 重试」,但此前没有任何检查碰过这条路径。新增 `probesite.ServeOnePageFailing(port, failures)`:前 N 个请求返回 500,之后正常给图;`readercheck` 增加 `-fail N` 与 `-retry`。

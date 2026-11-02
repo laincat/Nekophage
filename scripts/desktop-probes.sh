@@ -82,6 +82,21 @@ go run ./cmd/readercheck -script internal/reader/testdata/loopback_source.js \
 	>"$out/reader-retry.log" 2>&1 || rc=$?
 report "$rc" "a failed page offers a retry that recovers" "$out/reader-retry.log"
 
+# The page, not the probe, has to say where reading has got to: posting a report
+# from the probe would only prove the endpoint answers.
+rc=0
+go run ./cmd/readercheck -script internal/reader/testdata/loopback_source.js \
+	-query probe -serve 18731 -progress -out "$out/reader-progress.png" \
+	>"$out/reader-progress.log" 2>&1 || rc=$?
+report "$rc" "the page reports its own reading position" "$out/reader-progress.log"
+
+# Scrolling is remembered per chapter: move down, reopen, look where it landed.
+rc=0
+go run ./cmd/readercheck -script internal/reader/testdata/loopback_source.js \
+	-query probe -serve 18731 -scroll -out "$out/reader-scroll.png" \
+	>"$out/reader-scroll.log" 2>&1 || rc=$?
+report "$rc" "reopening a chapter returns to its place" "$out/reader-scroll.log"
+
 # A thread the source answers, in a window, with no network: the comment screen is
 # the one part of the source contract a capture tool can drive on its own.
 if [ -n "${NK_PROBE_SRC:-}" ]; then
