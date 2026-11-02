@@ -235,24 +235,41 @@ func (s *Session) serveProgress(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "progress is out of range", http.StatusBadRequest)
 		return
 	}
-	s.mu.Lock()
-	meta := s.meta
-	s.mu.Unlock()
+	meta, ok := s.reportMeta(w)
+	if !ok {
+		return
+	}
 	if s.server.OnProgress != nil {
 		s.server.OnProgress(meta, progress)
 	}
 	w.WriteHeader(http.StatusNoContent)
 }
 
+// reportMeta checks the session again at report acceptance, after receiving the
+// body. Closing a session or the server cancels the proxy context; token lookup
+// alone is insufficient because a request can wait for its body across Close.
+// A callback already accepted before cancellation is allowed to finish.
+func (s *Session) reportMeta(w http.ResponseWriter) (Meta, bool) {
+	if s.proxy.ctx.Err() != nil {
+		http.Error(w, "player session is closed", http.StatusGone)
+		return Meta{}, false
+	}
+	s.mu.Lock()
+	meta := s.meta
+	s.mu.Unlock()
+	return meta, true
+}
+
 // serveSubtitle reads and writes the episode's subtitle choice. The page asks
 // once on load and reports each change, so reopening an episode restores what
 // the viewer picked rather than the manifest default.
 func (s *Session) serveSubtitle(w http.ResponseWriter, r *http.Request) {
-	s.mu.Lock()
-	meta := s.meta
-	s.mu.Unlock()
 	switch r.Method {
 	case http.MethodGet:
+		meta, ok := s.reportMeta(w)
+		if !ok {
+			return
+		}
 		// A missing choice is an empty answer, not an error: the page falls
 		// back to the manifest default exactly as before.
 		body := struct {
@@ -280,6 +297,10 @@ func (s *Session) serveSubtitle(w http.ResponseWriter, r *http.Request) {
 		}
 		if !choice.Off && choice.Name == "" && choice.Language == "" {
 			http.Error(w, "subtitle needs a track or off", http.StatusBadRequest)
+			return
+		}
+		meta, ok := s.reportMeta(w)
+		if !ok {
 			return
 		}
 		if s.server.OnSubtitle != nil {

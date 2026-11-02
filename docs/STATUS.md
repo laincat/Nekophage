@@ -4,6 +4,12 @@
 
 更新:2026-11-02。以下按章节区分 Windows 真实站点、loopback 媒体夹具、原生窗口与单测的证据。最新一轮完成 HLS.js 与原生 MP4 的真实解码、页面暂停落盘和重新打开续播;不以本地夹具代替真实账号或站点验证。
 
+## 媒体会话关闭后的迟到写入(2026-11-03)
+
+同步屏障复现了一个底层生命周期缺陷:HTTP 请求已通过 token 查到会话,但还在接收请求体;此时关闭会话或整个服务,旧处理器仍返回 204 并调用进度/字幕保存回调。旧状态可能覆盖后来保存的状态。`TestClosedSessionDiscardsPendingReports` 用 `io.Pipe` 明确控制「读到正文→关闭→正文 EOF」的顺序,四种组合在修复前均失败(`status=204 callbacks=1`),日志 `E:/Temp/nk-session-late-reports-before.log`。
+
+现在在接收完正文、接受上报前重新检查媒体代理已有的取消 context,关闭后的迟到上报返回 410,不调用保存回调;服务关闭与单会话关闭共用此信号,不另建生命周期状态。race 回归包含上述四种组合及存活会话正常进度/字幕路径,通过日志 `E:/Temp/nk-session-late-reports-after.log`。这是 HTTP 处理器的确定性时序测试,不声称做了实际界面或 TCP 断连验收。取消前已被回调接纳的操作仍允许结束,本修复不回滚已接受的保存。0.2.5 本地包 `e1c2da4` 不包含此后续修复。
+
 ## Windows 0.2.5 本地测试包(2026-11-03,提交 `e1c2da4`)
 
 已把字幕偏好独立存储及迁移修复打包:便携 ZIP `21,556,043` 字节,SHA-256 `a43520be5753c7d983a151f681b4c5fbd287a47cf581950ea08740534bda2e6e`;setup `18,711,551` 字节,SHA-256 `e7db5370ec9a3d948a08680fde552cc4b7fd08a4809df5edbc783384c887980e`。`package-windows.py` 的 ZIP CRC、逐文件哈希、解压程序版本检查通过;隔离 `/S /NOREGISTER` 安装后的程序报 0.2.5、Core `214e7782`、提交 `e1c2da4`。真实安装包窗口完成视频搜索→详情→第 1 集→中文字幕显示,截图 `E:/Temp/desktop-package-025-dropdown.png`;Range、字幕清单/VTT 请求的本地鉴权日志均为 auth=true。
