@@ -60,7 +60,7 @@ Lead 通过 Cindy 桌面工具操作未修改的 0.2.4 安装包,在暂停的同
 
 证据来自新的开发工具 `cmd/subcheck`:它在真实 WebView2 里开 HLS 会话(仓内夹具 `internal/player/testdata/hls-subs`,英文 `DEFAULT=NO`、中文 `DEFAULT=YES`),用真实书架存偏好,然后**新建会话重开同一集**。第一轮显示默认中文;选中 English 后书架记录为 `{Name:English, Language:en}`,showing 轨中已加载文本为 `Subtitle rendering proof`;重开后的新页面 `selected="English"`、`value=0`、`cues=[en:1]`,仍包含已加载的英文 cue(该旧计数并非活动 cue)(`E:/Temp/nk-subcheck-run3.log`)。窗口截图 `build/probes/subtitle-reopen/reopened.png` 只含原生层,不含 WebView 画面。
 
-后续首次播放修复使用未预置历史的 `cmd/subcheck` 重跑通过(`E:/Temp/nk-subtitle-first-play-webview.log`);独立单测覆盖清除进度和旧数据迁移。限制:这是开发工具打开的真实窗口与真实 HLS.js 会话,不是 0.2.4 安装包内的 GUI 点击;夹具在仓内,不涉及在线站点;字幕字号/位置样式、画中画、变体组切换后的选择、macOS 与 iOS 仍未验证。`sh scripts/check.sh` 通过,日志 `E:/Temp/nk-subtitle-persist-full-check.log`。
+2026-11-03 在提交 `3c42463` 上重跑三条:英文(重开后 `selected="English"`、`value=0`、活动文本 `Subtitle rendering proof`)、中文(`value=1`、活动文本 `字幕渲染检查 第0段字幕`)、关闭(`value=-1`、无活动 cue 与文本),三条都解码宽度 320、暂停 1.000s,日志 `E:/Temp/nk-subcheck-3c42463-{en,zh,off}.log`。后续首次播放修复使用未预置历史的 `cmd/subcheck` 重跑通过(`E:/Temp/nk-subtitle-first-play-webview.log`);独立单测覆盖清除进度和旧数据迁移。限制:这是开发工具打开的真实窗口与真实 HLS.js 会话,不是 0.2.4 安装包内的 GUI 点击;夹具在仓内,不涉及在线站点;字幕字号/位置样式、画中画、变体组切换后的选择、macOS 与 iOS 仍未验证。`sh scripts/check.sh` 通过,日志 `E:/Temp/nk-subtitle-persist-full-check.log`。
 
 ## 字幕链路(2026-11-02)
 
