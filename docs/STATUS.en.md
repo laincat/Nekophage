@@ -27,6 +27,14 @@ Fixed here: the comic window no longer treats a video provider as a manga source
 
 This verifies the media transport, **not** a working desktop video player: the main-window video search entry, player WebView, browser HLS decoding and watch progress are not connected yet. Log: `E:/Temp/desktop-media-proxy-tests.log`. Existing comic requests retain their bounded whole-body behavior; media does not use that whole-response timeout and is controlled by the caller context and session close.
 
+## Windows portable package 0.2.0 (2026-11-02, commit `7dc3051`)
+
+Rebuilt after the video window landed: `build/releases/Nekophage-0.2.0-windows-amd64-7dc3051.zip`, **21,520,864 bytes**, SHA-256 `18250017734e129ab00ff9573392909aea847b72cc6e6f7c719bebd9ac332322`. ZIP CRC, per-file SHA-256 after extraction and the extracted `-version` (reporting commit `7dc3051`) all pass. The extracted program was then started with an isolated `APPDATA`/`LOCALAPPDATA`: window title `Nekophage`, 1100×760, capture `build/probes/package-0.2.0/packaged-window.png`; the window's close button ended it and a follow-up check confirmed the process was gone. **The user's real configuration directory was not touched.**
+
+Packaging caught a real interface defect: the new 视频 button pushed the toolbar past the 1100px default width and was cut off at the right edge. After narrowing the source picker, the mode switch and the search field, captures of both the development and the packaged build show the last control fully. Logs `E:/Temp/windows-package-build-0.2.0b.log` and `E:/Temp/nk-package-window-0.2.0b.log`.
+
+This is still an unsigned portable package, not an installer (this machine has no Inno Setup or NSIS and no code-signing certificate), and there is no remote to publish to.
+
 ## Windows portable-package acceptance (2026-11-02, commit `dbbaf0a`)
 
 `python scripts/package-windows.py` produced `build/releases/Nekophage-0.1.0-windows-amd64-dbbaf0a.zip` (20,755,698 bytes). ZIP CRC, per-file SHA-256 and extracted `-version` checks all passed, reporting Core `214e7782190d` and commit `dbbaf0a`. The extracted production executable was also launched with isolated APPDATA/LOCALAPPDATA in that child process only. The host window receipt confirmed the Nekophage title and search/browse/shelf/source-manager/AI controls; using its close button exited and the postcondition confirmed the window disappeared.

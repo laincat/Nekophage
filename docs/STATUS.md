@@ -22,6 +22,14 @@
 
 这些用例验证的是媒体传输层,**主界面的视频搜索入口、播放器 WebView、HLS 浏览器解码和观看进度尚未接入**,不能记为“桌面视频已可播放”。验证日志 `E:/Temp/desktop-media-proxy-tests.log`。既有漫画请求仍保留整包大小限制;媒体流不复用整包超时,生命周期由调用方上下文与播放会话关闭控制。
 
+## Windows 便携包 0.2.0(2026-11-02,提交 `7dc3051`)
+
+视频窗口合入后重新打包:`build/releases/Nekophage-0.2.0-windows-amd64-7dc3051.zip`,**21,520,864 字节**,SHA-256 `18250017734e129ab00ff9573392909aea847b72cc6e6f7c719bebd9ac332322`。ZIP CRC、解压后逐文件 SHA-256、解压后 `-version`(报告提交 `7dc3051`)全部通过。随后在独立 `APPDATA`/`LOCALAPPDATA` 下启动解压出的正式程序:窗口标题 `Nekophage`,1100×760,截图 `build/probes/package-0.2.0/packaged-window.png`;点窗口关闭按钮退出,后置检查确认进程结束。**没有动用户真实配置目录。**
+
+打包时发现并修掉一个真实的界面缺陷:新加的「视频」按钮把工具栏挤出了 1100px 的默认宽度,右端被裁掉。收窄源选择、模式切换与搜索框后,开发构建与打包构建的窗口截图都确认最后一个控件完整可见。日志 `E:/Temp/windows-package-build-0.2.0b.log`、`E:/Temp/nk-package-window-0.2.0b.log`。
+
+这仍是未签名便携包,不是安装程序(本机没有 Inno Setup / NSIS,也没有代码签名证书);没有远端可推。
+
 ## Windows 便携包验收(2026-11-02,提交 `dbbaf0a`)
 
 `python scripts/package-windows.py` 生成 `build/releases/Nekophage-0.1.0-windows-amd64-dbbaf0a.zip`(20,755,698 字节)。ZIP CRC、逐文件 SHA-256、解压后 `-version` 全部通过,程序报告 Core `214e7782190d` 与提交 `dbbaf0a`。另直接启动解压后的正式程序,只在子进程中改用独立 APPDATA/LOCALAPPDATA:宿主窗口回执确认标题 Nekophage 及搜索/浏览/书架/漫画源/AI 控件存在,通过窗口关闭按钮退出且后置检查确认窗口消失。
