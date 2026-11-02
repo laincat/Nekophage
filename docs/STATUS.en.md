@@ -25,6 +25,12 @@ Launch check: after `open build/macos/Nekophage.app` the process exists, and Cor
 
 The round also found and fixed an environment defect: pointing `fetch-core.sh` at an external Core checkout still hit go.mod's `./build/core` replacement and failed to build. The workspace now carries a `go work edit -replace`, and external mode skips `go mod tidy` with the reason stated; both modes were rechecked (external fetch/build/test pass, and the default path still fetches the pin and passes `check.sh`), commit `16025c4`. Limits: this is a development build, not a release artifact; playback, subtitles and live sites were not exercised inside this `.app`.
 
+## The reader decode check no longer borrows another repository's fixture (2026-11-03)
+
+`scripts/reader-probe.sh` used to ask for a source script and the repository had none, so runs borrowed `UITests/Fixtures/callback_probe.js` from Nekularity. With `internal/reader/testdata/loopback_source.js` in place, leaving `NK_READ_SRC` unset uses it (query `probe`, pages served by readercheck on 18731), and the entry in `scripts/desktop-probes.sh` now runs by default instead of only when an environment variable is set.
+
+Measured: with no environment variables the window suite is **6 PASS / 3 SKIP** (the skips are source favourites, the comment thread and the official callbacks and tags, which still need external scripts); with everything set it is still **13 PASS / 0 FAIL / 0 SKIP**. Logs `E:/Temp/nk-probes-default-reader.log` and `E:/Temp/nk-probes-full-default-reader.log`.
+
 ## The double-page layout can be checked offline (2026-11-03)
 
 `-layout` used to need a live site: the fixture chapter had one page and measuring a spread needs two. The repository now has `internal/reader/testdata/loopback_source.js` (a two-page chapter, both pages on `127.0.0.1:18731`, served by readercheck itself) and `scripts/layout-probe.sh`, wired into the window suite.

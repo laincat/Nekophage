@@ -20,6 +20,12 @@
 
 这一轮还暴露并修掉了一个环境缺陷:`fetch-core.sh` 传外部 Core 路径时,`go.mod` 里指向 `./build/core` 的 replace 仍生效,构建直接失败。现在工作区改用 `go work edit -replace`,外部模式跳过 `go mod tidy` 并说明原因;两种模式都复验过(外部 fetch/build/test 通过,默认模式仍取到 pin 并通过 `check.sh`),提交 `16025c4`。限制:这是开发构建打包,不是发布产物;播放、字幕与真实站点未在这个 `.app` 内验证。
 
+## 阅读解码检查不再依赖别的仓库(2026-11-03)
+
+`scripts/reader-probe.sh` 原来说「给我一个源脚本」,而仓内没有;实际跑的时候借用的是 Nekularity 的 `UITests/Fixtures/callback_probe.js`。现在有仓内 `internal/reader/testdata/loopback_source.js` 之后,不传 `NK_READ_SRC` 就用它(查询词 `probe`、由 readercheck 在 18731 供图),`scripts/desktop-probes.sh` 里这条也从「有环境变量才跑」改成默认跑。
+
+实测:不给任何环境变量时窗口套件 **6 PASS / 3 SKIP**(跳过的三项分别是源收藏、评论线程、官方脚本回调与标签,它们仍需要外部脚本);给齐变量时仍是 **13 PASS / 0 FAIL / 0 SKIP**。日志 `E:/Temp/nk-probes-default-reader.log`、`E:/Temp/nk-probes-full-default-reader.log`。
+
 ## 双页布局可以离线验了(2026-11-03)
 
 `-layout` 以前需要真实站点:夹具章节只有一页,而检双页要两页。现在仓内新增 `internal/reader/testdata/loopback_source.js`(章节两页,都指向 `127.0.0.1:18731`,由 readercheck 自己供图),并新增 `scripts/layout-probe.sh` 接进窗口套件。

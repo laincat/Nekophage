@@ -13,12 +13,21 @@
 set -eu
 
 cd "$(dirname "$0")/.."
-src=${NK_READ_SRC:-}
-if [ -z "$src" ] || [ ! -f "$src" ]; then
-	printf 'reader-probe: set NK_READ_SRC to a source script\n' >&2
+# Without NK_READ_SRC the repository own two-page loopback source is used, with
+# readercheck serving the pages: the decode check then needs no site and no
+# fixture from another repository.
+src=${NK_READ_SRC:-internal/reader/testdata/loopback_source.js}
+if [ ! -f "$src" ]; then
+	printf 'reader-probe: no source script at %s (set NK_READ_SRC)\n' "$src" >&2
 	exit 2
 fi
-query=${NK_READ_QUERY:-海贼王}
+query=${NK_READ_QUERY:-}
+if [ -z "$query" ]; then
+	if [ -n "${NK_READ_SRC:-}" ]; then query=海贼王; else query=probe; fi
+fi
+if [ -z "${NK_READ_SERVE:-}" ] && [ -z "${NK_READ_SRC:-}" ]; then
+	NK_READ_SERVE=18731
+fi
 
 out=build/probes
 mkdir -p "$out"

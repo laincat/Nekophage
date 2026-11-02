@@ -67,18 +67,11 @@ fi
 
 # Pages that actually decode, which is the one thing about images that cannot be
 # answered without a decoder: a source can return plausible byte counts that are
-# not a picture.
-if [ -n "${NK_READ_SRC:-}" ]; then
-	run "the reader decodes a real chapter" 		"$out/reader-probe.log" sh scripts/reader-probe.sh
-elif [ -n "${NK_PROBE_SRC:-}" ]; then
-	# No real source was named, so serve the page from loopback instead: the same
-	# trick, port and fixture the iOS interface tests use. This still proves an
-	# image decoded into a picture, it just does not prove a site serves one.
-	NK_READ_SRC=$NK_PROBE_SRC NK_READ_SERVE=18731 		run "the reader decodes a served page" 		"$out/reader-probe.log" sh scripts/reader-probe.sh
-else
-	printf 'SKIP  reader decode (set NK_READ_SRC, or NK_PROBE_SRC for a served page)
-'
-fi
+# not a picture. The repository fixture and readercheck own serving make this a
+# default check with no site and no fixture from another repository; NK_READ_SRC
+# still points it at a real source when one is available.
+run "the reader decodes a served page" \
+	"$out/reader-probe.log" sh scripts/reader-probe.sh
 
 # A thread the source answers, in a window, with no network: the comment screen is
 # the one part of the source contract a capture tool can drive on its own.
