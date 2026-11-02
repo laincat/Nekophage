@@ -20,6 +20,14 @@
 
 这一轮还暴露并修掉了一个环境缺陷:`fetch-core.sh` 传外部 Core 路径时,`go.mod` 里指向 `./build/core` 的 replace 仍生效,构建直接失败。现在工作区改用 `go work edit -replace`,外部模式跳过 `go mod tidy` 并说明原因;两种模式都复验过(外部 fetch/build/test 通过,默认模式仍取到 pin 并通过 `check.sh`),提交 `16025c4`。限制:这是开发构建打包,不是发布产物;播放、字幕与真实站点未在这个 `.app` 内验证。
 
+## Core pin 推到 `8e14aad`(2026-11-03)
+
+Nekophage 的 pin 从 `214e7782` 升到 `8e14aad`,也就是包含 `b2610a5`(异步 `rejection` 保留错误名)的那个 Core 提交。按既定规则,生产改动在下一次客户端构建时随版本升 pin,这次正是那个时点。
+
+`214e7782..8e14aad` 之间 Core 只有一个生产文件变了(`comic/js/engine.go`),`apple/` 下的 Swift 表面没有任何改动,所以链接的行为差异仅是错误文案,不会改变 API。
+
+本机验收:`scripts/set-core-pin.sh` + `scripts/fetch-core.sh` 把 `build/core` 切到该提交,`go build ./...` 通过,`go test ./...` **16 个包全过**,`scripts/check.sh` 通过,窗口套件 **14 PASS / 0 FAIL / 0 SKIP**,`-version` 自报 `Core 8e14aade75f563a95f50d4ec80be27bae0d02c63`。日志 `E:/Temp/nk-pin-build.log`、`E:/Temp/nk-pin-test.log`、`E:/Temp/nk-pin-probes.log`。
+
 ## 当前 HEAD 的 Windows 包重打并验收(2026-11-03)
 
 在 `5c5ce67` 上重打 Windows 包,不只看构建通过,还装了一遍:

@@ -25,6 +25,14 @@ Launch check: after `open build/macos/Nekophage.app` the process exists, and Cor
 
 The round also found and fixed an environment defect: pointing `fetch-core.sh` at an external Core checkout still hit go.mod's `./build/core` replacement and failed to build. The workspace now carries a `go work edit -replace`, and external mode skips `go mod tidy` with the reason stated; both modes were rechecked (external fetch/build/test pass, and the default path still fetches the pin and passes `check.sh`), commit `16025c4`. Limits: this is a development build, not a release artifact; playback, subtitles and live sites were not exercised inside this `.app`.
 
+## The Core pin moved to `8e14aad` (2026-11-03)
+
+Nekophage's pin goes from `214e7782` to `8e14aad`, the Core commit that carries `b2610a5` (async rejections keep their error name). The rule was to roll production changes into the next client build, and this is that moment.
+
+Only one production file changed in Core between the two pins (`comic/js/engine.go`), and nothing under `apple/` moved, so the linked difference is an error message rather than an API change.
+
+Verified here: `scripts/set-core-pin.sh` plus `scripts/fetch-core.sh` put `build/core` on that commit, `go build ./...` succeeds, `go test ./...` passes in **all 16 packages**, `scripts/check.sh` passes, the window suite is **14 PASS / 0 FAIL / 0 SKIP**, and `-version` reports `Core 8e14aade75f563a95f50d4ec80be27bae0d02c63`. Logs `E:/Temp/nk-pin-build.log`, `E:/Temp/nk-pin-test.log`, `E:/Temp/nk-pin-probes.log`.
+
 ## The Windows package was rebuilt at HEAD and installed (2026-11-03)
 
 Rebuilt at `5c5ce67` and, rather than trusting the build, installed it:
