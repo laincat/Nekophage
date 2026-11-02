@@ -4,7 +4,7 @@
 //	go run ./cmd/subcheck -dir internal/player/testdata/hls-subs -out shot.png
 //
 // Why a separate tool: the choice used to live only in the page, so choosing
-// 中文 and closing the player fell back to the manifest default on reopen. A Go
+// English and closing the player fell back to the manifest default on reopen. A Go
 // test proves what is stored; only a real WebView with a real HLS.js session
 // proves the page asks for it and applies it.
 package main
@@ -33,14 +33,18 @@ import (
 )
 
 type pageState struct {
-	Loading      bool     `json:"loading"`
-	Value        string   `json:"value"`
-	Selected     string   `json:"selected"`
-	Hidden       bool     `json:"hidden"`
-	ShowingText  string   `json:"showingText"`
-	HLS          string   `json:"hls"`
-	CueLanguages []string `json:"cueLanguages"`
-	Options      []string `json:"options"`
+	Loading       bool     `json:"loading"`
+	Value         string   `json:"value"`
+	Selected      string   `json:"selected"`
+	Hidden        bool     `json:"hidden"`
+	ShowingText   string   `json:"showingText"`
+	HLS           string   `json:"hls"`
+	CueLanguages  []string `json:"cueLanguages"`
+	Options       []string `json:"options"`
+	VideoWidth    int      `json:"videoWidth"`
+	Time          float64  `json:"time"`
+	Seeking       bool     `json:"seeking"`
+	ShowingTracks int      `json:"showingTracks"`
 }
 
 const stateScript = `(() => {
@@ -48,10 +52,14 @@ const stateScript = `(() => {
   const v = document.getElementById('v');
   // The page can still be loading: the WebView exists before its document does.
   if (!s || !v) return JSON.stringify({loading: true});
+  // Compare every state at the same decoded, paused frame. Loaded cues can
+  // include future subtitles; only activeCues establish text at this position.
+  v.pause();
+  if (v.readyState > 0 && !v.seeking && Math.abs(v.currentTime - 1) > 0.05) v.currentTime = 1;
   const tracks = Array.from(v.textTracks);
   const showing = tracks.filter(function (t) { return t.mode === 'showing'; });
   const text = showing.map(function (t) {
-    return Array.from(t.cues || []).map(function (c) { return c.text; }).join(' ');
+    return Array.from(t.activeCues || []).map(function (c) { return c.text; }).join(' ');
   }).join(' | ');
   return JSON.stringify({
     value: s.value,
@@ -59,7 +67,11 @@ const stateScript = `(() => {
     hidden: document.getElementById('subtitle-choice').hidden,
     options: Array.from(s.options).map(function (o) { return o.textContent; }),
     showingText: text,
-    cueLanguages: showing.map(function (t) { return (t.language || t.label || '') + ':' + (t.cues ? t.cues.length : 0); }),
+    cueLanguages: showing.map(function (t) { return (t.language || t.label || '') + ':' + (t.activeCues ? t.activeCues.length : 0); }),
+    showingTracks: showing.length,
+    videoWidth: v.videoWidth,
+    time: v.currentTime,
+    seeking: v.seeking,
     hls: typeof Hls !== 'undefined' ? Hls.version : 'absent'
   });
 })()`
@@ -80,7 +92,8 @@ const selectScript = `(() => {
 func main() {
 	dir := flag.String("dir", "internal/player/testdata/hls-subs", "HLS fixture directory")
 	work := flag.String("work", "", "where the shelf keeps the choice (a temporary directory by default)")
-	choose := flag.String("choose", "English", "the subtitle option to pick before reopening")
+	choose := flag.String("choose", "English", "the subtitle option to pick before reopening, including 关闭")
+	text := flag.String("text", "Subtitle rendering proof", "expected active cue text (ignored for 关闭)")
 	out := flag.String("out", "", "where to write the final window capture")
 	wait := flag.Duration("wait", 25*time.Second, "how long the page may take to load")
 	flag.Parse()
@@ -156,7 +169,14 @@ func main() {
 	defer server.Close()
 	// The same two hooks internal/ui/video.go installs.
 	server.Subtitle = func(m player.Meta) (player.Subtitle, bool) {
-		choice, ok := records.VideoSubtitle(m.Source, m.ItemID, m.EpisodeID)
+		// Read a fresh store to prove persistence to disk, not just the original
+		// shelf instance retaining a value in memory.
+		reopened, err := shelf.Open(workDir)
+		if err != nil {
+			log.Printf("subtitle reopen: %v", err)
+			return player.Subtitle{}, false
+		}
+		choice, ok := reopened.VideoSubtitle(m.Source, m.ItemID, m.EpisodeID)
 		if !ok {
 			return player.Subtitle{}, false
 		}
@@ -221,14 +241,14 @@ func main() {
 				return
 			}
 			before = state()
-			if len(before.Options) > 1 && !before.Hidden {
+			if len(before.Options) > 1 && !before.Hidden && before.VideoWidth > 0 && !before.Seeking && before.Time > 0.9 && before.ShowingText != "" {
 				break
 			}
 			time.Sleep(500 * time.Millisecond)
 		}
 		log.Printf("before: options=%v selected=%q hidden=%v hls=%s", before.Options, before.Selected, before.Hidden, before.HLS)
-		if len(before.Options) < 2 {
-			checkErr = fmt.Errorf("the manifest's subtitle groups never arrived: %+v", before)
+		if len(before.Options) < 2 || before.VideoWidth == 0 || before.Seeking || before.Time < 0.9 || before.ShowingText == "" {
+			checkErr = fmt.Errorf("the fixture never displayed a decoded frame with an active baseline subtitle: %+v", before)
 			mygo.App.Quit()
 			return
 		}
@@ -248,7 +268,7 @@ func main() {
 		// The page reports the change to the app; wait for it to land.
 		stored := false
 		for deadline = time.Now().Add(10 * time.Second); time.Now().Before(deadline); {
-			if choice, ok := records.VideoSubtitle(meta.Source, meta.ItemID, meta.EpisodeID); ok {
+			if choice, ok := records.VideoSubtitle(meta.Source, meta.ItemID, meta.EpisodeID); ok && ((*choose == "关闭" && choice.Off) || (*choose != "关闭" && !choice.Off && choice.Name == *choose)) {
 				stored = true
 				log.Printf("stored: %+v", choice)
 				break
@@ -260,11 +280,32 @@ func main() {
 			mygo.App.Quit()
 			return
 		}
-		time.Sleep(2 * time.Second)
-		chosen := state()
-		log.Printf("chosen: selected=%q showing=%q cues=%v", chosen.Selected, chosen.ShowingText, chosen.CueLanguages)
-		if chosen.Selected != *choose {
-			log.Printf("the select did not keep %q: %+v", *choose, chosen)
+		matches := func(s pageState) bool {
+			if s.Loading || s.Hidden || s.VideoWidth == 0 || s.Seeking || s.Time < 0.9 || s.Time > 1.1 || s.Selected != *choose {
+				return false
+			}
+			if *choose == "关闭" {
+				return s.Value == "-1" && s.ShowingTracks == 0 && s.ShowingText == ""
+			}
+			return s.Value != "-1" && s.ShowingTracks > 0 && strings.Contains(s.ShowingText, *text)
+		}
+		waitForChoice := func() pageState {
+			var got pageState
+			for end := time.Now().Add(*wait); time.Now().Before(end); {
+				got = state()
+				if checkErr != nil || matches(got) {
+					break
+				}
+				time.Sleep(300 * time.Millisecond)
+			}
+			return got
+		}
+		chosen := waitForChoice()
+		log.Printf("chosen: selected=%q active=%q cues=%v width=%d time=%.3f", chosen.Selected, chosen.ShowingText, chosen.CueLanguages, chosen.VideoWidth, chosen.Time)
+		if checkErr != nil || !matches(chosen) {
+			checkErr = fmt.Errorf("choice did not apply at the paused frame: %+v", chosen)
+			mygo.App.Quit()
+			return
 		}
 
 		// Reopen the same episode in a new session, as closing and pressing
@@ -276,27 +317,17 @@ func main() {
 			return
 		}
 		defer second.Close()
+		first.Close()
 		if err := view.Page().LoadURL(second.URL("Local HLS clip", 0)); err != nil {
 			checkErr = fmt.Errorf("reload: %w", err)
 			mygo.App.Quit()
 			return
 		}
-		var reopened pageState
-		for deadline = time.Now().Add(*wait); time.Now().Before(deadline); {
-			reopened = state()
-			if len(reopened.Options) > 1 && reopened.Value != "" {
-				break
-			}
-			time.Sleep(500 * time.Millisecond)
-		}
-		log.Printf("reopened: options=%v selected=%q value=%s showing=%q cues=%v",
-			reopened.Options, reopened.Selected, reopened.Value, reopened.ShowingText, reopened.CueLanguages)
-		if reopened.Selected != *choose {
-			checkErr = fmt.Errorf("reopening fell back to %q, not %q", reopened.Selected, *choose)
-		} else if reopened.Value == "-1" {
-			checkErr = fmt.Errorf("reopening shows %q but has subtitles switched off", *choose)
-		} else if !strings.Contains(reopened.ShowingText, "Subtitle rendering proof") {
-			checkErr = fmt.Errorf("the restored track rendered no English cue: %q", reopened.ShowingText)
+		reopened := waitForChoice()
+		log.Printf("reopened: selected=%q value=%s active=%q cues=%v width=%d time=%.3f",
+			reopened.Selected, reopened.Value, reopened.ShowingText, reopened.CueLanguages, reopened.VideoWidth, reopened.Time)
+		if checkErr != nil || !matches(reopened) {
+			checkErr = fmt.Errorf("restored choice did not apply at the paused frame: %+v", reopened)
 		}
 		if *out != "" {
 			if data, err := win.CapturePage(); err == nil {

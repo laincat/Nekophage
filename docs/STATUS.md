@@ -18,13 +18,21 @@ Lead 通过 Cindy 桌面工具操作未修改的 0.2.4 安装包,在暂停的同
 
 最终夹具使用与 `cmd/uicheck` 相同的 Go `http.FileServer`、登录 Cookie 与 Referer 校验,支持真实 Range;日志 `E:/Temp/nk-subtitle-language-024/range-fixture.stderr.log` 中中文/英文清单、VTT 与媒体范围请求均为 `auth=true`。最初不支持 Range 的 Python 服务不计入这些结论。所有任务窗口通过界面关闭、进程退出、卸载与夹具停止已确认(`E:/Temp/desktop-subtitle-language-024-cleanup.log`)。这证明当前 Windows 包内的语言切换/关闭。跨播放器重开的持久化已在后续单独补上,见「字幕选择跨播放器重开保持」;变体组刷新后的选择、其他字幕样式与 macOS/iOS 仍不在这些结论内。
 
+## 活动字幕与关闭重开验证(2026-11-03)
+
+`cmd/subcheck` 改为暂停在同一 1.000s、要求真实解码宽度大于零且 seek 完成,只读取 showing 轨的 `activeCues`。旧探针读取 `cues`,包含未来时间的已加载文本,因此旧记录不能单独证明当时有活动字幕。新会话从磁盘重读字幕偏好,不只依赖原书架对象的内存;选择落盘也必须匹配本次选择,而非任意旧记录。探针现支持 `-choose 关闭` 与 `-text`。
+
+真实 Windows WebView2 / HLS.js 1.7.4 的三次独立运行均通过:English、中文、关闭在新会话重开后分别得到英文活动文本、中文活动文本、`value=-1` 且 showing 轨与活动文本均为空;媒体解码宽度均为 320,暂停位置均为 1.000s。日志分别为 `E:/Temp/nk-subtitle-active-english.log`、`E:/Temp/nk-subtitle-active-chinese.log`、`E:/Temp/nk-subtitle-active-off.log`。反例把英文 cue 移到 100–110s,在 1s 仍选中 English 却得到 `en:0` 与空活动文本,探针按预期非零退出(`E:/Temp/nk-subtitle-future-cue-negative.log`),说明未来字幕不能再造成通过。
+
+这是开发工具操作真实 WebView 中的选择框并触发 change,不属于打包 GUI 的人工控件验收或屏幕像素证据。只覆盖本地夹具、磁盘偏好重读与新会话/页面,不声称验证了整个 App 退出重启、变体组切换、macOS 或 iOS。仍沿用已交付 0.2.4 安装包,本轮未打新包。
+
 ## 字幕选择跨播放器重开保持(2026-11-02)
 
 此前字幕选择只活在本页:`subtitleChoice` 是页面变量,关闭播放器再打开同一集会回到清单默认轨。字幕选择独立存入书架文件(关闭也是一种选择),播放器页加载时读取、变更时写入。首次播放在进度落盘前选字幕也能保存,不会因此创建观看历史;播放结束清除进度后选择仍保留。旧版嵌在进度记录里的选择会在读取时迁移。
 
 更正此前的映射缺陷结论:最初选择 English 却选中中文是开发探针错把选项下标当成选项值,不足以证明产品中存在该缺陷。当前页面以轨道列表映射选项,并使用轨道自身的 id;真实站点的不同轨道排列仍待验证。
 
-证据来自新的开发工具 `cmd/subcheck`:它在真实 WebView2 里开 HLS 会话(仓内夹具 `internal/player/testdata/hls-subs`,英文 `DEFAULT=NO`、中文 `DEFAULT=YES`),用真实书架存偏好,然后**新建会话重开同一集**。第一轮显示默认中文;选中 English 后书架记录为 `{Name:English, Language:en}`,画面文本 `Subtitle rendering proof`;重开后的新页面 `selected="English"`、`value=0`、`cues=[en:1]`,渲染的仍是英文 cue(`E:/Temp/nk-subcheck-run3.log`)。窗口截图 `build/probes/subtitle-reopen/reopened.png` 只含原生层,不含 WebView 画面。
+证据来自新的开发工具 `cmd/subcheck`:它在真实 WebView2 里开 HLS 会话(仓内夹具 `internal/player/testdata/hls-subs`,英文 `DEFAULT=NO`、中文 `DEFAULT=YES`),用真实书架存偏好,然后**新建会话重开同一集**。第一轮显示默认中文;选中 English 后书架记录为 `{Name:English, Language:en}`,showing 轨中已加载文本为 `Subtitle rendering proof`;重开后的新页面 `selected="English"`、`value=0`、`cues=[en:1]`,仍包含已加载的英文 cue(该旧计数并非活动 cue)(`E:/Temp/nk-subcheck-run3.log`)。窗口截图 `build/probes/subtitle-reopen/reopened.png` 只含原生层,不含 WebView 画面。
 
 后续首次播放修复使用未预置历史的 `cmd/subcheck` 重跑通过(`E:/Temp/nk-subtitle-first-play-webview.log`);独立单测覆盖清除进度和旧数据迁移。限制:这是开发工具打开的真实窗口与真实 HLS.js 会话,不是 0.2.4 安装包内的 GUI 点击;夹具在仓内,不涉及在线站点;字幕字号/位置样式、画中画、变体组切换后的选择、macOS 与 iOS 仍未验证。`sh scripts/check.sh` 通过,日志 `E:/Temp/nk-subtitle-persist-full-check.log`。
 
