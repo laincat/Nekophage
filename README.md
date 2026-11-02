@@ -42,9 +42,10 @@ go build -o build/Nekophage.exe .  # Windows,产物放 build/ 中
 ./build/Nekophage.exe -version     # 版本、Core 提交、源 API 级别、自身提交与 Go 运行时,不开窗
 go test ./...                     # 单元与端到端测试
 python scripts/package-windows.py # Windows + Python 3.11+:生成并验证便携 ZIP
+python scripts/package-windows.py --nsis <makensis.exe>  # 同上,并生成按用户安装的 setup.exe
 ```
 
-macOS 可用 `go build -o build/Nekophage .` 构建本机程序。Windows 打包脚本把 ZIP 写到 `build/releases/`,内含可执行文件、许可证、双语使用说明、构建信息与 SHA-256;会实际解压、检查所有文件哈希并运行解压后程序的 `-version`。它不安装应用、不修改用户数据,也不发布到远端。
+macOS 可用 `go build -o build/Nekophage .` 构建本机程序。Windows 打包脚本把 ZIP 写到 `build/releases/`,内含可执行文件、许可证、双语使用说明、构建信息与 SHA-256;会实际解压、检查所有文件哈希并运行解压后程序的 `-version`。它不安装应用、不修改用户数据,也不发布到远端。加 `--nsis <makensis>` 时再生成 setup.exe:安装到 `%LOCALAPPDATA%\Programs\Nekophage`,写入当前用户的卸载项与开始菜单快捷方式;卸载保留 `%APPDATA%\Nekophage` 中的资料,`/NOREGISTER` 只用于隔离检查。
 
 `go.mod` 用 `replace` 指向 `build/core`;Core 有了发布标签后改成普通依赖即可。Linux 上需要 GTK 3(`libgtk-3-0`),WebView 页面还需要 WebKitGTK 4.1(`libwebkit2gtk-4.1-0`);Windows 需要 WebView2 运行时(Windows 11 自带)。
 

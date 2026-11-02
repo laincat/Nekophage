@@ -42,9 +42,10 @@ go build -o build/Nekophage.exe .  # Windows; keep the output under build/
 ./build/Nekophage.exe -version     # version, Core commit, source API level, own commit and Go runtime, no window
 go test ./...                     # unit and end-to-end tests
 python scripts/package-windows.py # Windows + Python 3.11+: build and verify a portable ZIP
+python scripts/package-windows.py --nsis <makensis.exe>  # same, plus a per-user setup.exe
 ```
 
-On macOS, build the native program with `go build -o build/Nekophage .`. The Windows packaging script writes a ZIP under `build/releases/` containing the executable, license, bilingual instructions, build information and SHA-256 checksums. It actually extracts the archive, verifies all file hashes and runs the extracted executable with `-version`. It does not install the app, alter user data or publish remotely.
+On macOS, build the native program with `go build -o build/Nekophage .`. The Windows packaging script writes a ZIP under `build/releases/` containing the executable, license, bilingual instructions, build information and SHA-256 checksums. It actually extracts the archive, verifies all file hashes and runs the extracted executable with `-version`. It does not install the app, alter user data or publish remotely. With `--nsis <makensis>` it also builds setup.exe, which installs under `%LOCALAPPDATA%\Programs\Nekophage` and writes a current-user uninstall entry and Start menu shortcut; uninstall keeps the `%APPDATA%\Nekophage` profile, and `/NOREGISTER` exists for isolated checks.
 
 `go.mod` replaces Core with `build/core`; once Core has release tags it becomes a plain dependency. Linux needs GTK 3 (`libgtk-3-0`) and, for web pages, WebKitGTK 4.1 (`libwebkit2gtk-4.1-0`); Windows needs the WebView2 runtime (Windows 11 has it).
 

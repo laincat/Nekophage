@@ -46,6 +46,14 @@ H.264+AAC 的 fMP4 HLS 夹具在真实 Windows WebView 中播放后,`webkitAudio
 
 这些传输层用例的历史日志为 `E:/Temp/desktop-media-proxy-tests.log`;当前的界面、HLS 解码与续播证据单列在上节,不把网络单测当作浏览器解码验证。既有漫画请求仍保留整包大小限制;媒体流不复用整包超时,生命周期由调用方上下文与播放会话关闭控制。
 
+## Windows 安装包与便携包 0.2.1(2026-11-02,提交 `e27d5f7`)
+
+`python scripts/package-windows.py --nsis <makensis>` 现在生成便携 ZIP(`21,544,447` 字节,SHA-256 `a5e9f549927a2e937ba196e0fb862140d4c2fa39a3c9278ed05747d7b8f5c3b0`)和按用户安装的 setup(`18,697,739` 字节,SHA-256 `58e980bacf3d6337abc8935ddfab950c392d4cf0ed6b2512b2bdc3d8d1e90025`)。打包脚本自身验证 ZIP CRC、解压后逐文件 SHA-256 与解压程序的 `-version`;安装行为单独实测。
+
+实测(回执 `E:/Temp/desktop-installer-0.2.1-receipt.json`):静默安装到隔离目录后 12 个文件齐全、逐文件哈希与 `SHA256SUMS.txt` 一致、`-version` 报 `0.2.1`/Core `214e7782`/提交 `e27d5f79`;正常安装写入当前用户卸载项与开始菜单,安装后的程序开出真实窗口(标题 `Nekophage`,工具栏含搜索/浏览/书架/分类/源收藏/当前源/源管理/AI/视频,截图 `E:/Temp/desktop-installed-0.2.1-window.png`);`Uninstall.exe /S` 后目录、卸载项与快捷方式均删除。`/NOREGISTER` 安装写入 `skipRegistration=1` 且不写注册表与快捷方式;卸载后仍不写;预置在 `%APPDATA%\Nekophage` 的哨兵文件在卸载后仍存在,说明卸载不清用户资料。
+
+未验证:签名与 SmartScreen 声誉、没有 WebView2 的机器、其他 Windows 版本。此包已包含 `0d8ce15`、`30d460f`、`8f1d812` 与音轨字节计数判据,取代下面的 `0.2.0` 旧包。
+
 ## Windows 便携包 0.2.0(2026-11-02,提交 `7dc3051`)
 
 视频窗口合入后重新打包:`build/releases/Nekophage-0.2.0-windows-amd64-7dc3051.zip`,**21,520,864 字节**,SHA-256 `18250017734e129ab00ff9573392909aea847b72cc6e6f7c719bebd9ac332322`。ZIP CRC、解压后逐文件 SHA-256、解压后 `-version`(报告提交 `7dc3051`)全部通过。随后在独立 `APPDATA`/`LOCALAPPDATA` 下启动解压出的正式程序:窗口标题 `Nekophage`,1100×760,截图 `build/probes/package-0.2.0/packaged-window.png`;点窗口关闭按钮退出,后置检查确认进程结束。**没有动用户真实配置目录。**

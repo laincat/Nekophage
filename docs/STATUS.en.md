@@ -51,6 +51,14 @@ Ordinary video-source file/URL installation, restart restoration and video read 
 
 The historical transport-test log is `E:/Temp/desktop-media-proxy-tests.log`; current UI, HLS decoding and resume evidence are listed separately above. Network unit tests are not browser-decoding evidence. Existing comic requests retain their bounded whole-body behavior; media does not use that whole-response timeout and is controlled by the caller context and session close.
 
+## Windows installer and portable package 0.2.1 (2026-11-02, commit `e27d5f7`)
+
+`python scripts/package-windows.py --nsis <makensis>` now emits a portable ZIP (`21,544,447` bytes, SHA-256 `a5e9f549927a2e937ba196e0fb862140d4c2fa39a3c9278ed05747d7b8f5c3b0`) and a per-user setup (`18,697,739` bytes, SHA-256 `58e980bacf3d6337abc8935ddfab950c392d4cf0ed6b2512b2bdc3d8d1e90025`). The script verifies the ZIP CRC, per-file hashes after extraction and the extracted `-version`; installation behaviour is measured separately.
+
+Measured (receipt `E:/Temp/desktop-installer-0.2.1-receipt.json`): a silent install into an isolated directory produced all 12 files, every file hash matched `SHA256SUMS.txt`, and `-version` reported `0.2.1`/Core `214e7782`/commit `e27d5f79`. A normal install wrote the current-user uninstall entry and Start menu shortcut, the installed program opened a real window (title `Nekophage`; toolbar with search/browse/shelf/category/source favorites/source manager/AI/video; screenshot `E:/Temp/desktop-installed-0.2.1-window.png`), and `Uninstall.exe /S` removed the directory, entry and shortcut. A `/NOREGISTER` install recorded `skipRegistration=1` and wrote no registry key or shortcut, nor on uninstall; a sentinel file placed in `%APPDATA%\Nekophage` survived uninstall, so the profile is preserved.
+
+Unverified: signature and SmartScreen reputation, a machine without WebView2, other Windows versions. This build includes `0d8ce15`, `30d460f`, `8f1d812` and the decoded-audio-byte criterion, superseding the `0.2.0` package below.
+
 ## Windows portable package 0.2.0 (2026-11-02, commit `7dc3051`)
 
 Rebuilt after the video window landed: `build/releases/Nekophage-0.2.0-windows-amd64-7dc3051.zip`, **21,520,864 bytes**, SHA-256 `18250017734e129ab00ff9573392909aea847b72cc6e6f7c719bebd9ac332322`. ZIP CRC, per-file SHA-256 after extraction and the extracted `-version` (reporting commit `7dc3051`) all pass. The extracted program was then started with an isolated `APPDATA`/`LOCALAPPDATA`: window title `Nekophage`, 1100×760, capture `build/probes/package-0.2.0/packaged-window.png`; the window's close button ended it and a follow-up check confirmed the process was gone. **The user's real configuration directory was not touched.**
