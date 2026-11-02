@@ -10,6 +10,12 @@
 
 现在在接收完正文、接受上报前重新检查媒体代理已有的取消 context,关闭后的迟到上报返回 410,不调用保存回调;服务关闭与单会话关闭共用此信号,不另建生命周期状态。race 回归包含上述四种组合及存活会话正常进度/字幕路径,通过日志 `E:/Temp/nk-session-late-reports-after.log`。这是 HTTP 处理器的确定性时序测试,不声称做了实际界面或 TCP 断连验收。取消前已被回调接纳的操作仍允许结束,本修复不回滚已接受的保存。0.2.5 本地包 `e1c2da4` 不包含此后续修复,0.2.6 包(`3359910`)包含。
 
+## Windows 0.2.7 本地测试包(2026-11-03,提交 `f114dea`)
+
+这一版第一次带上表头修复:无漫画源时不再把提示挤成一字一行。便携 ZIP `21,559,053` 字节,SHA-256 `7d348877318ec1af88b5c2991933e2441b902c296887b23dd596065ea31e3bc5`;setup `18,712,668` 字节,SHA-256 `c0ff8bfaa9fa89fbe4a4648bfc8443756bf01c514b229dc010a425b360b44da0`。`package-windows.py` 的构建、ZIP CRC、逐文件哈希与解压程序版本检查通过;程序自报 0.2.7、Core `214e7782`、提交 `f114dea`。
+
+便携包启动核对:ZIP 解出的 `Nekophage.exe` 以隔离 `APPDATA`/`LOCALAPPDATA` 启动,窗口标题 `Nekophage`、1100×760,表头只有标题与控件,截图 `E:/Temp/nk-run-027/window.png`,关窗后进程退出。安装核对同样不是隔离安装(NSIS 走 shell 文件夹 API),装到真实 `%LOCALAPPDATA%\Programs\Nekophage` 后自报 0.2.7。这一轮发现卸载器会留下一个空的 `Nekophage` 目录:Windows 不能删除仍被某进程当作工作目录的目录。在 `Uninstall` 段开头加 `SetOutPath "$TEMP"` 后重建 setup,再装机→静默卸载,目录已不在,`%APPDATA%\Nekophage` 配置保留。播放与字幕流程仍未在包内验收。
+
 ## Windows 0.2.6 本地测试包(2026-11-03,提交 `3359910`)
 
 这一版把媒体会话迟到写入的修复带进包里(0.2.5 的 `e1c2da4` 不含该修复)。版本号在 `main.go` 中升到 0.2.6;便携 ZIP `21,557,923` 字节,SHA-256 `5b67cd240f2faf9b6097a5bafef8b2542eb9ab43d05bd2919b6c47dabe8cc335`;setup `18,712,671` 字节,SHA-256 `0d2955eaf9e3881fdad4210122e761d76c8f9157ed284b4d68440c182b20ad30`。`package-windows.py` 的构建、ZIP CRC、逐文件哈希与解压程序版本检查通过;`scripts/check.sh` 在 `7bd9965` 上通过。

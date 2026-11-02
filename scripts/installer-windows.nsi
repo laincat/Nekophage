@@ -76,6 +76,10 @@ Function un.onInit
 FunctionEnd
 
 Section "Uninstall"
+  ; Leave the install directory before deleting it: Windows refuses to remove a
+  ; directory that is some process's working directory, which leaves an empty
+  ; Nekophage folder behind after a silent uninstall.
+  SetOutPath "$TEMP"
   ReadINIStr $SkipRegistration "$INSTDIR\install-state.ini" "install" "skipRegistration"
   ${If} $SkipRegistration != "1"
     ReadRegStr $0 HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\Nekophage" "InstallLocation"
