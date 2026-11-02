@@ -145,8 +145,9 @@ func (t *Transport) SchemeOf(partition string) string {
 	return t.schemes[partition]
 }
 
-// Do implements host.Transport.
-func (t *Transport) Do(ctx context.Context, r *host.Request) (*host.Response, error) {
+// request shares request construction between bounded source responses and
+// streaming media, including the same partitioned cookie and redirect policy.
+func (t *Transport) request(ctx context.Context, r *host.Request) (*http.Request, error) {
 	u, err := url.Parse(r.URL)
 	if err != nil {
 		return nil, err
@@ -205,7 +206,37 @@ func (t *Transport) Do(ctx context.Context, r *host.Request) (*host.Response, er
 	if cookie != "" {
 		req.Header.Set("Cookie", cookie)
 	}
+	return req, nil
+}
 
+// OpenStream returns a live response. The caller owns Body.Close and supplies
+// the request lifetime through ctx. Media must not be buffered into maxBody or
+// interrupted by the source client's whole-response timeout.
+func (t *Transport) OpenStream(ctx context.Context, r *host.Request) (*http.Response, error) {
+	req, err := t.request(ctx, r)
+	if err != nil {
+		return nil, err
+	}
+	// Range offsets describe encoded media bytes, not a compressed HTTP body.
+	req.Header.Set("Accept-Encoding", "identity")
+	client := *t.client
+	client.Timeout = 0
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	if r.Cookies && resp.Request != nil && resp.Request.URL != nil {
+		t.jar.SetURL(r.Partition, resp.Request.URL, resp.Cookies())
+	}
+	return resp, nil
+}
+
+// Do implements host.Transport with its bounded, fully read response contract.
+func (t *Transport) Do(ctx context.Context, r *host.Request) (*host.Response, error) {
+	req, err := t.request(ctx, r)
+	if err != nil {
+		return nil, err
+	}
 	resp, err := t.client.Do(req)
 	if err != nil {
 		return nil, err
@@ -213,9 +244,9 @@ func (t *Transport) Do(ctx context.Context, r *host.Request) (*host.Response, er
 	defer resp.Body.Close()
 	// The partition's scheme is remembered, so an image address without one
 	// can inherit it.
-	if partition != "" {
+	if partition := partitionOf(req.Context()); partition != "" {
 		t.mu.Lock()
-		t.schemes[partition] = u.Scheme
+		t.schemes[partition] = req.URL.Scheme
 		t.mu.Unlock()
 	}
 	var bodyReader io.Reader = resp.Body

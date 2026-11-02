@@ -6,6 +6,12 @@ Updated 2026-10-31. This is **material for a decision**, not a chosen plan. Play
 call (Core's `OPEN-QUESTIONS.md`, item 3); the page exists because the three routes differ by an
 order of magnitude, and picking one from memory would mean rework.
 
+## Implementation progress (2026-11-02)
+
+The client media transport and `internal/player.MediaProxy` are implemented: they use the Core provider's search/detail/play declarations, share source cookie and redirect policy, stream media and use Core HLS rewriting to route child playlists, keys, initialization fragments and segments through proxy resources. Loopback cases verify relative paths after redirects, Referer, Range/206, data before response completion and upstream HTTP cancellation on session close.
+
+This is not yet a usable player. The video UI entry, WebView page, Windows/Linux HLS decoding dependency and watch progress remain unconnected. Nothing silently falls back to the system player; sniffing and DRM are not implemented. Route A's transport is the first implemented step; the remaining boundaries and acceptance below still apply.
+
 ## What already exists
 
 Core (implemented and tested):

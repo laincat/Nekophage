@@ -9,6 +9,14 @@ The four CI jobs of Core's `6e07429` are green (three Go platforms plus Apple's 
 
 **Pin moved to `6e07429` (2026-11-01)**: Core gained the three standard AI entry points and the optional chunked transport (`HostStream`), and it fixed a deadlock in the package bridge — the package pushed to `__magpieChatPush` from inside its own hook while the reader stopped at the end marker, so the writer waited for a reader that had gone. The desktop client **does not implement `HostStream` yet**, so replies still arrive whole; `scripts/fetch-core.sh` has aligned `build/core` to that commit and `scripts/check-core-pin.sh` passes.
 
+## Desktop video media transport (2026-11-02)
+
+`internal/core` now delegates VideoSearch/VideoDetails/VideoPlay directly to the shared Core provider, without duplicating parsing. Media reads reuse the existing transport's cookie and redirect policy and return a closable stream rather than buffering a whole film into the 64 MiB source-response limit. Video JS Network uses the existing `comic:<key>` partition; media uses the same one, with an actual cookie test demonstrating that sign-in state reaches playback requests.
+
+`internal/player.MediaProxy` is a per-play media proxy. The player accesses generated resource IDs; HLS parsing and rewriting stay in Core. Loopback end-to-end cases cover relative references after a master-playlist redirect, child playlists, AES keys, initialization fragments, Referer, Range/206/Content-Range, first data before response completion and upstream HTTP cancellation when the session closes. Media marked `Encrypted` (such as unsupported DRM), sniff-required and DASH playback return explicit unsupported errors. Proxying HLS AES-128 keys does not establish DRM support.
+
+This verifies the media transport, **not** a working desktop video player: the main-window video search entry, player WebView, browser HLS decoding and watch progress are not connected yet. Log: `E:/Temp/desktop-media-proxy-tests.log`. Existing comic requests retain their bounded whole-body behavior; media does not use that whole-response timeout and is controlled by the caller context and session close.
+
 ## Windows portable-package acceptance (2026-11-02, commit `dbbaf0a`)
 
 `python scripts/package-windows.py` produced `build/releases/Nekophage-0.1.0-windows-amd64-dbbaf0a.zip` (20,755,698 bytes). ZIP CRC, per-file SHA-256 and extracted `-version` checks all passed, reporting Core `214e7782190d` and commit `dbbaf0a`. The extracted production executable was also launched with isolated APPDATA/LOCALAPPDATA in that child process only. The host window receipt confirmed the Nekophage title and search/browse/shelf/source-manager/AI controls; using its close button exited and the postcondition confirmed the window disappeared.

@@ -4,6 +4,14 @@
 
 更新:2026-10-31。下列结论来自 **Windows** 本机实测,包括真实漫画源与真实网络。当天新增的内容集中在三处:传输层重定向 Cookie 的真 bug(`CheckRoute` 读错了字段)、错误提示的中文化(与 iOS 同一规则:只翻认得的,其余保留 Core 原文)、以及 `live-sources.sh` 的重复跑与 `FLAKY` 分类。
 
+## 桌面视频媒体传输层(2026-11-02)
+
+`internal/core` 新增 VideoSearch/VideoDetails/VideoPlay 对共享 Core provider 的直接委托,不在客户端重写解析。媒体读取复用现有传输层的 Cookie 与重定向策略,返回可关闭的响应流,不把完整影片读进 64 MiB 源响应缓冲。视频 JS 的 Network 使用现有 `comic:<key>` 分区,媒体也使用同一分区,真实 Cookie 用例已验证登录状态不会丢失。
+
+`internal/player.MediaProxy` 是每次播放的媒体代理:播放器只能访问代理生成的资源 ID,HLS 清单解析与改写仍调用 Core。loopback 端到端用例覆盖主清单重定向后的相对地址、子清单、AES 密钥、初始化片段、Referer、Range/206/Content-Range;首块数据在响应结束前可读,关闭代理会话会取消上游 HTTP。声明为 `Encrypted` 的媒体(例如未支持的 DRM)、待嗅探与 DASH 明确返回不支持;HLS AES-128 密钥资源按清单代理,不等同于已实现 DRM。
+
+这些用例验证的是媒体传输层,**主界面的视频搜索入口、播放器 WebView、HLS 浏览器解码和观看进度尚未接入**,不能记为“桌面视频已可播放”。验证日志 `E:/Temp/desktop-media-proxy-tests.log`。既有漫画请求仍保留整包大小限制;媒体流不复用整包超时,生命周期由调用方上下文与播放会话关闭控制。
+
 ## Windows 便携包验收(2026-11-02,提交 `dbbaf0a`)
 
 `python scripts/package-windows.py` 生成 `build/releases/Nekophage-0.1.0-windows-amd64-dbbaf0a.zip`(20,755,698 字节)。ZIP CRC、逐文件 SHA-256、解压后 `-version` 全部通过,程序报告 Core `214e7782190d` 与提交 `dbbaf0a`。另直接启动解压后的正式程序,只在子进程中改用独立 APPDATA/LOCALAPPDATA:宿主窗口回执确认标题 Nekophage 及搜索/浏览/书架/漫画源/AI 控件存在,通过窗口关闭按钮退出且后置检查确认窗口消失。
