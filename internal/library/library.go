@@ -250,7 +250,15 @@ func (l *Library) installOrReplace(ctx context.Context, typ plugin.Type, body, o
 		return nil, err
 	}
 	if err := l.persist(); err != nil {
-		return rec, err
+		// Core now holds a source the disk refused. Undo it: the window would
+		// otherwise show a source that the next launch silently loses, while the
+		// user has already been told the install failed.
+		if rec != nil && rec.Key != "" {
+			if rmErr := l.core.Remove(ctx, rec.Key); rmErr == nil {
+				l.refresh()
+			}
+		}
+		return nil, err
 	}
 	return rec, nil
 }
