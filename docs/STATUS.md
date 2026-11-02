@@ -10,6 +10,14 @@
 
 现在在接收完正文、接受上报前重新检查媒体代理已有的取消 context,关闭后的迟到上报返回 410,不调用保存回调;服务关闭与单会话关闭共用此信号,不另建生命周期状态。race 回归包含上述四种组合及存活会话正常进度/字幕路径,通过日志 `E:/Temp/nk-session-late-reports-after.log`。这是 HTTP 处理器的确定性时序测试,不声称做了实际界面或 TCP 断连验收。取消前已被回调接纳的操作仍允许结束,本修复不回滚已接受的保存。0.2.5 本地包 `e1c2da4` 不包含此后续修复,0.2.6 包(`3359910`)包含。
 
+## macOS 阅读主线(2026-11-03,提交 `3c42463`)
+
+仓库没有远端,代码以 git bundle 经私有 gist 传到 Mac(base64 `3,190,624` 字节,SHA-256 `093cbfc4…c2e3a173`;bundle `2,392,967` 字节)。`git bundle verify` 通过,clone 后 HEAD 为 `3c42463`,Core 由 `scripts/fetch-core.sh` 取到 pin `214e7782`。macOS 27.0.1 arm64 / Go 1.27.3 上 `go build ./...` 通过。
+
+阅读主线用 `cmd/readercheck` 与离线夹具(`callback_probe.js`,页码指向 `127.0.0.1:18731`,由 readercheck 自己供图)跑通:退出码 0,章节 1 页中**实际解码 1 / 1**,`figures=1 images=1 decoded=1 first=8x8`;截图 `/tmp/nk-mac-reader.png` `20,756` 字节(900×920)。阅读进度上报返回 HTTP 200 与 `{"ok":true}`,键为 `nkreader.at:callback_probe/1/1:pct`。单页高度不足以滚动,进度值为 `0`,这里只证明上报链路成功。运行结束后 18731 端口无监听。
+
+限制:截图是原生窗口捕获,不含 WebView 画面,解码结论来自工具的解码计数;夹具在 loopback,不涉及真实站点或账号;这是开发构建,不是 macOS 打包产物。日志在 `/tmp/nk-mac-reader-evidence/`。
+
 ## Windows 0.2.7 本地测试包(2026-11-03,提交 `f114dea`)
 
 这一版第一次带上表头修复:无漫画源时不再把提示挤成一字一行。便携 ZIP `21,559,053` 字节,SHA-256 `7d348877318ec1af88b5c2991933e2441b902c296887b23dd596065ea31e3bc5`;setup `18,712,668` 字节,SHA-256 `c0ff8bfaa9fa89fbe4a4648bfc8443756bf01c514b229dc010a425b360b44da0`。`package-windows.py` 的构建、ZIP CRC、逐文件哈希与解压程序版本检查通过;程序自报 0.2.7、Core `214e7782`、提交 `f114dea`。

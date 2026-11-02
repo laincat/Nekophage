@@ -15,6 +15,14 @@ A synchronization barrier reproduced a lifecycle defect: an HTTP request resolve
 
 Reports now recheck the media proxy's existing cancellation context after receiving the body and before acceptance. Late reports return 410 without invoking persistence; server and session closure share the signal, with no additional lifecycle state. Race regression covers the four combinations and normal live-session progress/subtitle paths (`E:/Temp/nk-session-late-reports-after.log`). This is a deterministic HTTP-handler timing test, not UI or TCP-disconnection acceptance. Operations accepted by a callback before cancellation may finish; the fix does not roll back accepted saves. The local 0.2.5 package at `e1c2da4` does not include this subsequent fix; the 0.2.6 package (`3359910`) does.
 
+## macOS reading mainline (2026-11-03, commit `3c42463`)
+
+The repository has no remote, so the code travelled as a git bundle through a private gist (base64 3,190,624 bytes, SHA-256 `093cbfc4…c2e3a173`; bundle 2,392,967 bytes). `git bundle verify` passed, the clone's HEAD is `3c42463`, and `scripts/fetch-core.sh` fetched Core at pin `214e7782`. `go build ./...` passed on macOS 27.0.1 arm64 with Go 1.27.3.
+
+The reading mainline ran through `cmd/readercheck` with an offline fixture (`callback_probe.js`, pages pointing at `127.0.0.1:18731`, served by readercheck itself): exit 0, **1 / 1** pages actually decoded out of a one-page chapter (`figures=1 images=1 decoded=1 first=8x8`), and the capture `/tmp/nk-mac-reader.png` is 20,756 bytes at 900×920. The reading-progress report answered HTTP 200 with `{"ok":true}` and wrote `nkreader.at:callback_probe/1/1:pct`. A single page is not tall enough to scroll, so the position is `0`; this proves the reporting path, not a reading position. Port 18731 had no listener afterwards.
+
+Limits: the capture is a native window and holds no WebView pixels, so the decode conclusion comes from the tool's own count; the fixture is loopback with no live site or account; this is a development build, not a macOS package. Logs are under `/tmp/nk-mac-reader-evidence/`.
+
 ## Windows 0.2.7 local test package (2026-11-03, commit `f114dea`)
 
 First package to carry the header fix: with no comic sources installed, the hint is no longer squeezed into one character per line. Portable ZIP **21,559,053 bytes**, SHA-256 `7d348877318ec1af88b5c2991933e2441b902c296887b23dd596065ea31e3bc5`; setup **18,712,668 bytes**, SHA-256 `c0ff8bfaa9fa89fbe4a4648bfc8443756bf01c514b229dc010a425b360b44da0`. `package-windows.py` passes the build, ZIP CRC, extracted-file hash and executable version checks; the binary reports 0.2.7, Core `214e7782`, commit `f114dea`.
