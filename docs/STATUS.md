@@ -10,7 +10,13 @@
 
 打包过程抓到一个真实缺陷:0.2.3 包在真实窗口中播放同一夹具时**没有任何字幕轨,也不请求 `subs.m3u8`**。原因是默认走了浏览器原生 HLS,而 WebView2 的原生路径忽略 `EXT-X-MEDIA` 字幕组;用 `cmd/uicheck` 去掉 `-video-hlsjs` 可复现(`decoder=native`、`activeSubtitleCues=0`)。`851884d` 改为 HLS 会话优先内置 HLS.js,原生只作回退,并保留 `-video-native` 复现回退路径。
 
-实测:隔离静默安装后 `-version` 报 `0.2.4`/Core `214e7782`/提交 `29bab49`;在**打包后的 GUI** 里点「视频→搜索→详情→第 1 集→播放」,字幕选择框显示「中文」,画面出现「第0段字幕 / 字幕渲染检查」,夹具服务器日志记录到 `subs.m3u8` 与 `sub0.vtt` 请求,截图 `E:/Temp/desktop-package-0.2.4-subtitle.png`;`Uninstall.exe /S` 删除安装目录。**未验证**:该包内手动切换语言/关闭字幕、macOS/iOS 字幕、签名与无 WebView2 的机器。
+实测:隔离静默安装后 `-version` 报 `0.2.4`/Core `214e7782`/提交 `29bab49`;在**打包后的 GUI** 里点「视频→搜索→详情→第 1 集→播放」,字幕选择框显示「中文」,画面出现「第0段字幕 / 字幕渲染检查」,夹具服务器日志记录到 `subs.m3u8` 与 `sub0.vtt` 请求,截图 `E:/Temp/desktop-package-0.2.4-subtitle.png`;`Uninstall.exe /S` 删除安装目录。该包内字幕语言切换/关闭的后续验收见下一节。**未验证**:macOS/iOS 字幕、签名与无 WebView2 的机器。
+
+## 字幕语言与关闭操作(2026-11-02,安装包 `29bab49`)
+
+Lead 通过 Cindy 桌面工具操作未修改的 0.2.4 安装包,在暂停的同一 `0:01` 画面完成「中文→English→关闭→中文」:英文时画面有 `Subtitle rendering proof`,关闭后该文字消失,恢复中文后显示 `字幕渲染检查`。这次选中了真实下拉选项,没有用 DOM 注入代替控件操作。三张对照截图为 `E:/Temp/desktop-subtitle-024-english-paused.png`、`E:/Temp/desktop-subtitle-024-off-paused.png`、`E:/Temp/desktop-subtitle-024-chinese-restored.png`;完整回执 `E:/Temp/desktop-subtitle-language-024-receipt.json`。
+
+最终夹具使用与 `cmd/uicheck` 相同的 Go `http.FileServer`、登录 Cookie 与 Referer 校验,支持真实 Range;日志 `E:/Temp/nk-subtitle-language-024/range-fixture.stderr.log` 中中文/英文清单、VTT 与媒体范围请求均为 `auth=true`。最初不支持 Range 的 Python 服务不计入这些结论。所有任务窗口通过界面关闭、进程退出、卸载与夹具停止已确认(`E:/Temp/desktop-subtitle-language-024-cleanup.log`)。这证明当前 Windows 包内的语言切换/关闭;不证明跨播放器重开或变体组刷新时的选择持久化、其他字幕样式或 macOS/iOS。
 
 ## 字幕链路(2026-11-02)
 
@@ -20,7 +26,7 @@
 
 夹具将英文放第一条(`DEFAULT=NO`)、中文第二条(`DEFAULT=YES`)。真实 Windows WebView 的默认轨为中文,`activeSubtitleCues=2`、文本 `字幕渲染检查`、模式 `disabled,showing`,暂停 `2.103s` 后恢复 `2.103s`;日志 `E:/Temp/desktop-subtitle-choice-default.log`。两条都改为 `DEFAULT=NO` 的反例得到 `cues=0`、模式 `disabled,disabled`,未请求字幕清单/VTT,探针以退出码 1 结束(`E:/Temp/desktop-subtitle-no-default.log`)。探针现在只接受 showing 轨的活动 cue,可用 `-video-subs-text` 校验语言,停用轨的缓存 cue 不算通过。
 
-Lead 经真实窗口的「视频→搜索→详情→剧集→播放」操作看到中文字幕叠加,截图 `E:/Temp/desktop-subtitle-visible-window.png`,回执 `E:/Temp/desktop-subtitle-choice-receipt.json`。这补上了中文在该窗口中的像素证据。**仍未验证**:手动切换语言/关闭(桌面工具返回 `foreground_unavailable`,没有发送按键)、字号/位置样式、macOS、iOS 与真实在线字幕。`bcbe602` 的旧 0.2.2 包尚无本轮选择框;视频 canvas 截帧仍不包含字幕叠层。
+Lead 经真实窗口的「视频→搜索→详情→剧集→播放」操作看到中文字幕叠加,截图 `E:/Temp/desktop-subtitle-visible-window.png`,回执 `E:/Temp/desktop-subtitle-choice-receipt.json`。这补上了中文在该窗口中的像素证据。此前 `foreground_unavailable` 阻止了该轮操作;后续 0.2.4 安装包的语言切换/关闭已按上一节补验通过。**仍未验证**:字号/位置样式、macOS、iOS 与真实在线字幕。`bcbe602` 的旧 0.2.2 包尚无本轮选择框;视频 canvas 截帧仍不包含字幕叠层。
 
 ## 音轨解码管线(2026-11-02)
 
@@ -56,7 +62,7 @@ H.264+AAC 的 fMP4 HLS 夹具在真实 Windows WebView 中播放后,`webkitAudio
 
 本轮修复:MP4 不再依赖浏览器的 HLS 能力选择解码器;保存与打开剧集共用同一完成判断,10 秒短片的两秒进度可续播;位置保留小数秒,HLS 等待 metadata 后恢复位置;「继续观看」使用历史所属源而非当前源选择器。媒体夹具及复跑命令见 [testdata](../internal/player/testdata/README.md),正式程序不依赖 FFmpeg。
 
-普通用户的视频源文件/URL 安装、重启恢复与视频读取取消见前述记录;音轨解码、字幕活动文本及中文窗口显示分别有独立证据。**未验证**:字幕选择框的手动切换/关闭、画中画、macOS 实机运行、在线真实站点与扬声器输出。源安装、取消与早期字幕链路已在 `bcbe602` 的 0.2.2 包中;本轮字幕选择框尚未打入该包。
+普通用户的视频源文件/URL 安装、重启恢复与视频读取取消见前述记录;音轨解码、字幕活动文本及中文窗口显示分别有独立证据。字幕选择框的语言切换/关闭也已在 0.2.4 安装包实测。**未验证**:画中画、macOS 实机运行、在线真实站点与扬声器输出。0.2.2(`bcbe602`)是较早的交付物,最新 0.2.4(`29bab49`)已包含并验证字幕选择框。
 
 ## 桌面视频媒体传输层(2026-11-02)
 
