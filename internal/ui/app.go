@@ -1301,7 +1301,7 @@ func (a *App) header(c *ui.Context, t *ui.Theme, sources []plugin.Record, option
 		} else {
 			// The list shows each source's name; the index picks its key.
 			sel := a.sourceLabel(sources)
-			if ui.Select(c, &sel, options).Width(200).Changed() {
+			if ui.Select(c, &sel, options).Width(170).Changed() {
 				if i := indexOfOption(options, sel); i >= 0 && i < len(sources) {
 					a.mu.Lock()
 					a.selectSourceLocked(sources[i].Key)
@@ -1320,7 +1320,7 @@ func (a *App) header(c *ui.Context, t *ui.Theme, sources []plugin.Record, option
 			}
 		}
 		mode := a.mode
-		if ui.Segmented(c, &mode, "搜索", "浏览", "书架").Width(200).Label("模式").Changed() {
+		if ui.Segmented(c, &mode, "搜索", "浏览", "书架").Width(180).Label("模式").Changed() {
 			a.setMode(mode)
 		}
 		if ui.Button(c, "分类").Clicked() {
@@ -1330,7 +1330,7 @@ func (a *App) header(c *ui.Context, t *ui.Theme, sources []plugin.Record, option
 			a.setMode(4)
 		}
 		if mode == 0 {
-			if ui.SearchField(c, &a.query).Width(280).Submitted() {
+			if ui.SearchField(c, &a.query).Width(190).Submitted() {
 				a.startSearch()
 			}
 			if ui.Button(c, "搜索").Clicked() {
