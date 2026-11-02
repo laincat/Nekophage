@@ -17,6 +17,7 @@ import (
 	"github.com/laincat/nekophage/internal/core"
 	"github.com/laincat/nekophage/internal/shelf"
 	"github.com/laincat/veneracat-core/backup"
+	"github.com/laincat/veneracat-core/plugin"
 	"github.com/laincat/veneracat-core/subscription"
 )
 
@@ -44,14 +45,15 @@ func (m *manageState) recordCallback(settingKey, answer string, err error) {
 }
 
 type manageState struct {
-	scriptURL string
-	indexURL  string
-	busy      string
-	errText   string
-	notice    string
-	rows      []subscription.Row
-	rowsTitle string
-	removing  string
+	sourceKind string
+	scriptURL  string
+	indexURL   string
+	busy       string
+	errText    string
+	notice     string
+	rows       []subscription.Row
+	rowsTitle  string
+	removing   string
 
 	// settingsFor is the source whose settings panel is open, with its
 	// declaration and the values in force.
@@ -106,7 +108,7 @@ type manageState struct {
 func (a *App) openManage() {
 	if a.manageWin == nil {
 		a.manageWin = mygo.NewWindow(mygo.WindowOptions{
-			Title: "漫画源", Width: 860, Height: 720, Content: ui.View(a.manageView),
+			Title: "源管理", Width: 860, Height: 720, Content: ui.View(a.manageView),
 		})
 		a.manageWin.Show()
 		return
@@ -117,22 +119,29 @@ func (a *App) openManage() {
 
 func (a *App) manageView(c *ui.Context) {
 	t := c.Theme()
-	m := a.manage
+	m := &a.manage
+	if m.sourceKind == "" {
+		m.sourceKind = "漫画源"
+	}
 	if m.indexURL == "" {
 		m.indexURL = a.defaultIndex
 	}
 
 	ui.Column(c).Fill().Children(func() {
 		ui.Column(c).Padding(16).Gap(8).Children(func() {
-			ui.Text(c, "添加漫画源").FontSize(16).Bold()
+			ui.Text(c, "添加源").FontSize(16).Bold()
 			ui.Row(c).Gap(8).AlignItems(ui.Center).Children(func() {
-				ui.TextInput(c, &m.scriptURL).Placeholder("脚本链接 https://…/source.js").Grow(1)
+				ui.Select(c, &m.sourceKind, []string{"漫画源", "视频源", "Kazumi 规则"}).Width(150).Label("源类型").Disabled(m.busy != "").Changed()
+				ui.TextInput(c, &m.scriptURL).Placeholder("源文件链接 https://…").Grow(1)
 				if ui.PrimaryButton(c, "安装").Disabled(m.busy != "").Clicked() {
 					a.installScript(m.scriptURL)
 				}
+				if ui.Button(c, "从文件安装").Disabled(m.busy != "").Clicked() {
+					a.pickSourceFile()
+				}
 			})
 			ui.Row(c).Gap(8).AlignItems(ui.Center).Children(func() {
-				ui.TextInput(c, &m.indexURL).Placeholder("订阅 https://…/index.json").Grow(1)
+				ui.TextInput(c, &m.indexURL).Placeholder("漫画订阅 https://…/index.json").Grow(1)
 				if ui.Button(c, "读取订阅").Disabled(m.busy != "").Clicked() {
 					a.loadIndex(m.indexURL)
 				}
@@ -166,10 +175,10 @@ func (a *App) manageView(c *ui.Context) {
 		installed := a.lib.Sources()
 		ui.Textf(c, "已安装 %d 个源", len(installed)).Padding(8, 16).FontSize(13).Bold()
 		ui.List(c, nil, len(installed), func(i int) {
-			a.sourceRow(c, t, installed[i].Key, installed[i].Name, installed[i].Version, installed[i].Enabled)
+			a.sourceRow(c, t, installed[i])
 		}).Grow(1).Children(func() {
 			if len(installed) == 0 {
-				ui.Text(c, "还没有漫画源。").Padding(12, 16).TextColor(t.TextMuted)
+				ui.Text(c, "还没有安装源。").Padding(12, 16).TextColor(t.TextMuted)
 			}
 		})
 	})
@@ -215,12 +224,13 @@ func statusText(row subscription.Row) string {
 	}
 }
 
-func (a *App) sourceRow(c *ui.Context, t *ui.Theme, key, name, version string, enabled bool) {
-	on := enabled
+func (a *App) sourceRow(c *ui.Context, t *ui.Theme, rec plugin.Record) {
+	key, name, version := rec.Key, rec.Name, rec.Version
+	on := rec.Enabled
 	ui.Row(c).Padding(6, 16).Gap(10).AlignItems(ui.Center).Children(func() {
 		ui.Column(c).Gap(2).Children(func() {
 			ui.Text(c, name).SingleLine()
-			ui.Textf(c, "%s · v%s", key, version).FontSize(11).TextColor(t.TextMuted).SingleLine()
+			ui.Textf(c, "%s · %s · v%s", sourceKindLabel(rec.Type), key, version).FontSize(11).TextColor(t.TextMuted).SingleLine()
 		}).Grow(1)
 		if ui.Switch(c, &on).Label("启用").Changed() {
 			go func() {
@@ -233,8 +243,10 @@ func (a *App) sourceRow(c *ui.Context, t *ui.Theme, key, name, version string, e
 				})
 			}()
 		}
-		if ui.Button(c, "设置").Clicked() {
-			a.openSourceSettings(key)
+		if rec.Type == plugin.TypeComic || rec.Type == plugin.TypeVideoJS {
+			if ui.Button(c, "设置").Clicked() {
+				a.openSourceSettings(key)
+			}
 		}
 		if a.manage.removing == key {
 			ui.Spinner(c)
@@ -261,11 +273,12 @@ func (a *App) installScript(rawURL string) {
 	if rawURL == "" {
 		return
 	}
-	a.manage.start("正在下载脚本…")
+	typ := a.manage.installType()
+	a.manage.start("正在下载源文件…")
 	go func() {
 		ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
 		defer cancel()
-		rec, err := a.lib.InstallURL(ctx, rawURL)
+		rec, err := a.lib.InstallTypedURL(ctx, typ, rawURL)
 		a.manageWin.Update(func() {
 			if err != nil {
 				a.manage.done(err, "")
@@ -274,6 +287,9 @@ func (a *App) installScript(rawURL string) {
 			a.manage.done(nil, "已安装 "+rec.Name)
 			a.manage.scriptURL = ""
 			a.refreshSources()
+			if a.videoWin != nil {
+				a.videoWin.Update(func() {})
+			}
 		})
 	}()
 }
@@ -326,6 +342,65 @@ func (a *App) installEntry(row subscription.Row) {
 			a.loadIndex(indexURL)
 		})
 	}()
+}
+
+// pickSourceFile captures the selected kind before the dialog opens, then
+// imports off the UI thread through the same durable path as URL installs.
+func (a *App) pickSourceFile() {
+	typ := a.manage.installType()
+	a.manage.start("正在选择源文件…")
+	go func() {
+		extensions := []string{"js"}
+		if typ == plugin.TypeKazumi {
+			extensions = []string{"json"}
+		}
+		paths, err := mygo.Dialog.Open(mygo.OpenDialogOptions{
+			Parent: a.manageWin, Title: "选择" + sourceKindLabel(typ),
+			Filters: []mygo.FileFilter{{Name: sourceKindLabel(typ), Extensions: extensions}},
+		})
+		if err != nil || len(paths) == 0 {
+			a.manageWin.Update(func() { a.manage.done(err, "") })
+			return
+		}
+		ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
+		defer cancel()
+		rec, err := a.lib.InstallFile(ctx, typ, paths[0])
+		a.manageWin.Update(func() {
+			if err != nil {
+				a.manage.done(err, "")
+				return
+			}
+			a.manage.done(nil, "已安装 "+rec.Name)
+			a.refreshSources()
+			if a.videoWin != nil {
+				a.videoWin.Update(func() {})
+			}
+		})
+	}()
+}
+
+func (m *manageState) installType() plugin.Type {
+	switch m.sourceKind {
+	case "视频源":
+		return plugin.TypeVideoJS
+	case "Kazumi 规则":
+		return plugin.TypeKazumi
+	default:
+		return plugin.TypeComic
+	}
+}
+
+func sourceKindLabel(typ plugin.Type) string {
+	switch typ {
+	case plugin.TypeVideoJS:
+		return "视频源"
+	case plugin.TypeKazumi:
+		return "Kazumi 规则"
+	case plugin.TypeBuiltin:
+		return "内置视频源"
+	default:
+		return "漫画源"
+	}
 }
 
 // --- state helpers ---

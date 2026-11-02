@@ -1367,7 +1367,7 @@ func (a *App) header(c *ui.Context, t *ui.Theme, sources []plugin.Record, option
 				}
 			}
 		}
-		if ui.Button(c, "漫画源").Clicked() {
+		if ui.Button(c, "源管理").Clicked() {
 			a.openManage()
 		}
 		if ui.Button(c, "AI").Clicked() {
@@ -1420,7 +1420,7 @@ func (a *App) resultsView(c *ui.Context, t *ui.Theme, busy bool) {
 	}
 	if len(results) == 0 {
 		ui.Column(c).Fill().Center().Gap(10).Children(func() {
-			ui.Text(c, "输入关键词搜索,或从“漫画源”添加一个源。").TextColor(t.TextMuted)
+			ui.Text(c, "输入关键词搜索,或从“源管理”添加一个漫画源。").TextColor(t.TextMuted)
 			a.recentSearches(c, t)
 		})
 		return

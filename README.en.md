@@ -7,16 +7,18 @@ English | [简体中文](README.md)
   <img src="docs/assets/brand/nekophage-logo.png" alt="Nekophage" width="720">
 </picture>
 
-The desktop companion of Nekularity: read comics from Venera-compatible sources, with video playback and authoring or publishing of extensions as later modules. Written in Go, with an interface [MyGo](https://github.com/egoist/mygo) draws; licensed GPL-3.0-or-later.
+The desktop companion of Nekularity: read comics and play videos from Venera-compatible sources. Extension authoring and publishing come later. Written in Go, with an interface [MyGo](https://github.com/egoist/mygo) draws; licensed GPL-3.0-or-later.
 
 Logic comes from [VeneraCat Core](https://github.com/laincat/VeneraCat-Core), compiled into the same executable: no FFI, no cgo, no separate Core process.
 
 ## Shape
 
-- **Main window**: native UI, written in Go, drawn by MyGo on the GPU, with no WebView: it opens at once and takes little memory. Only the reader and the verification window use a WebView.
+- **Main window**: native UI, written in Go, drawn by MyGo on the GPU, with no WebView: it opens at once and takes little memory. The reader, verification and player windows use WebViews.
 - **Reader**: a web page in a WebView. Go fetches each page through the source's own rules and streams it, so a source that needs a Referer or a login still shows its pages.
 - **Verification**: a Cloudflare challenge opens in a window of its own and the app continues once it is passed.
 - **Search every source**: one keyword searches all installed sources, results are merged with their source on each card, and opening another source's comic switches to it.
+- **Source management**: select a comic source, video source or Kazumi rule and install it from a URL or local file. Kind, script and enabled state persist across restarts. The comic subscription entry still handles comic indexes only.
+- **Video**: choose a provider, search, select a line/episode and play. The local media proxy retains source headers and cookies; the player uses native MP4 or HLS.js and persists resume positions. Windows fixtures verify actual pixels, Range, authentication and resume; this does not establish live sites, DRM, subtitles or PiP.
 - **Source settings**: a source's `settings` declaration becomes selects, switches and inputs — MangaDex's image quality, Copy Manga's CDN line.
 - **Search filters**: the filters a source offers — sorting, content rating, status and the rest — instead of quietly searching with the defaults.
 - **Search history**: remembers recent keywords and offers them on the empty results screen; an official backup's search history comes along too.
@@ -28,7 +30,7 @@ Logic comes from [VeneraCat Core](https://github.com/laincat/VeneraCat-Core), co
 
 ## Status
 
-The reading path (add a source → search → details → read) has real-source and offline-fixture evidence on Windows. The current tree has rerun native details, actual reader decoding and persisted shelf progress; request cancellation and image budgets have race tests. Evidence remains specific to its commit and platform: Windows success does not validate current macOS/Linux behavior. Video and the studio are not connected yet. See [docs/STATUS.en.md](docs/STATUS.en.md).
+The reading path (add a source → search → details → read) has real-source and offline-fixture evidence on Windows. The current tree has rerun native details, actual reader decoding and persisted shelf progress; request cancellation and image budgets have race tests. Evidence remains specific to its commit and platform: Windows success does not validate current macOS/Linux behavior. Local MP4/HLS, installation through normal source management and restoration after restart have Windows execution evidence. Video-request generation cancellation remains to be connected; the studio comes later. See [docs/STATUS.en.md](docs/STATUS.en.md).
 
 ## Building
 
@@ -56,6 +58,7 @@ On macOS, build the native program with `go build -o build/Nekophage .`. The Win
 | `internal/library` | Installs, updates and removes sources; reads indexes |
 | `internal/archive` | reads official `.venera` backups and turns them into a local import plan |
 | `internal/reader` | The reader page and the image service |
+| `internal/player` | Player page, local media proxy and session lifetime |
 | `internal/browser` | The verification window |
 | `internal/ui` | The main window: sources, search, details, the reader window |
 | `cmd/*` | verification tools: window screenshots (`uicheck`), the reader (`readercheck`), sources and verification (`verifycheck`), backup import (`importcheck`) |

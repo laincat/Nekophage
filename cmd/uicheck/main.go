@@ -131,11 +131,7 @@ func main() {
 		log.Printf("installed %s (%s)", rec.Name, rec.Key)
 	}
 	if *videoScript != "" {
-		body, err := os.ReadFile(*videoScript)
-		if err != nil {
-			log.Fatal(err)
-		}
-		rec, err := c.InstallTyped(ctx, plugin.TypeVideoJS, string(body), *videoScript, "")
+		rec, err := lib.InstallFile(ctx, plugin.TypeVideoJS, *videoScript)
 		if err != nil {
 			log.Fatalf("install video source %s: %v", *videoScript, err)
 		}

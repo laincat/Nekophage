@@ -1,4 +1,4 @@
-// Package library installs comic sources and keeps the installed set.
+// Package library installs comic/video sources and keeps the installed set.
 //
 // Every change is written back through Core's records, so the next launch
 // restores the same sources. Installing takes a script URL, a script's text,
@@ -10,7 +10,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/url"
+	"os"
 	"sort"
 	"strings"
 	"sync"
@@ -67,10 +69,9 @@ func (l *Library) Sources() []plugin.Record { return l.core.Plugins() }
 func (l *Library) ComicSources() []plugin.Record {
 	var out []plugin.Record
 	for _, rec := range l.core.Plugins() {
-		if rec.Type == plugin.TypeVideoJS || rec.Type == plugin.TypeKazumi {
-			continue
+		if rec.Type == plugin.TypeComic {
+			out = append(out, rec)
 		}
-		out = append(out, rec)
 	}
 	return out
 }
@@ -91,17 +92,45 @@ func (l *Library) IsInstalled(key string) bool {
 
 // InstallText installs a script given as text (paste or file import).
 func (l *Library) InstallText(ctx context.Context, body, origin string) (*plugin.Record, error) {
-	return l.installOrReplace(ctx, body, origin, "")
+	return l.InstallTypedText(ctx, plugin.TypeComic, body, origin)
 }
 
-// InstallURL downloads and installs a script, updating the source when its
-// key is already installed.
+// InstallTypedText installs or updates the explicit kind selected by the user.
+// Core owns validation and type checks; the library persists the resulting set.
+func (l *Library) InstallTypedText(ctx context.Context, typ plugin.Type, body, origin string) (*plugin.Record, error) {
+	return l.installOrReplace(ctx, typ, body, origin, "")
+}
+
+// InstallURL downloads and installs a comic script, updating an existing key.
 func (l *Library) InstallURL(ctx context.Context, rawURL string) (*plugin.Record, error) {
+	return l.InstallTypedURL(ctx, plugin.TypeComic, rawURL)
+}
+
+// InstallTypedURL uses the same download bound and persistence for video and
+// comic providers. Source type is selected, never guessed from script text.
+func (l *Library) InstallTypedURL(ctx context.Context, typ plugin.Type, rawURL string) (*plugin.Record, error) {
 	body, err := l.fetch(ctx, rawURL)
 	if err != nil {
 		return nil, err
 	}
-	return l.installOrReplace(ctx, string(body), rawURL, "")
+	return l.installOrReplace(ctx, typ, string(body), rawURL, "")
+}
+
+// InstallFile imports a local script/rule through the same path as URL installs.
+func (l *Library) InstallFile(ctx context.Context, typ plugin.Type, path string) (*plugin.Record, error) {
+	file, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+	body, err := io.ReadAll(io.LimitReader(file, MaxScriptBytes+1))
+	if err != nil {
+		return nil, err
+	}
+	if len(body) > MaxScriptBytes {
+		return nil, errors.New("library: source file exceeds 4 MiB")
+	}
+	return l.installOrReplace(ctx, typ, string(body), path, "")
 }
 
 // InstallEntry installs or updates the source an index entry names.
@@ -113,7 +142,7 @@ func (l *Library) InstallEntry(ctx context.Context, entry subscription.Entry, in
 	if l.IsInstalled(entry.Key) {
 		return l.replace(ctx, entry.Key, string(body), entry.URL, indexURL)
 	}
-	return l.installOrReplace(ctx, string(body), entry.URL, indexURL)
+	return l.installOrReplace(ctx, plugin.TypeComic, string(body), entry.URL, indexURL)
 }
 
 // Remove uninstalls a source and forgets what it stored.
@@ -208,14 +237,14 @@ func (l *Library) IndexFrom(body []byte, rawURL string) (*subscription.ComicInde
 
 // --- internals ---
 
-func (l *Library) installOrReplace(ctx context.Context, body, origin, indexURL string) (*plugin.Record, error) {
-	rec, err := l.core.Install(ctx, body, origin, indexURL)
+func (l *Library) installOrReplace(ctx context.Context, typ plugin.Type, body, origin, indexURL string) (*plugin.Record, error) {
+	rec, err := l.core.InstallTyped(ctx, typ, body, origin, indexURL)
 	if err != nil {
 		// Core is the only one that knows a script's key, so a taken key is
 		// only discovered here; update that source instead.
 		if errors.Is(err, plugin.ErrExists) {
 			if key := keyOf(err); key != "" && l.IsInstalled(key) {
-				return l.replace(ctx, key, body, origin, indexURL)
+				return l.replaceTyped(ctx, key, typ, body, origin, indexURL)
 			}
 		}
 		return nil, err
@@ -227,7 +256,11 @@ func (l *Library) installOrReplace(ctx context.Context, body, origin, indexURL s
 }
 
 func (l *Library) replace(ctx context.Context, key, body, origin, indexURL string) (*plugin.Record, error) {
-	rec, err := l.core.Replace(ctx, key, body, origin, indexURL)
+	return l.replaceTyped(ctx, key, plugin.TypeComic, body, origin, indexURL)
+}
+
+func (l *Library) replaceTyped(ctx context.Context, key string, typ plugin.Type, body, origin, indexURL string) (*plugin.Record, error) {
+	rec, err := l.core.ReplaceTyped(ctx, key, typ, body, origin, indexURL)
 	if err != nil {
 		return nil, err
 	}

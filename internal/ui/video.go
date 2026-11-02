@@ -44,7 +44,7 @@ type videoState struct {
 func (a *App) videoSources() []plugin.Record {
 	var out []plugin.Record
 	for _, rec := range a.core.Plugins() {
-		if rec.Type == plugin.TypeVideoJS && rec.Enabled {
+		if rec.Enabled && (rec.Type == plugin.TypeVideoJS || rec.Type == plugin.TypeKazumi || rec.Type == plugin.TypeBuiltin) {
 			out = append(out, rec)
 		}
 	}
@@ -76,7 +76,7 @@ func (a *App) videoView(c *ui.Context) {
 			ui.Text(c, "视频").FontSize(16).Bold()
 			ui.Text(c, "搜索、打开详情并选择线路播放。播放请求经本机媒体代理转发,源站 Cookie 与请求头不进入页面。").FontSize(12).TextColor(t.TextMuted)
 			if len(sources) == 0 {
-				ui.Text(c, "还没有可用的视频源。请在「漫画源」窗口安装视频源。").FontSize(12).TextColor(t.TextMuted)
+				ui.Text(c, "还没有可用的视频源。在「源管理」选择视频源或 Kazumi 规则,从链接或文件安装。").FontSize(12).TextColor(t.TextMuted)
 			}
 			labels := make([]string, len(sources))
 			for i, s := range sources {

@@ -220,7 +220,13 @@ func (c *Core) InstallTyped(ctx context.Context, typ plugin.Type, body, origin, 
 
 // Replace updates an installed source.
 func (c *Core) Replace(ctx context.Context, key, body, origin, indexURL string) (*plugin.Record, error) {
-	return c.reg.Replace(ctx, key, plugin.TypeComic, body, origin, indexURL, "")
+	return c.ReplaceTyped(ctx, key, plugin.TypeComic, body, origin, indexURL)
+}
+
+// ReplaceTyped keeps the installed provider's kind explicit when updating it.
+// The shared registry enforces same-type replacement and rollback on failure.
+func (c *Core) ReplaceTyped(ctx context.Context, key string, typ plugin.Type, body, origin, indexURL string) (*plugin.Record, error) {
+	return c.reg.Replace(ctx, key, typ, body, origin, indexURL, "")
 }
 
 // Records lists installed plugins with bodies, for persistence.

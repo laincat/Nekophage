@@ -7,16 +7,18 @@
   <img src="docs/assets/brand/nekophage-logo.png" alt="Nekophage" width="720">
 </picture>
 
-Nekularity 的桌面端:用 Venera 兼容的漫画源阅读,并把视频播放与扩展的制作分发作为后续模块。Go 编写,界面由 [MyGo](https://github.com/egoist/mygo) 绘制,许可证 GPL-3.0-or-later。
+Nekularity 的桌面端:用 Venera 兼容的源阅读漫画和播放视频;扩展的制作分发后置。Go 编写,界面由 [MyGo](https://github.com/egoist/mygo) 绘制,许可证 GPL-3.0-or-later。
 
 业务逻辑来自 [VeneraCat Core](https://github.com/laincat/VeneraCat-Core),直接编译进同一个可执行文件:不需要 FFI,不需要 cgo,也不需要单独的 Core 进程。
 
 ## 形态
 
-- **主界面**:原生 UI,Go 写,MyGo 用 GPU 绘制,没有 WebView,启动快、内存小;只有阅读器与人机验证窗口用 WebView。
+- **主界面**:原生 UI,Go 写,MyGo 用 GPU 绘制,没有 WebView,启动快、内存小;阅读器、人机验证和播放器窗口使用 WebView。
 - **阅读器**:章末与顶栏都能直接翻到下一话,也可以开「自动接续」一路读下去,单页或双页、左起或右起(漫画常用右起),横图自动占满一行;WebView 里的一个网页,图片由 Go 按源的规则取回再流式送出,所以需要 Referer 或登录的源也能正常显示。
 - **人机验证**:Cloudflare 挑战在单独的窗口里打开,通过后自动继续。
 - **多源搜索**:一次搜索所有已装的源,结果合并展示并标注来源,点开别家的漫画会自动切过去。
+- **源管理**:选择漫画源、视频源或 Kazumi 规则,从链接或本地文件安装;源类型、脚本、启停状态随记录保存,重启后可继续使用。漫画订阅入口仍只处理漫画索引。
+- **视频**:选源、搜索、查看线路/分集,由本机媒体代理保留请求头与 Cookie,播放器使用原生 MP4 或 HLS.js,观看位置落盘并可续播。Windows 已用本地夹具验证实际画面、Range、鉴权和续播;不代表真实站点、DRM、字幕或 PiP 已验证。
 - **源设置**:源的 `settings` 声明会渲染成下拉、开关或输入框,例如 MangaDex 的画质、拷贝漫画的 CDN 线路。
 - **搜索筛选**:按源提供的搜索选项筛选(排序、分级、状态等),不用再默默用默认值。
 - **搜索历史**:记住最近搜过的关键词,空结果页一键再搜;官方备份里的搜索记录也能导进来。
@@ -28,7 +30,7 @@ Nekularity 的桌面端:用 Venera 兼容的漫画源阅读,并把视频播放�
 
 ## 状态
 
-阅读主线(添加漫画源 → 搜索 → 详情 → 阅读)在 Windows 上有真实源和离线夹具证据。当前树已复跑原生详情、阅读器实际解码与书架落盘;请求取消和图片预算经过竞态测试。不同提交与平台的验证分别记录,不把 Windows 通过当作当前 macOS/Linux 已验收;视频与制作台尚未接入。详见 [docs/STATUS.md](docs/STATUS.md)。
+阅读主线(添加漫画源 → 搜索 → 详情 → 阅读)在 Windows 上有真实源和离线夹具证据。当前树已复跑原生详情、阅读器实际解码与书架落盘;请求取消和图片预算经过竞态测试。不同提交与平台的验证分别记录,不把 Windows 通过当作当前 macOS/Linux 已验收;视频的本地 MP4/HLS、普通源管理安装与重启恢复已在 Windows 实测;视频读取代次取消仍需接入,制作台后置。详见 [docs/STATUS.md](docs/STATUS.md)。
 
 ## 编译
 
@@ -55,6 +57,7 @@ macOS 可用 `go build -o build/Nekophage .` 构建本机程序。Windows 打包
 | `internal/store` | 源数据、设置与插件记录的持久化 |
 | `internal/library` | 安装、更新、删除源,读取订阅索引 |
 | `internal/reader` | 阅读器网页与取图服务 |
+| `internal/player` | 播放页、本机媒体代理与会话生命周期 |
 | `internal/browser` | 人机验证窗口 |
 | `internal/archive` | 读官方 `.venera` 备份,整理成本地可应用的导入计划 |
 | `internal/ui` | 主窗口:源、搜索、详情、备份导入、阅读器窗口 |
