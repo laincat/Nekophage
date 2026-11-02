@@ -44,6 +44,20 @@ func init() { coreversion.SetRelease("$revision") }
 EOF
 cd "$root"
 rm -f go.work go.work.sum
-go work init . "$core"
-go mod tidy
+# Only this module is a workspace member. Core is a *replacement* instead: go.mod
+# already replaces it with ./build/core, and with an external checkout that
+# directory may not exist — a replacement wins over `use`, so listing Core as a
+# member would still build against the missing path (and Go rejects a module that
+# is both a workspace member and replaced).
+go work init .
+go work edit -replace "github.com/laincat/veneracat-core=$core"
+# `go mod tidy` reads go.mod's own ./build/core replacement rather than the
+# workspace one, so with an external checkout it fails on a directory that is not
+# there. Nothing needs tidying: a replace to a local directory adds no sums, and
+# build and test use the workspace. Say that instead of failing the setup.
+if [ "$core" = "$root/build/core" ]; then
+	go mod tidy
+else
+	echo "skipping go mod tidy: it reads the go.mod replacement ./build/core, not the workspace one"
+fi
 echo "go.work points at $core"
