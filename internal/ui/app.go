@@ -564,7 +564,7 @@ func looksLikeLink(q string) bool {
 // openPastedLink asks the sources whether the address is one of their comics and,
 // when one says yes, opens it.
 func (a *App) openPastedLink(q string, ticket int) {
-	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	ctx, cancel := context.WithTimeout(a.searchGen.requestContext(ticket), 60*time.Second)
 	defer cancel()
 	key, id, err := a.core.OpenLink(ctx, q)
 	a.win.Update(func() {
@@ -670,10 +670,17 @@ func (a *App) searchEverySource(query string, ticket int) {
 			wg.Add(1)
 			go func(i int, key string) {
 				defer wg.Done()
-				sem <- struct{}{}
-				defer func() { <-sem }()
-				ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+				ctx, cancel := context.WithTimeout(a.searchGen.requestContext(ticket), 60*time.Second)
 				defer cancel()
+				select {
+				case <-ctx.Done():
+					return
+				case sem <- struct{}{}:
+				}
+				defer func() { <-sem }()
+				if ctx.Err() != nil {
+					return
+				}
 				options, ok := a.optionsFor(key)
 				if !ok {
 					options, _ = a.core.DefaultOptions(ctx, key)
@@ -754,7 +761,7 @@ func (a *App) searchTicket() int {
 // the search it belongs to; a reply for an older search is history.
 func (a *App) searchPage(key, query string, page, ticket int) {
 	go func() {
-		ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
+		ctx, cancel := context.WithTimeout(a.searchGen.requestContext(ticket), 90*time.Second)
 		defer cancel()
 		// One value per search group: the ones chosen in the filter row, or
 		// the source's defaults for a source whose filters have not loaded.
@@ -1263,6 +1270,10 @@ func (a *App) header(c *ui.Context, t *ui.Theme, sources []plugin.Record, option
 				if i := indexOfOption(options, sel); i >= 0 && i < len(sources) {
 					a.mu.Lock()
 					a.sourceKey = sources[i].Key
+					a.searchGen.next()
+					if a.busy == "search" {
+						a.busy = ""
+					}
 					a.results, a.open, a.notice, a.errText = nil, false, "", ""
 					a.explorePages, a.exploreIndex, a.explorePage = nil, 0, 1
 					a.explore = core.ExploreResult{}
@@ -1782,6 +1793,12 @@ func (a *App) categoryView(c *ui.Context, t *ui.Theme) {
 // setMode switches between searching and browsing.
 func (a *App) setMode(mode int) {
 	a.mu.Lock()
+	if a.mode == 0 && mode != 0 {
+		a.searchGen.next()
+		if a.busy == "search" {
+			a.busy = ""
+		}
+	}
 	a.mode = mode
 	a.open = false
 	need := mode == 1 && len(a.explorePages) == 0

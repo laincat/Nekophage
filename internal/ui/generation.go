@@ -1,6 +1,9 @@
 package ui
 
-import "sync"
+import (
+	"context"
+	"sync"
+)
 
 // generation hands out tickets for asynchronous work, so a slow reply cannot
 // replace a screen the user has already moved past.
@@ -9,16 +12,42 @@ import "sync"
 // App.mu, and taking App.mu again there would deadlock the window thread.
 // Callers take App.mu first and this lock second, never the other way round.
 type generation struct {
-	mu sync.Mutex
-	n  int
+	mu     sync.Mutex
+	n      int
+	ctx    context.Context
+	cancel context.CancelFunc
 }
 
-// next starts a new generation and returns its ticket.
+// next starts a new generation and cancels requests belonging to its predecessor.
 func (g *generation) next() int {
 	g.mu.Lock()
-	defer g.mu.Unlock()
+	previous := g.cancel
 	g.n++
-	return g.n
+	ticket := g.n
+	g.ctx, g.cancel = nil, nil
+	g.mu.Unlock()
+	if previous != nil {
+		previous()
+	}
+	return ticket
+}
+
+// requestContext belongs to the ticket, not one page. Each caller derives its own
+// timeout from it, so finishing a page does not cancel another page's request.
+// A goroutine scheduled after its ticket was replaced gets an already-cancelled
+// context: it must not join the new search just because it started running late.
+func (g *generation) requestContext(ticket int) context.Context {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	if ticket != g.n {
+		ctx, cancel := context.WithCancel(context.Background())
+		cancel()
+		return ctx
+	}
+	if g.ctx == nil {
+		g.ctx, g.cancel = context.WithCancel(context.Background())
+	}
+	return g.ctx
 }
 
 // peek returns the current generation without starting a new one. Pagination

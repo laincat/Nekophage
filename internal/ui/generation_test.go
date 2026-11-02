@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"context"
 	"sync"
 	"testing"
 )
@@ -33,6 +34,50 @@ func TestGenerationPeekDoesNotStartOne(t *testing.T) {
 	}
 	if !g.current(ticket) {
 		t.Fatal("peek made the current generation stale")
+	}
+}
+
+func TestGenerationCancelsLateRequestsFromAnOldTicket(t *testing.T) {
+	var g generation
+	old := g.next()
+	current := g.next()
+	if err := g.requestContext(old).Err(); err != context.Canceled {
+		t.Fatalf("late old request context = %v, want canceled", err)
+	}
+	if err := g.requestContext(current).Err(); err != nil {
+		t.Fatalf("new request was canceled with the old one: %v", err)
+	}
+}
+
+func TestLeavingSearchModeCancelsItsRequests(t *testing.T) {
+	var app App
+	ticket := app.searchGen.next()
+	ctx := app.searchGen.requestContext(ticket)
+	app.setMode(0)
+	if err := ctx.Err(); err != nil {
+		t.Fatalf("remaining in search mode canceled the request: %v", err)
+	}
+	app.setMode(2) // Shelf: no source or native window is needed to switch modes.
+	if err := ctx.Err(); err != context.Canceled {
+		t.Fatalf("leaving search mode kept the request alive: %v", err)
+	}
+}
+
+func TestGenerationPageCompletionDoesNotCancelSibling(t *testing.T) {
+	var g generation
+	ticket := g.next()
+	first, finishFirst := context.WithCancel(g.requestContext(ticket))
+	second := g.requestContext(g.peek())
+	finishFirst()
+	if first.Err() != context.Canceled {
+		t.Fatal("the first page did not finish")
+	}
+	if err := second.Err(); err != nil {
+		t.Fatalf("finishing one page canceled the shared search: %v", err)
+	}
+	g.next()
+	if err := second.Err(); err != context.Canceled {
+		t.Fatalf("replacing the search left its page active: %v", err)
 	}
 }
 

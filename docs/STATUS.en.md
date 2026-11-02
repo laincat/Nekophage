@@ -9,6 +9,12 @@ The four CI jobs of Core's `6e07429` are green (three Go platforms plus Apple's 
 
 **Pin moved to `6e07429` (2026-11-01)**: Core gained the three standard AI entry points and the optional chunked transport (`HostStream`), and it fixed a deadlock in the package bridge — the package pushed to `__magpieChatPush` from inside its own hook while the reader stopped at the end marker, so the writer waited for a reader that had gone. The desktop client **does not implement `HostStream` yet**, so replies still arrive whole; `scripts/fetch-core.sh` has aligned `build/core` to that commit and `scripts/check-core-pin.sh` passes.
 
+## Search cancellation (2026-11-02)
+
+Search generations now own a cancellable context. Starting a new search, changing source or leaving search mode stops the old search's HTTP work. Pasted links, single-source pages and multi-source searches all use that context; multi-source jobs can also leave while waiting for a concurrency slot. Pages retain individual timeouts, so completing one does not cancel another. A stale ticket starting late receives an already-cancelled context rather than joining the new search.
+
+`TestSearchReplacementStopsHTTPAndLeavesNewRequestUsable` uses the real Core, a JS fixture and loopback HTTP to observe the old server connection being cancelled, the old Core call failing and the next search on the same source returning new results. It does not sleep to infer cancellation. Generation cases also cover late starts, page isolation and leaving search mode. Browsing, details and cover downloads remain follow-up work; this search fix does not establish cancellation for all requests.
+
 ## Implemented
 
 | Part | Contents |

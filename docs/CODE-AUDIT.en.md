@@ -39,7 +39,7 @@ Core uses MoeJS for per-source runtimes, cascadia for CSS selectors, htmlquery/x
 
 ## Improvement order
 
-1. **Cancel, not only drop**: stale replies are dropped by ticket, but the underlying request still runs to completion. Cancel superseded requests through their context and give cover downloads their own concurrency limit.
+1. **Cancel, not only drop**: search now uses a generation context (2026-11-02). A new search, source change or exit from search mode cancels old searches, including queued multi-source work, pagination and pasted links; finishing one page does not cancel sibling pages. A real loopback HTTP test observes the old connection closing and a subsequent search succeeding. Browsing and details still need the same mechanism; cover downloads still need their own concurrency limit.
 2. **Image capacity**: desktop now bounds entries, but entries differ widely in size (a tall page versus a thumbnail), so a byte budget would be more accurate. iOS already has an NSCache cost limit and downsampling but needs an explicit shared inFlight cancellation policy.
 3. **Real streaming**: Core/mobile and iOS still wait for entire bodies. Accept only with first chunks before completion and proof that cancellation stops transport work.
 4. **Responsibility boundaries**: baseline `internal/ui/app.go` has 1530 lines and `internal/core/core.go` 834. Split around search, browsing and reader lifetimes rather than reducing line counts alone.
