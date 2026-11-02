@@ -20,6 +20,19 @@
 
 这一轮还暴露并修掉了一个环境缺陷:`fetch-core.sh` 传外部 Core 路径时,`go.mod` 里指向 `./build/core` 的 replace 仍生效,构建直接失败。现在工作区改用 `go work edit -replace`,外部模式跳过 `go mod tidy` 并说明原因;两种模式都复验过(外部 fetch/build/test 通过,默认模式仍取到 pin 并通过 `check.sh`),提交 `16025c4`。限制:这是开发构建打包,不是发布产物;播放、字幕与真实站点未在这个 `.app` 内验证。
 
+## 当前 HEAD 的 Windows 包重打并验收(2026-11-03)
+
+在 `5c5ce67` 上重打 Windows 包,不只看构建通过,还装了一遍:
+
+| 产物 | 字节 | SHA-256 |
+|---|---|---|
+| `Nekophage-0.2.7-windows-amd64-5c5ce67.zip` | 21,561,030 | `5ba010a7…d8d3af3` |
+| `Nekophage-0.2.7-windows-amd64-5c5ce67-setup.exe` | 18,714,941 | `847cda97…d8576f8` |
+
+安装:`Start-Process setup.exe -ArgumentList '/S' -Wait` 退出 0,`LOCALAPPDATA/Programs/Nekophage/Nekophage.exe` 存在且 `-version` 自报 `0.2.7`、Core `214e7782…`、commit `5c5ce67`(与包名一致);`Uninstall.exe` 存在。卸载:`/S` 退出 0,三秒后安装目录**已消失**(`dir_left=False`),`APPDATA/Nekophage` 仍在——`0.2.7` 那个 `SetOutPath "$TEMP"` 的修复在重新打的包上依然成立。
+
+一个操作坑:在 bash 里直接 `./setup.exe /S` 会静默退出而不安装(参数被 shell 拧了),必须走 PowerShell 的 `Start-Process -ArgumentList '/S'`。日志 `E:/Temp/nk-package-head-build.log`。
+
 ## 失败页的提示与重试有了端到端检查(2026-11-03)
 
 阅读器在图片加载失败时会显示「第 N 页加载失败 / 重试」,但此前没有任何检查碰过这条路径。新增 `probesite.ServeOnePageFailing(port, failures)`:前 N 个请求返回 500,之后正常给图;`readercheck` 增加 `-fail N` 与 `-retry`。

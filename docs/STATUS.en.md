@@ -25,6 +25,19 @@ Launch check: after `open build/macos/Nekophage.app` the process exists, and Cor
 
 The round also found and fixed an environment defect: pointing `fetch-core.sh` at an external Core checkout still hit go.mod's `./build/core` replacement and failed to build. The workspace now carries a `go work edit -replace`, and external mode skips `go mod tidy` with the reason stated; both modes were rechecked (external fetch/build/test pass, and the default path still fetches the pin and passes `check.sh`), commit `16025c4`. Limits: this is a development build, not a release artifact; playback, subtitles and live sites were not exercised inside this `.app`.
 
+## The Windows package was rebuilt at HEAD and installed (2026-11-03)
+
+Rebuilt at `5c5ce67` and, rather than trusting the build, installed it:
+
+| artefact | bytes | SHA-256 |
+|---|---|---|
+| `Nekophage-0.2.7-windows-amd64-5c5ce67.zip` | 21,561,030 | `5ba010a7…d8d3af3` |
+| `Nekophage-0.2.7-windows-amd64-5c5ce67-setup.exe` | 18,714,941 | `847cda97…d8576f8` |
+
+Install: `Start-Process setup.exe -ArgumentList '/S' -Wait` exits 0, `LOCALAPPDATA/Programs/Nekophage/Nekophage.exe` exists, `-version` reports `0.2.7`, Core `214e7782…` and commit `5c5ce67` (matching the file name), and `Uninstall.exe` is there. Uninstall: `/S` exits 0 and three seconds later the install directory is gone (`dir_left=False`) while `APPDATA/Nekophage` remains, so the `SetOutPath "$TEMP"` fix still holds in a freshly built package.
+
+One operational trap: `./setup.exe /S` from bash exits silently without installing because the shell mangles the arguments; it has to go through PowerShell's `Start-Process -ArgumentList '/S'`. Logs in `E:/Temp/nk-package-head-build.log`.
+
 ## The failed-page notice and its retry now have an end-to-end check (2026-11-03)
 
 The reader shows "page N failed to load / retry" when a picture does not arrive, and nothing had ever exercised that path. `probesite.ServeOnePageFailing(port, failures)` answers the first N requests with a server error and the rest with the page, and `readercheck` grew `-fail N` and `-retry`.
