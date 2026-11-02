@@ -26,4 +26,6 @@ go run ./cmd/uicheck -dir /path/to/new-test-profile \
 
 探针要求真实解码的尺寸和自行前进的时钟,回读实际视频帧,用页面自己的暂停事件保存进度,重新读取磁盘书架,再通过「继续观看」恢复该位置。失败会以非零退出码结束。`-video-auth` 要求所有媒体请求带上声明的 Referer 和搜索时从 `/login` 获得的 Cookie;不满足会返回 403。每个媒体请求的路径、Range 与鉴权结果写入日志,不输出 Cookie 内容。
 
+`hls-audio/` 是同一片段的另一版:320×180、H.264 + AAC 立体声 48 kHz,仍是 fMP4 共享文件加 `BYTERANGE`。重建时把上一条命令里的 `-an` 换成 `-f lavfi -i sine=frequency=440:sample_rate=48000:duration=10 -shortest -c:a aac -b:a 64k -ac 2` 并把输出目录改为 `hls-audio/`(`hls_time`、分片参数保持一致)。它用于验证播放器确实处理了音轨:页面把 HLS.js 解析到的音轨/编解码器写进 `data-audio`,探针加 `-video-audio` 时要求为 `yes`,而纯视频夹具会得到 `no` 并以非零退出。这证明的是**解码管线看到并处理了音轨**,不是扬声器实际发声。
+
 `mp4_probe.js` 用同一登录与请求头规则,把 `-video-media` 换成原始 MP4 文件并去掉 `-video-hlsjs`,即可验证原生 MP4 解码和续播。每次使用新的测试 profile,避免旧历史掩盖进度是否真的落盘。

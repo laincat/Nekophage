@@ -62,6 +62,20 @@
     video.currentTime = Math.min(start, end);
   }, { once: true });
   video.addEventListener('seeked', function () { restoring = false; });
+  // Whether an audio track reached the decoder. Chromium exposes no audio
+  // element API, so HLS.js reports the parsed codec/tracks; WebKit can count
+  // decoded audio bytes. Neither proves speakers are audible, only that the
+  // pipeline saw and handled an audio track.
+  function noteAudio(fromHLS) {
+    if (fromHLS) {
+      const tracks = (hls && hls.audioTracks ? hls.audioTracks.length : 0);
+      const codec = (hls && hls.levels && hls.levels[0] ? hls.levels[0].audioCodec : '') || '';
+      video.dataset.audio = tracks > 0 || codec ? 'yes' : 'no';
+      return;
+    }
+    video.dataset.audio = typeof video.webkitAudioDecodedByteCount === 'number'
+      ? (video.webkitAudioDecodedByteCount > 0 ? 'yes' : 'no') : 'unknown';
+  }
 
   function fail(text) { err.textContent = text; }
 
@@ -89,6 +103,7 @@
       video.dataset.decoder = 'native';
       video.src = source.href;
       video.addEventListener('error', function () { fail('这个格式在这里无法解码'); });
+      video.addEventListener('loadedmetadata', function () { noteAudio(false); }, { once: true });
       return;
     }
     if (typeof Hls === 'undefined' || !Hls.isSupported()) {
@@ -103,6 +118,7 @@
     });
     hls.loadSource(source.href);
     hls.attachMedia(video);
+    hls.on(Hls.Events.MANIFEST_PARSED, function () { noteAudio(true); });
   }
 
   video.addEventListener('timeupdate', function () { post(false); });

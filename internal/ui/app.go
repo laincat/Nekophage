@@ -242,6 +242,9 @@ type DevOptions struct {
 	// VideoQuit ends the app once the video probe has reported, so a tool can
 	// run it and read the exit code.
 	VideoQuit bool
+	// VideoRequireAudio fails the playback probe unless the decoder reported
+	// an audio track. It verifies the pipeline, not audible output.
+	VideoRequireAudio bool
 	// VideoForceHLS uses the bundled HLS.js decoder in a playback probe even
 	// when the WebView also reports native HLS support.
 	VideoForceHLS bool

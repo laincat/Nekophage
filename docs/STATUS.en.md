@@ -9,6 +9,12 @@ The four CI jobs of Core's `6e07429` are green (three Go platforms plus Apple's 
 
 **Pin moved to `6e07429` (2026-11-01)**: Core gained the three standard AI entry points and the optional chunked transport (`HostStream`), and it fixed a deadlock in the package bridge — the package pushed to `__magpieChatPush` from inside its own hook while the reader stopped at the end marker, so the writer waited for a reader that had gone. The desktop client **does not implement `HostStream` yet**, so replies still arrive whole; `scripts/fetch-core.sh` has aligned `build/core` to that commit and `scripts/check-core-pin.sh` passes.
 
+## Audio decode pipeline (2026-11-02)
+
+A new H.264+AAC fMP4 HLS fixture lives in `internal/player/testdata/hls-audio`. In an actual Windows WebView HLS.js reports `audio=yes`, the picture is `320×180`, authentication/Range work, and a paused `1.950s` reopens at `1.950s` (`E:/Temp/desktop-hls-audio-playback.log`); the page records the parsed audio track and codec in `data-audio`, and the probe's `-video-audio` requires `yes`. The negative control uses the video-only fixture, reports `audio=no` and exits with status 1 (`E:/Temp/desktop-hls-audio-negative.log`).
+
+This establishes that the decode pipeline saw and processed an audio track; it is **not** audible output, and native MP4 audio was not verified — the original MP4 fixture has no audio, so that path only reports `no`.
+
 ## Video read cancellation (2026-11-02)
 
 Video lists, details and play-URL resolution use separate cancellable generations. A new search stops the previous search/pagination and old detail preparation; switching providers stops all three kinds of reads. Closing a list stops its HTTP; closing details stops details and unresolved playback preparation. Lists and independent detail windows have separate loading/error state, so finishing details cannot clear an active search. An already running media session stays independent of the search window.

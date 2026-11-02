@@ -533,6 +533,11 @@ func (a *App) runVideoProbe(query, out string, quit bool) {
 			return
 		}
 		decoder, _ := view.Page().Eval("document.getElementById('v').dataset.decoder || ''")
+		audio, _ := view.Page().Eval("document.getElementById('v').dataset.audio || ''")
+		if a.dev.VideoRequireAudio && audio != "yes" {
+			report(false, fmt.Sprintf("the media carried no audio track: %v", audio))
+			return
+		}
 		if a.dev.VideoForceHLS && decoder != "hls.js" {
 			report(false, fmt.Sprintf("the HLS.js probe used a different decoder: %v", decoder))
 			return
@@ -628,8 +633,8 @@ func (a *App) runVideoProbe(query, out string, quit bool) {
 			report(false, fmt.Sprintf("resume failed: saved=%.3f observed=%.3f", disk.Position, resumed))
 			return
 		}
-		report(true, fmt.Sprintf("frame=%s decoder=%v size=%vx%v duration=%.1f time=%.2f->%.2f disk=%s@%.3fs reopened=%.3fs",
-			out, decoder, after.W, after.H, after.Duration, before.Time, after.Time,
+		report(true, fmt.Sprintf("frame=%s decoder=%v audio=%v size=%vx%v duration=%.1f time=%.2f->%.2f disk=%s@%.3fs reopened=%.3fs",
+			out, decoder, audio, after.W, after.H, after.Duration, before.Time, after.Time,
 			disk.EpisodeName, disk.Position, resumed))
 	}()
 }
