@@ -24,7 +24,7 @@
 
 `probesite.ServeOnePage` 原来供一张 8×8 的 PNG:读者能解码,但一页比窗口矮,读位置永远是 0,`-progress` 与 `-scroll` 只能证明上报链路,证明不了「位置被记住」。现在供 **320×1200** 的页(每 100 行一条色带,截图里能看出滚到哪),单测断言文档高度与宽度。
 
-本地复跑(`callback_probe.js`、`-serve 18731`):`decoded=1 first=320x1200`;`-progress` 得到 `y=1335 h=3388`、HTTP 200;`-scroll` 重开章节后 **scrollY=1200**,说明位置真的被保存并恢复,而不是恒等于顶部的 0。日志 `E:/Temp/nk-reader-tall.log`、`E:/Temp/nk-reader-scroll.log`。
+同时改了 `-progress` 的判据:它原来自己发一个 `progress?...percent=55` 的 XHR,那只证明端点可用,不证明页面自己上报。现在只读页面写入的 `localStorage`,并要求出现**本章节**的上报键(单页章节的百分比按页序号算,本来就是 0,所以键才是证据)。本地复跑(`callback_probe.js`、`-serve 18731`):`decoded=1 first=320x1200`;`-progress` 退出码 0,读到 `y=1335 h=3388` 且含 `callback_probe/1/1`;`-scroll` 重开章节后 **scrollY=1200**。日志 `E:/Temp/nk-reader-tall.log`、`E:/Temp/nk-reader-scroll.log`、`E:/Temp/nk-reader-progress4.log`。
 
 ## macOS 阅读主线(2026-11-03,提交 `3c42463`)
 

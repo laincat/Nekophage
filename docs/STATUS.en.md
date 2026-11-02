@@ -29,7 +29,7 @@ The round also found and fixed an environment defect: pointing `fetch-core.sh` a
 
 `probesite.ServeOnePage` served an 8×8 PNG: the reader could decode it, but a page shorter than the window keeps the reading position at zero, so `-progress` and `-scroll` only proved the reporting path, not that a position is remembered. It now serves **320×1200** with a colour band every 100 rows, so a capture shows where the page is scrolled, and the unit test asserts the document's height and width.
 
-Local rerun (`callback_probe.js`, `-serve 18731`): `decoded=1 first=320x1200`; `-progress` reports `y=1335 h=3388` over HTTP 200; `-scroll` reopens the chapter at **scrollY=1200**, so the position is really saved and restored rather than pinned to the top. Logs `E:/Temp/nk-reader-tall.log` and `E:/Temp/nk-reader-scroll.log`.
+The `-progress` criterion changed with it: the tool used to post its own `progress?...percent=55` XHR, which proves the endpoint answers, not that the page reports. It now reads only what the page wrote to `localStorage` and requires a report key for **this chapter** (a one-page chapter reports 0% by page index, so the key is the evidence). Local rerun (`callback_probe.js`, `-serve 18731`): `decoded=1 first=320x1200`; `-progress` exits 0 with `y=1335 h=3388` and a `callback_probe/1/1` key; `-scroll` reopens the chapter at **scrollY=1200**. Logs `E:/Temp/nk-reader-tall.log`, `E:/Temp/nk-reader-scroll.log` and `E:/Temp/nk-reader-progress4.log`.
 
 ## macOS reading mainline (2026-11-03, commit `3c42463`)
 

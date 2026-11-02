@@ -170,22 +170,26 @@ func main() {
 				// Scroll, then ask the page what it reported.
 				_, _ = view.Page().Eval("scrollTo(0, (document.body.scrollHeight - innerHeight) * 0.55); 0")
 				time.Sleep(2 * time.Second)
+				// Only read what the page itself wrote. Posting here would prove that
+				// the endpoint answers, which is not the question: the page has to
+				// notice the scroll and report it on its own.
 				raw, err := view.Page().Eval(`(() => {
-					const xhr = new XMLHttpRequest();
-					xhr.open('GET', 'progress?' + new URLSearchParams({
-						source: 'probe', comic: 'probe', chapter: 'probe',
-						page: '3', pages: '10', percent: '55'}), false);
-					let status = -1, body = '';
-					try { xhr.send(); status = xhr.status; body = xhr.responseText; } catch (e) { body = String(e); }
-					const key = Object.keys(localStorage).filter(k => k.endsWith(':pct'));
+					const keys = Object.keys(localStorage).filter(k => k.endsWith(':pct'));
 					return JSON.stringify({y: Math.round(scrollY), h: document.body.scrollHeight,
-						pctKeys: key, pct: key.length ? localStorage.getItem(key[0]) : null,
-						status, body});
+						pctKeys: keys, pct: keys.length ? localStorage.getItem(keys[0]) : null});
 				})()`)
 				if err != nil {
 					checkErr = fmt.Errorf("progress: %w", err)
 				} else {
 					log.Printf("progress: %v", raw)
+					text, _ := raw.(string)
+					// The key is the evidence, not the number: a one-page chapter
+					// reports 0% however far it is scrolled, because the percentage
+					// follows the page index. What matters is that the page wrote a
+					// report for *this* chapter on its own.
+					if !strings.Contains(text, ":"+rec.Key+"/") {
+						checkErr = fmt.Errorf("the page reported no position for %s: %s", rec.Key, text)
+					}
 				}
 			}
 			if *layoutCheck && checkErr == nil {
