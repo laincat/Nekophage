@@ -8,7 +8,13 @@
 
 同步屏障复现了一个底层生命周期缺陷:HTTP 请求已通过 token 查到会话,但还在接收请求体;此时关闭会话或整个服务,旧处理器仍返回 204 并调用进度/字幕保存回调。旧状态可能覆盖后来保存的状态。`TestClosedSessionDiscardsPendingReports` 用 `io.Pipe` 明确控制「读到正文→关闭→正文 EOF」的顺序,四种组合在修复前均失败(`status=204 callbacks=1`),日志 `E:/Temp/nk-session-late-reports-before.log`。
 
-现在在接收完正文、接受上报前重新检查媒体代理已有的取消 context,关闭后的迟到上报返回 410,不调用保存回调;服务关闭与单会话关闭共用此信号,不另建生命周期状态。race 回归包含上述四种组合及存活会话正常进度/字幕路径,通过日志 `E:/Temp/nk-session-late-reports-after.log`。这是 HTTP 处理器的确定性时序测试,不声称做了实际界面或 TCP 断连验收。取消前已被回调接纳的操作仍允许结束,本修复不回滚已接受的保存。0.2.5 本地包 `e1c2da4` 不包含此后续修复。
+现在在接收完正文、接受上报前重新检查媒体代理已有的取消 context,关闭后的迟到上报返回 410,不调用保存回调;服务关闭与单会话关闭共用此信号,不另建生命周期状态。race 回归包含上述四种组合及存活会话正常进度/字幕路径,通过日志 `E:/Temp/nk-session-late-reports-after.log`。这是 HTTP 处理器的确定性时序测试,不声称做了实际界面或 TCP 断连验收。取消前已被回调接纳的操作仍允许结束,本修复不回滚已接受的保存。0.2.5 本地包 `e1c2da4` 不包含此后续修复,0.2.6 包(`3359910`)包含。
+
+## Windows 0.2.6 本地测试包(2026-11-03,提交 `3359910`)
+
+这一版把媒体会话迟到写入的修复带进包里(0.2.5 的 `e1c2da4` 不含该修复)。版本号在 `main.go` 中升到 0.2.6;便携 ZIP `21,557,923` 字节,SHA-256 `5b67cd240f2faf9b6097a5bafef8b2542eb9ab43d05bd2919b6c47dabe8cc335`;setup `18,712,671` 字节,SHA-256 `0d2955eaf9e3881fdad4210122e761d76c8f9157ed284b4d68440c182b20ad30`。`package-windows.py` 的构建、ZIP CRC、逐文件哈希与解压程序版本检查通过;`scripts/check.sh` 在 `7bd9965` 上通过。
+
+安装核对**不是隔离安装**:NSIS 的 `$LOCALAPPDATA` 来自 shell 文件夹 API,重定向环境变量无效,`/S /NOREGISTER` 实际装进了真实 `%LOCALAPPDATA%\Programs\Nekophage`,会先覆盖此前的测试安装。安装后程序报 0.2.6、Core `214e7782`、提交 `3359910`、`go1.27.3 windows/amd64`;随后用 `Uninstall.exe /S` 静默卸载,目录已删除,`%APPDATA%\Nekophage` 配置保留。0.2.6 **未做**安装包窗口的播放、字幕或续播验收,那部分证据仍属于 0.2.5;无 Git remote,未做任何远端发布。
 
 ## Windows 0.2.5 本地测试包(2026-11-03,提交 `e1c2da4`)
 
