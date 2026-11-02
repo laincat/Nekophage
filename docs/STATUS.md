@@ -20,6 +20,14 @@
 
 这一轮还暴露并修掉了一个环境缺陷:`fetch-core.sh` 传外部 Core 路径时,`go.mod` 里指向 `./build/core` 的 replace 仍生效,构建直接失败。现在工作区改用 `go work edit -replace`,外部模式跳过 `go mod tidy` 并说明原因;两种模式都复验过(外部 fetch/build/test 通过,默认模式仍取到 pin 并通过 `check.sh`),提交 `16025c4`。限制:这是开发构建打包,不是发布产物;播放、字幕与真实站点未在这个 `.app` 内验证。
 
+## 滚动检查改按页面实际高度取目标(2026-11-03)
+
+`readercheck -scroll` 原来写死「滚到 1200、重开后至少 800」。这有两个毛病:夹具页比 1200 矮时会因为页短而失败,而一个根本不能滚的页面在阈值为 0 时又会被放过。现在目标由页面算:`min(1200, max(0, 可滚动高度 - 40))`,算出的距离小于 100 就直接判「页面不足以验证滚动」;重开后要求至少回到该距离的 80%。
+
+调这个的过程中我自己踩过一次坑,记在这里:第一版改写把「滚动后等 1 秒」的等待删掉了,而位置是滚动结束 400ms 之后才写入 localStorage,于是重开必然回到顶部——那不是 App 的缺陷,是检查器把要观察的行为先掐掉了。现在等待保留,日志会打出落定的位置。
+
+实测:两次连跑都是 `scrollY=1200`;窗口套件仍 **13 PASS / 0 FAIL / 0 SKIP**。日志 `E:/Temp/nk-scroll10-1.log`、`E:/Temp/nk-probes-scroll-target.log`。
+
 ## 阅读解码检查不再依赖别的仓库(2026-11-03)
 
 `scripts/reader-probe.sh` 原来说「给我一个源脚本」,而仓内没有;实际跑的时候借用的是 Nekularity 的 `UITests/Fixtures/callback_probe.js`。现在有仓内 `internal/reader/testdata/loopback_source.js` 之后,不传 `NK_READ_SRC` 就用它(查询词 `probe`、由 readercheck 在 18731 供图),`scripts/desktop-probes.sh` 里这条也从「有环境变量才跑」改成默认跑。

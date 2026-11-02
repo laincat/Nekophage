@@ -239,17 +239,34 @@ func main() {
 				_, _ = view.Page().Eval("document.getElementById('spread').click(); document.getElementById('dir').click(); 0")
 			}
 			if *scrollCheck && checkErr == nil {
-				// Scrolling is remembered per chapter: move, reopen, look.
-				_, _ = view.Page().Eval("scrollTo(0, 1200); 0")
-				time.Sleep(1 * time.Second)
-				if err := view.Page().LoadURL(target); err != nil {
-					checkErr = fmt.Errorf("reload: %w", err)
-				} else {
-					time.Sleep(*wait)
-					y, err := view.Page().Eval("scrollY")
-					log.Printf("after reopening the chapter, scrollY=%v (%v)", y, err)
-					if v, ok := y.(float64); !ok || v < 800 {
-						checkErr = fmt.Errorf("the place was not restored: scrollY=%v", y)
+				// Scrolling is remembered per chapter: move, reopen, look. The
+				// distance comes from the page, not from a fixed number: a fixture
+				// page shorter than the target would fail here for being short, and a
+				// page that cannot scroll at all would pass on a threshold of zero.
+				raw, err := view.Page().Eval(`(() => {
+					const maxY = Math.max(0, document.body.scrollHeight - innerHeight);
+					const t = Math.min(1200, Math.max(0, maxY - 40));
+					scrollTo(0, t);
+					return Math.round(t);
+				})()`)
+				moved, _ := raw.(float64)
+				if err != nil || moved < 100 {
+					checkErr = fmt.Errorf("the page cannot be scrolled enough to check: %v (%v)", raw, err)
+				}
+				if checkErr == nil {
+					time.Sleep(1 * time.Second)
+					if saved, serr := view.Page().Eval("JSON.stringify([scrollY, localStorage.length])"); serr == nil {
+						log.Printf("settled at %v after moving to %v", saved, moved)
+					}
+					if err := view.Page().LoadURL(target); err != nil {
+						checkErr = fmt.Errorf("reload: %w", err)
+					} else {
+						time.Sleep(*wait)
+						y, err := view.Page().Eval("scrollY")
+						log.Printf("after reopening the chapter, scrollY=%v (%v)", y, err)
+						if v, ok := y.(float64); !ok || v < moved*0.8 {
+							checkErr = fmt.Errorf("the place was not restored: scrollY=%v, expected about %v", y, moved)
+						}
 					}
 				}
 			}

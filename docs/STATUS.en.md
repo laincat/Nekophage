@@ -25,6 +25,14 @@ Launch check: after `open build/macos/Nekophage.app` the process exists, and Cor
 
 The round also found and fixed an environment defect: pointing `fetch-core.sh` at an external Core checkout still hit go.mod's `./build/core` replacement and failed to build. The workspace now carries a `go work edit -replace`, and external mode skips `go mod tidy` with the reason stated; both modes were rechecked (external fetch/build/test pass, and the default path still fetches the pin and passes `check.sh`), commit `16025c4`. Limits: this is a development build, not a release artifact; playback, subtitles and live sites were not exercised inside this `.app`.
 
+## The scroll check now takes its target from the page (2026-11-03)
+
+`readercheck -scroll` used to scroll to a fixed 1200 and require at least 800 after reopening. That had two faults: a fixture page shorter than 1200 failed for being short, and a page that cannot scroll at all slipped past a threshold of zero. The target now comes from the page, `min(1200, max(0, scrollable height - 40))`; a target under 100 is reported as a page that cannot demonstrate scrolling, and the reopened page must come back within 80% of it.
+
+One self-inflicted detour is worth recording: the first rewrite dropped the one-second settle after scrolling, and the position is written to localStorage 400 ms after the scroll stops, so reopening fell back to the top every time. That was the probe killing the behaviour it meant to observe, not a defect in the app. The wait is back and the log prints where the page settled.
+
+Measured: `scrollY=1200` on two consecutive runs, and the window suite is still **13 PASS / 0 FAIL / 0 SKIP**. Logs `E:/Temp/nk-scroll10-1.log` and `E:/Temp/nk-probes-scroll-target.log`.
+
 ## The reader decode check no longer borrows another repository's fixture (2026-11-03)
 
 `scripts/reader-probe.sh` used to ask for a source script and the repository had none, so runs borrowed `UITests/Fixtures/callback_probe.js` from Nekularity. With `internal/reader/testdata/loopback_source.js` in place, leaving `NK_READ_SRC` unset uses it (query `probe`, pages served by readercheck on 18731), and the entry in `scripts/desktop-probes.sh` now runs by default instead of only when an environment variable is set.
