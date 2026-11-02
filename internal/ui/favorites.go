@@ -172,7 +172,7 @@ func (a *App) favoritesView(c *ui.Context, t *ui.Theme) {
 // loadSourceFavorites reads what the source offers for a comic that is already
 // open: whether it keeps favorites, its folders, and which of them hold this
 // comic. A source that keeps none is left alone, and its button never appears.
-func (a *App) loadSourceFavorites(key, comicID string) {
+func (a *App) loadSourceFavorites(key, comicID string, detailTicket int) {
 	if key == "" || comicID == "" {
 		return
 	}
@@ -180,14 +180,14 @@ func (a *App) loadSourceFavorites(key, comicID string) {
 	ticket := a.favGen.next()
 	a.mu.Unlock()
 	go func() {
-		ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+		ctx, cancel := context.WithTimeout(a.detailGen.requestContext(detailTicket), 60*time.Second)
 		defer cancel()
 		sup := a.core.FavoritesSupport(ctx, key)
 		if !sup.Supported {
 			a.win.Update(func() {
 				a.mu.Lock()
 				defer a.mu.Unlock()
-				if !a.favGen.current(ticket) {
+				if !a.favGen.current(ticket) || !a.detailGen.current(detailTicket) {
 					return
 				}
 				a.srcFav, a.srcFavLoaded = sup, true
@@ -203,7 +203,7 @@ func (a *App) loadSourceFavorites(key, comicID string) {
 		a.win.Update(func() {
 			a.mu.Lock()
 			defer a.mu.Unlock()
-			if !a.favGen.current(ticket) {
+			if !a.favGen.current(ticket) || !a.detailGen.current(detailTicket) {
 				return
 			}
 			a.srcFav, a.srcFavLoaded = sup, true

@@ -607,8 +607,8 @@ func (a *App) startSearch() {
 		return
 	}
 	a.mu.Lock()
+	a.closeDetailsLocked()
 	a.busy, a.errText, a.page, a.maxPage, a.notice = "search", "", 0, 0, ""
-	a.open = false
 	ticket := a.searchGen.next()
 	a.mu.Unlock()
 	a.saveSettings(key, q)
@@ -830,7 +830,11 @@ func (a *App) searchPage(key, query string, page, ticket int) {
 func (a *App) openComicAt(key string, c core.Comic) {
 	if key != "" && key != a.currentKey() {
 		a.mu.Lock()
-		a.sourceKey = key
+		// Keep the merged grid for 返回; retiring the old source's reads
+		// must not throw away the results the user just selected from.
+		results, sources := a.results, a.resultSources
+		a.selectSourceLocked(key)
+		a.results, a.resultSources = results, sources
 		query := a.query
 		a.mu.Unlock()
 		a.saveSettings(key, query)
@@ -842,16 +846,20 @@ func (a *App) openComicAt(key string, c core.Comic) {
 func (a *App) openComic(c core.Comic) {
 	key := a.currentKey()
 	a.mu.Lock()
+	a.searchGen.next()
+	a.cancelBrowseReadsLocked()
 	a.open, a.detailComic, a.busy, a.errText, a.notice = true, c, "details", "", ""
 	a.detail = core.Details{}
-	a.detailCanComment = a.core.CommentsSupported(context.Background(), key)
+	a.detailCanComment = false
+	a.tagGen.next()
 	a.srcFavLoaded, a.srcFavFolders, a.srcFavHeld, a.srcFavMsg = false, nil, nil, ""
 	ticket := a.detailGen.next()
 	a.mu.Unlock()
-	a.loadSourceFavorites(key, c.ID)
+	a.loadSourceFavorites(key, c.ID, ticket)
 	go func() {
-		ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
+		ctx, cancel := context.WithTimeout(a.detailGen.requestContext(ticket), 90*time.Second)
 		defer cancel()
+		canComment := a.core.CommentsSupported(ctx, key)
 		d, err := a.core.Details(ctx, key, c.ID)
 		a.win.Update(func() {
 			a.mu.Lock()
@@ -864,7 +872,7 @@ func (a *App) openComic(c core.Comic) {
 				a.errText = explain(err)
 				return
 			}
-			a.detail = d
+			a.detail, a.detailCanComment = d, canComment
 			if n := a.dev.OpenChapter; n >= 0 && !a.devChapterUsed && (n < len(d.Chapters) || len(d.Chapters) == 0 && n == 0) {
 				a.devChapterUsed = true
 				go func() { a.openReader(n) }()
@@ -909,7 +917,7 @@ func (a *App) tagClicked(namespace, tag string) {
 	ticket := a.tagGen.next()
 	a.mu.Unlock()
 	go func() {
-		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		ctx, cancel := context.WithTimeout(a.tagGen.requestContext(ticket), 30*time.Second)
 		defer cancel()
 		action, err := a.core.ClickTag(ctx, key, namespace, tag)
 		a.win.Update(func() {
@@ -1274,23 +1282,16 @@ func (a *App) header(c *ui.Context, t *ui.Theme, sources []plugin.Record, option
 			if ui.Select(c, &sel, options).Width(200).Changed() {
 				if i := indexOfOption(options, sel); i >= 0 && i < len(sources) {
 					a.mu.Lock()
-					a.sourceKey = sources[i].Key
-					a.searchGen.next()
-					if a.busy == "search" {
-						a.busy = ""
-					}
-					a.results, a.open, a.notice, a.errText = nil, false, "", ""
-					a.explorePages, a.exploreIndex, a.explorePage = nil, 0, 1
-					a.explore = core.ExploreResult{}
-					a.favGen.next()
-					a.favLoaded, a.favBusy = false, false
-					a.favFolders, a.favComics, a.favErr = nil, nil, ""
+					a.selectSourceLocked(sources[i].Key)
 					a.mu.Unlock()
 					if a.mode == 4 {
 						a.loadFavorites(a.currentKey())
 					}
 					if a.mode == 1 {
 						a.loadExplorePages()
+					}
+					if a.mode == 3 {
+						a.loadCategoryDecl(a.currentKey())
 					}
 					a.loadSearchOptions(a.currentKey())
 				}
@@ -1497,7 +1498,7 @@ func (a *App) loadCategoryDecl(key string) {
 	ticket := a.catGen.next()
 	a.mu.Unlock()
 	go func() {
-		ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+		ctx, cancel := context.WithTimeout(a.catGen.requestContext(ticket), 60*time.Second)
 		defer cancel()
 		cat, err := a.core.CategoryPage(ctx, key)
 		a.win.Update(func() {
@@ -1563,7 +1564,7 @@ func (a *App) loadCategoryPage(key string, part, value, page int) {
 	ticket := a.catGen.next()
 	a.mu.Unlock()
 	go func() {
-		ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
+		ctx, cancel := context.WithTimeout(a.catGen.requestContext(ticket), 90*time.Second)
 		defer cancel()
 		res, err := a.core.CategoryComics(ctx, key, name, param, options, page)
 		a.win.Update(func() {
@@ -1594,7 +1595,7 @@ func (a *App) loadRankingPage(key, option string, page int) {
 	ticket := a.catGen.next()
 	a.mu.Unlock()
 	go func() {
-		ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
+		ctx, cancel := context.WithTimeout(a.catGen.requestContext(ticket), 90*time.Second)
 		defer cancel()
 		res, err := a.core.RankingComics(ctx, key, option, page)
 		a.win.Update(func() {
@@ -1795,6 +1796,63 @@ func (a *App) categoryView(c *ui.Context, t *ui.Theme) {
 	})
 }
 
+// selectSourceLocked retires the old source's reads and cached declarations.
+// Both the picker and a result from multi-source search take this path.
+func (a *App) selectSourceLocked(key string) {
+	a.sourceKey = key
+	a.searchGen.next()
+	a.exploreGen.next()
+	a.catGen.next()
+	a.closeDetailsLocked()
+	a.busy, a.notice, a.errText = "", "", ""
+	a.results, a.resultSources = nil, nil
+	a.explorePages, a.exploreIndex, a.explorePage = nil, 0, 1
+	a.explore, a.exploreBusy = core.ExploreResult{}, false
+	a.category, a.catLoaded, a.catBusy = core.Category{}, false, false
+	a.catComics, a.catOptions = nil, nil
+	a.favGen.next()
+	a.favLoaded, a.favBusy = false, false
+	a.favFolders, a.favComics, a.favErr = nil, nil, ""
+}
+
+// closeDetailsLocked invalidates all read work for the comic being left.
+// Callers hold App.mu; mutations such as adding a source favorite keep their
+// own lifecycle and are deliberately not cancelled here.
+func (a *App) closeDetailsLocked() {
+	a.detailGen.next()
+	a.tagGen.next()
+	a.open = false
+	if a.busy == "details" {
+		a.busy = ""
+	}
+}
+
+func (a *App) closeDetails() {
+	a.mu.Lock()
+	mode := a.mode
+	a.mu.Unlock()
+	// Returning to an interrupted browse reloads its declaration if needed.
+	a.setMode(mode)
+}
+
+// cancelBrowseReadsLocked keeps completed lists but retires any work that would
+// otherwise update a detail page or another mode. Interrupted lists reload on
+// re-entry instead of keeping an abandoned loading state.
+func (a *App) cancelBrowseReadsLocked() {
+	a.exploreGen.next()
+	if a.exploreBusy {
+		a.explorePages = nil
+		a.explore = core.ExploreResult{}
+	}
+	a.exploreBusy = false
+	a.catGen.next()
+	if a.catBusy {
+		a.catLoaded = false
+		a.catComics = nil
+	}
+	a.catBusy = false
+}
+
 // setMode switches between searching and browsing.
 func (a *App) setMode(mode int) {
 	a.mu.Lock()
@@ -1804,8 +1862,11 @@ func (a *App) setMode(mode int) {
 			a.busy = ""
 		}
 	}
+	if a.mode != mode && (a.mode == 1 || a.mode == 3) {
+		a.cancelBrowseReadsLocked()
+	}
+	a.closeDetailsLocked()
 	a.mode = mode
-	a.open = false
 	need := mode == 1 && len(a.explorePages) == 0
 	needCategory := mode == 3 && !a.catLoaded
 	needFavorites := mode == 4 && !a.favLoaded
@@ -1832,7 +1893,7 @@ func (a *App) loadExplorePages() {
 	ticket := a.exploreGen.next()
 	a.mu.Unlock()
 	go func() {
-		ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+		ctx, cancel := context.WithTimeout(a.exploreGen.requestContext(ticket), 60*time.Second)
 		defer cancel()
 		pages, err := a.core.ExplorePages(ctx, key)
 		a.win.Update(func() {
@@ -1919,7 +1980,7 @@ func (a *App) loadExploreAt(key string, index, page int, cursor string) {
 	ticket := a.exploreGen.next()
 	a.mu.Unlock()
 	go func() {
-		ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
+		ctx, cancel := context.WithTimeout(a.exploreGen.requestContext(ticket), 90*time.Second)
 		defer cancel()
 		res, err := a.core.Explore(ctx, key, index, page, cursor)
 		a.win.Update(func() {
@@ -2210,9 +2271,7 @@ func (a *App) detailsView(c *ui.Context, t *ui.Theme, busy bool) {
 						}
 					}
 					if ui.Button(c, "返回").Clicked() {
-						a.mu.Lock()
-						a.open = false
-						a.mu.Unlock()
+						a.closeDetails()
 					}
 				})
 				if srcFavMsg != "" {

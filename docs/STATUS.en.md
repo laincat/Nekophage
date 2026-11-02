@@ -9,6 +9,12 @@ The four CI jobs of Core's `6e07429` are green (three Go platforms plus Apple's 
 
 **Pin moved to `6e07429` (2026-11-01)**: Core gained the three standard AI entry points and the optional chunked transport (`HostStream`), and it fixed a deadlock in the package bridge — the package pushed to `__magpieChatPush` from inside its own hook while the reader stopped at the end marker, so the writer waited for a reader that had gone. The desktop client **does not implement `HostStream` yet**, so replies still arrive whole; `scripts/fetch-core.sh` has aligned `build/core` to that commit and `scripts/check-core-pin.sh` passes.
 
+## Cancelling page reads (2026-11-02)
+
+Generation cancellation now covers browsing, categories/rankings, details, tags and source-favorite reads inside details. Changing mode or source, closing details or opening another comic retires stale reads and prevents late results from reaching the new page. The comment-capability check runs in the background under the detail context instead of waiting for Core while holding the UI lock. Source changes clear old category declarations; opening a comic from merged search preserves the grid for returning to it.
+
+Completed lists survive navigation; interrupted lists reload on re-entry instead of remaining permanently busy. Source-favorite mutations are not cancelled when leaving details. Real Core + JS + loopback HTTP cases independently verify server-side connection cancellation, old-call completion and a successful subsequent read for details, browsing and categories. State regressions cover source-switch cleanup and the distinction between completed and interrupted lists.
+
 ## Image cache and download budgets (2026-11-02)
 
 Downloads are bounded at 32 MiB and 400 entries; bitmaps at 128 MiB and 160 entries. The first reached bound evicts the oldest entry. Accounting uses download slice capacity and reserves RGBA pixels and the complete mip pyramid. MyGo's `DecodeBitmap` closure retains encoded data for re-decoding, so that data is included in the bitmap budget: clearing the download map never proved it was freed. Individually over-budget images use a placeholder with a failure marker instead of repeatedly downloading or decoding; dimensions are checked before allocating over-budget pixels. GPU textures and other process overhead are outside this cache budget; no process peak-memory bound is claimed.
@@ -19,7 +25,7 @@ Covers and saved-page images share four download slots. Queued cancellation does
 
 Search generations now own a cancellable context. Starting a new search, changing source or leaving search mode stops the old search's HTTP work. Pasted links, single-source pages and multi-source searches all use that context; multi-source jobs can also leave while waiting for a concurrency slot. Pages retain individual timeouts, so completing one does not cancel another. A stale ticket starting late receives an already-cancelled context rather than joining the new search.
 
-`TestSearchReplacementStopsHTTPAndLeavesNewRequestUsable` uses the real Core, a JS fixture and loopback HTTP to observe the old server connection being cancelled, the old Core call failing and the next search on the same source returning new results. It does not sleep to infer cancellation. Generation cases also cover late starts, page isolation and leaving search mode. Browsing, details and cover downloads remain follow-up work; this search fix does not establish cancellation for all requests.
+`TestSearchReplacementStopsHTTPAndLeavesNewRequestUsable` uses the real Core, a JS fixture and loopback HTTP to observe the old server connection being cancelled, the old Core call failing and the next search on the same source returning new results. It does not sleep to infer cancellation. Generation cases also cover late starts, page isolation and leaving search mode. This paragraph records the search fix; the later browse/detail and cover validation appears above. It does not establish cancellation for arbitrary mutations.
 
 ## Implemented
 
