@@ -769,6 +769,10 @@ That repository is **not a theme plugin** — it is a complete Android client wh
 | `manwaba` | the cover "is not an image" | **Measured**: the 13328-byte cover comes back with `Content-Type: image/jpeg` but starts with `aa254a…` rather than `ffd8`, so the site serves encrypted bytes. Refusing to treat that as a picture is right |
 | `mh1234` | `Cannot read properties of null` | The script expects an element the site no longer has, which is the source being brittle |
 
+## Twelve window probes rerun after the header and installer fixes (2026-11-03, commit `580f9fd`)
+
+After dropping the header hint, adding `SetOutPath` to the uninstaller, the install rollback and the subtitle cap, all four environment variables ran again: exit=0, **PASS=12, FAIL=0, SKIP=0**, log `E:/Temp/nk-desk-probes-6f120fe.log`. The coverage is the same as the previous round (login, challenge, dialog, page reads after close, favourites, reader decoding, comments, browse chips, shelf, category page, official callbacks and tags), so those changes did not break window behaviour. Still development-build windows with local fixtures, not acceptance inside a package.
+
 ## Twelve window probes rerun on the subtitle-cap commit (2026-11-03, commit `cc85ad9`)
 
 After the subtitle-record cap landed, the real-window probes ran with all four environment variables (`NK_OFFICIAL_SRC` + `NK_PROBE_SRC` + `NK_FAV_SRC` + `NK_READ_SRC`): **exit=0, PASS=12, FAIL=0, SKIP=0**, log `E:/Temp/nk-desk-probes-full-cc85ad9.log`. They cover the login window (success, timeout, failing callback, late cookie, close), the challenge page, closing a source dialog releasing its caller, a closed window still taking updates and page reads, the source's own favourites, the reader decoding a loopback page, a comment thread, browse chips following the declaration, reading landing on the shelf, the category page drawing and loading, and the callbacks and tags of 34 official scripts. `scripts/check.sh` passes at the same commit (`E:/Temp/nk-desk-check-shelf.log`).
