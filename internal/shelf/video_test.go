@@ -103,36 +103,59 @@ func TestLegacySubtitleSurvivesFinishedEpisode(t *testing.T) {
 	}
 }
 
-// Subtitle choices outlive history, so the history limit does not prune them.
-// Without their own cap a long series or a lot of shows grows the profile file
-// without bound; the oldest choices have to go, and the newest must survive a
-// reopen.
-func TestVideoSubtitlesAreCapped(t *testing.T) {
+// Subtitle choices outlive history, so the history limit never prunes them and
+// they need a cap of their own. The trim is a pure function so this does not
+// rewrite a two-thousand-record profile to check the boundary.
+func TestSubtitleRecordsKeepTheNewestPastTheCap(t *testing.T) {
+	records := make([]videoSubtitleRecord, 0, 7)
+	for i := 0; i < 7; i++ {
+		records = append(records, videoSubtitleRecord{EpisodeID: fmt.Sprintf("ep%d", i)})
+	}
+	kept := trimSubtitles(records, 4)
+	if len(kept) != 4 {
+		t.Fatalf("kept %d records, want 4", len(kept))
+	}
+	if kept[0].EpisodeID != "ep3" || kept[3].EpisodeID != "ep6" {
+		t.Fatalf("trim kept %s..%s, want ep3..ep6", kept[0].EpisodeID, kept[3].EpisodeID)
+	}
+	if len(trimSubtitles(records, 0)) != 7 {
+		t.Fatal("a limit of zero must not trim")
+	}
+	if len(trimSubtitles(records, 7)) != 7 {
+		t.Fatal("a list at the limit must be left alone")
+	}
+}
+
+// The save path has to apply the cap, not just the pure trim: a lowered limit
+// makes this cheap, and the newest choice must still be readable after a reopen.
+func TestSetVideoSubtitleAppliesTheCap(t *testing.T) {
+	previous := subtitleLimit
+	subtitleLimit = 3
+	t.Cleanup(func() { subtitleLimit = previous })
+
 	root := t.TempDir()
 	s, err := Open(root)
 	if err != nil {
 		t.Fatal(err)
 	}
-	total := subtitleLimit + 10
-	for i := 0; i < total; i++ {
-		episode := fmt.Sprintf("ep%05d", i)
+	for i := 0; i < 5; i++ {
+		episode := fmt.Sprintf("ep%d", i)
 		if ok, err := s.SetVideoSubtitle("probe", "show", episode,
 			&VideoSubtitle{Name: "English", Language: "en"}); err != nil || !ok {
 			t.Fatalf("save %s = %v, %v", episode, ok, err)
 		}
 	}
-	if len(s.subtitles) > subtitleLimit {
-		t.Fatalf("kept %d subtitle records, limit is %d", len(s.subtitles), subtitleLimit)
+	if len(s.subtitles) != 3 {
+		t.Fatalf("kept %d subtitle records, limit is 3", len(s.subtitles))
 	}
-	if _, ok := s.VideoSubtitle("probe", "show", "ep00000"); ok {
-		t.Fatal("the oldest subtitle record was kept past the limit")
+	if _, ok := s.VideoSubtitle("probe", "show", "ep1"); ok {
+		t.Fatal("an old record survived the cap")
 	}
 	reopened, err := Open(root)
 	if err != nil {
 		t.Fatal(err)
 	}
-	newest := fmt.Sprintf("ep%05d", total-1)
-	if choice, ok := reopened.VideoSubtitle("probe", "show", newest); !ok || choice.Name != "English" {
+	if choice, ok := reopened.VideoSubtitle("probe", "show", "ep4"); !ok || choice.Name != "English" {
 		t.Fatalf("newest record after reopen = %+v, %v", choice, ok)
 	}
 }

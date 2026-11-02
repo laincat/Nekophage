@@ -27,8 +27,9 @@ const historyLimit = 500
 
 // subtitleLimit caps remembered subtitle choices. They outlive playback history
 // on purpose, so nothing else prunes them: a viewer who works through a long
-// series would otherwise grow the profile file without bound.
-const subtitleLimit = 2000
+// series would otherwise grow the profile file without bound. A variable only so
+// a test can lower it instead of writing two thousand records.
+var subtitleLimit = 2000
 
 // Comic identifies one comic in one source.
 type Comic struct {
@@ -608,10 +609,7 @@ func (s *Shelf) SetVideoSubtitle(source, itemID, episodeID string, choice *Video
 	if choice != nil {
 		out = append(out, videoSubtitleRecord{Source: source, ItemID: itemID, EpisodeID: episodeID, Choice: *choice})
 	}
-	if len(out) > subtitleLimit {
-		out = out[len(out)-subtitleLimit:]
-	}
-	s.subtitles = out
+	s.subtitles = trimSubtitles(out, subtitleLimit)
 	// Clear the old embedded representation so clearing a choice stays cleared.
 	for i := range s.videos {
 		e := &s.videos[i]
@@ -620,6 +618,15 @@ func (s *Shelf) SetVideoSubtitle(source, itemID, episodeID string, choice *Video
 		}
 	}
 	return true, s.save()
+}
+
+// trimSubtitles keeps the newest records once the list passes its cap. A pure
+// function so the limit can be tested without rewriting a 2000-record profile.
+func trimSubtitles(list []videoSubtitleRecord, limit int) []videoSubtitleRecord {
+	if limit > 0 && len(list) > limit {
+		return list[len(list)-limit:]
+	}
+	return list
 }
 
 // VideoSubtitle returns a saved choice, including choices from older history records.
