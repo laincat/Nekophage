@@ -25,6 +25,11 @@ const DefaultFolder = "收藏"
 // historyLimit caps what is remembered; older entries are dropped.
 const historyLimit = 500
 
+// subtitleLimit caps remembered subtitle choices. They outlive playback history
+// on purpose, so nothing else prunes them: a viewer who works through a long
+// series would otherwise grow the profile file without bound.
+const subtitleLimit = 2000
+
 // Comic identifies one comic in one source.
 type Comic struct {
 	Source string `json:"source"`
@@ -602,6 +607,9 @@ func (s *Shelf) SetVideoSubtitle(source, itemID, episodeID string, choice *Video
 	}
 	if choice != nil {
 		out = append(out, videoSubtitleRecord{Source: source, ItemID: itemID, EpisodeID: episodeID, Choice: *choice})
+	}
+	if len(out) > subtitleLimit {
+		out = out[len(out)-subtitleLimit:]
 	}
 	s.subtitles = out
 	// Clear the old embedded representation so clearing a choice stays cleared.

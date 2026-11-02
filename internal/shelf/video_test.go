@@ -1,6 +1,7 @@
 package shelf
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -99,6 +100,40 @@ func TestLegacySubtitleSurvivesFinishedEpisode(t *testing.T) {
 	choice, ok := reopened.VideoSubtitle("probe", "show", "ep1")
 	if !ok || choice.Name != "English" || choice.Language != "en" {
 		t.Fatalf("legacy choice after finished episode: %+v, %v", choice, ok)
+	}
+}
+
+// Subtitle choices outlive history, so the history limit does not prune them.
+// Without their own cap a long series or a lot of shows grows the profile file
+// without bound; the oldest choices have to go, and the newest must survive a
+// reopen.
+func TestVideoSubtitlesAreCapped(t *testing.T) {
+	root := t.TempDir()
+	s, err := Open(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	total := subtitleLimit + 10
+	for i := 0; i < total; i++ {
+		episode := fmt.Sprintf("ep%05d", i)
+		if ok, err := s.SetVideoSubtitle("probe", "show", episode,
+			&VideoSubtitle{Name: "English", Language: "en"}); err != nil || !ok {
+			t.Fatalf("save %s = %v, %v", episode, ok, err)
+		}
+	}
+	if len(s.subtitles) > subtitleLimit {
+		t.Fatalf("kept %d subtitle records, limit is %d", len(s.subtitles), subtitleLimit)
+	}
+	if _, ok := s.VideoSubtitle("probe", "show", "ep00000"); ok {
+		t.Fatal("the oldest subtitle record was kept past the limit")
+	}
+	reopened, err := Open(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	newest := fmt.Sprintf("ep%05d", total-1)
+	if choice, ok := reopened.VideoSubtitle("probe", "show", newest); !ok || choice.Name != "English" {
+		t.Fatalf("newest record after reopen = %+v, %v", choice, ok)
 	}
 }
 
