@@ -7,8 +7,8 @@
 (`dist/hls.min.js`, 623915 bytes, SHA-256
 `cfc70cc9e9fc63d071919e087670abc760c8fd1bc889b88588026e4d22193bbe`).
 
-- HLS.js © 2017 Dailymotion and contributors, Apache License 2.0 — the full text
-  is in `HLS-LICENSE.txt` next to this file.
+- HLS.js © 2017 Dailymotion and contributors, Apache License 2.0 — the upstream copyright notice
+  is in `HLS-LICENSE.txt`, and the complete license terms are in `APACHE-2.0.txt`.
 - It is bundled rather than fetched at run time so the player works offline and
   a remote script cannot change what the page executes. Do not replace it with
   a CDN import; update this note, the file and the hash together.

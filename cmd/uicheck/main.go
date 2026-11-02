@@ -82,7 +82,7 @@ func main() {
 	videoMedia := flag.String("video-media", "", "MP4 or fixture directory to serve on 127.0.0.1:18732")
 	videoAuth := flag.Bool("video-auth", false, "require fixture Referer and a Cookie obtained at /login for every media request")
 	videoHLS := flag.Bool("video-hlsjs", false, "verify the bundled HLS.js decoder even where native HLS is available")
-	videoAudio := flag.Bool("video-audio", false, "require the playback probe to observe an audio track")
+	videoAudio := flag.Bool("video-audio", false, "require a positive decoded-audio byte counter after playback")
 	// dir reuses a profile, so the shelf and installed sources carry over
 	// from an earlier import.
 	dir := flag.String("dir", "", "profile directory; a fresh one under the temp directory when empty")

@@ -7,8 +7,8 @@
 (`dist/hls.min.js`,623915 字节,SHA-256
 `cfc70cc9e9fc63d071919e087670abc760c8fd1bc889b88588026e4d22193bbe`)。
 
-- HLS.js © 2017 Dailymotion 及其贡献者,Apache License 2.0,全文见同目录
-  `HLS-LICENSE.txt`。
+- HLS.js © 2017 Dailymotion 及其贡献者,Apache License 2.0,上游版权说明见同目录
+  `HLS-LICENSE.txt`,Apache-2.0 完整条款见 `APACHE-2.0.txt`。
 - 采用内置而不是运行时从 CDN 拉取,这样播放器离线可用,远端脚本也无法改变页面
   执行的内容。升级时需同时更新文件、此说明与 SHA-256。
 

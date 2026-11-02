@@ -62,19 +62,17 @@
     video.currentTime = Math.min(start, end);
   }, { once: true });
   video.addEventListener('seeked', function () { restoring = false; });
-  // Whether an audio track reached the decoder. Chromium exposes no audio
-  // element API, so HLS.js reports the parsed codec/tracks; WebKit can count
-  // decoded audio bytes. Neither proves speakers are audible, only that the
-  // pipeline saw and handled an audio track.
+  // Manifest metadata is only a declaration, not evidence of decoding. Keep
+  // this diagnostic separate from webkitAudioDecodedByteCount, which the
+  // development probe samples after playback has actually advanced.
   function noteAudio(fromHLS) {
     if (fromHLS) {
       const tracks = (hls && hls.audioTracks ? hls.audioTracks.length : 0);
       const codec = (hls && hls.levels && hls.levels[0] ? hls.levels[0].audioCodec : '') || '';
-      video.dataset.audio = tracks > 0 || codec ? 'yes' : 'no';
+      video.dataset.audioDeclared = tracks > 0 || codec ? 'yes' : 'no';
       return;
     }
-    video.dataset.audio = typeof video.webkitAudioDecodedByteCount === 'number'
-      ? (video.webkitAudioDecodedByteCount > 0 ? 'yes' : 'no') : 'unknown';
+    video.dataset.audioDeclared = 'unknown';
   }
 
   function fail(text) { err.textContent = text; }

@@ -11,9 +11,9 @@ The four CI jobs of Core's `6e07429` are green (three Go platforms plus Apple's 
 
 ## Audio decode pipeline (2026-11-02)
 
-A new H.264+AAC fMP4 HLS fixture lives in `internal/player/testdata/hls-audio`. In an actual Windows WebView HLS.js reports `audio=yes`, the picture is `320×180`, authentication/Range work, and a paused `1.950s` reopens at `1.950s` (`E:/Temp/desktop-hls-audio-playback.log`); the page records the parsed audio track and codec in `data-audio`, and the probe's `-video-audio` requires `yes`. The negative control uses the video-only fixture, reports `audio=no` and exits with status 1 (`E:/Temp/desktop-hls-audio-negative.log`).
+After playing the H.264+AAC fMP4 HLS fixture in an actual Windows WebView, `webkitAudioDecodedByteCount` reads **18,537 bytes**, the picture is `320×180`, authentication/Range work, and paused `1.975s` resumes at `1.975s`. Log: `E:/Temp/desktop-audio-decoded-counter.log`. The probe's `-video-audio` now requires a positive actual decoded-byte counter; browsers without that counter remain unobserved.
 
-This establishes that the decode pipeline saw and processed an audio track; it is **not** audible output, and native MP4 audio was not verified — the original MP4 fixture has no audio, so that path only reports `no`.
+A stronger negative control falsely declares AAC in the manifest but contains video only: `audioDeclared=yes audioDecodedBytes=0`, exit status 1, log `E:/Temp/desktop-audio-false-manifest-negative.log`. The earlier `8f1d812` criterion used manifest/codec metadata alone and did not establish decoding; it is replaced. Actual decoded bytes still do **not** establish audible speaker output, and native MP4 audio remains unverified.
 
 ## Video read cancellation (2026-11-02)
 
