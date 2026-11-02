@@ -10,6 +10,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"log"
@@ -214,8 +215,25 @@ func main() {
 					checkErr = fmt.Errorf("layout: %w", err)
 				} else {
 					log.Printf("layout: %v", raw)
-					if text, ok := raw.(string); !ok || !strings.Contains(text, `"spread rtl"`) {
-						checkErr = fmt.Errorf("two columns did not apply: %v", raw)
+					// The direction is a toggle: clicking it once lands on whichever
+					// way the page was not. Asserting a specific word made the check
+					// depend on the starting state; what matters is two columns and
+					// which page is on the right.
+					text, _ := raw.(string)
+					var shape struct {
+						Columns       string
+						DirLabel      string
+						First, Second struct{ X, W int }
+					}
+					if json.Unmarshal([]byte(text), &shape) != nil || len(strings.Fields(shape.Columns)) != 2 {
+						checkErr = fmt.Errorf("two columns did not apply: %s", text)
+					} else if strings.HasPrefix(strings.TrimSpace(shape.DirLabel), "右") ||
+						strings.Contains(strings.ToLower(shape.DirLabel), "rtl") {
+						if shape.First.X <= shape.Second.X {
+							checkErr = fmt.Errorf("right-to-left should put the first page on the right: %s", text)
+						}
+					} else if shape.First.X >= shape.Second.X {
+						checkErr = fmt.Errorf("left-to-right should put the first page on the left: %s", text)
 					}
 				}
 				_, _ = view.Page().Eval("document.getElementById('spread').click(); document.getElementById('dir').click(); 0")

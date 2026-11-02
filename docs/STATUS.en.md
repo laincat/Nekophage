@@ -25,6 +25,14 @@ Launch check: after `open build/macos/Nekophage.app` the process exists, and Cor
 
 The round also found and fixed an environment defect: pointing `fetch-core.sh` at an external Core checkout still hit go.mod's `./build/core` replacement and failed to build. The workspace now carries a `go work edit -replace`, and external mode skips `go mod tidy` with the reason stated; both modes were rechecked (external fetch/build/test pass, and the default path still fetches the pin and passes `check.sh`), commit `16025c4`. Limits: this is a development build, not a release artifact; playback, subtitles and live sites were not exercised inside this `.app`.
 
+## The double-page layout can be checked offline (2026-11-03)
+
+`-layout` used to need a live site: the fixture chapter had one page and measuring a spread needs two. The repository now has `internal/reader/testdata/loopback_source.js` (a two-page chapter, both pages on `127.0.0.1:18731`, served by readercheck itself) and `scripts/layout-probe.sh`, wired into the window suite.
+
+The check itself had two problems: it asserted the page class contains `spread rtl`, but the direction is a toggle, so clicking it lands on whichever side it was not and a fixed word makes the result depend on the starting state; and it looked for "右" with `contains`, which also matches "左→右" and reads left-to-right as right-to-left. It now reads the arrow direction from the label and checks that two columns exist with the first page on the right.
+
+Measured in a real Windows window: two columns of `433.5px`, the first page at `x=436` and the second at `x=0` (right-to-left), capture `build/probes/layout.png`; a one-page chapter fails the opposite way with `few figures` and a non-zero exit. The window suite is now **13 PASS / 0 FAIL / 0 SKIP** (`E:/Temp/nk-desk-probes-layout.log`).
+
 ## The fixture page is now scrollable (2026-11-03)
 
 `probesite.ServeOnePage` served an 8×8 PNG: the reader could decode it, but a page shorter than the window keeps the reading position at zero, so `-progress` and `-scroll` only proved the reporting path, not that a position is remembered. It now serves **320×1200** with a colour band every 100 rows, so a capture shows where the page is scrolled, and the unit test asserts the document's height and width.

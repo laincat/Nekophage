@@ -46,6 +46,8 @@ run "login window: ok, timeout, failing callback, late cookie, close" \
 run "challenge window: cleared and dismissed" \
 	"$out/challenge.log" sh scripts/challenge-probe.sh
 
+run "the reader lays two pages side by side" 	"$out/layout-probe.log" sh scripts/layout-probe.sh
+
 go build -o "$out/dialogprobe" ./cmd/dialogprobe
 run "closing a source dialog releases its caller" \
 	"$out/dialog.log" "$out/dialogprobe"

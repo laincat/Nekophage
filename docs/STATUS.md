@@ -20,6 +20,14 @@
 
 这一轮还暴露并修掉了一个环境缺陷:`fetch-core.sh` 传外部 Core 路径时,`go.mod` 里指向 `./build/core` 的 replace 仍生效,构建直接失败。现在工作区改用 `go work edit -replace`,外部模式跳过 `go mod tidy` 并说明原因;两种模式都复验过(外部 fetch/build/test 通过,默认模式仍取到 pin 并通过 `check.sh`),提交 `16025c4`。限制:这是开发构建打包,不是发布产物;播放、字幕与真实站点未在这个 `.app` 内验证。
 
+## 双页布局可以离线验了(2026-11-03)
+
+`-layout` 以前需要真实站点:夹具章节只有一页,而检双页要两页。现在仓内新增 `internal/reader/testdata/loopback_source.js`(章节两页,都指向 `127.0.0.1:18731`,由 readercheck 自己供图),并新增 `scripts/layout-probe.sh` 接进窗口套件。
+
+同时修了这个检查本身的两处问题:它原来断言页面 class 里出现 `spread rtl`,而方向是一个切换按钮,点一下是「另一侧」,断言写死某个词就等于依赖起始状态;另外判断「右→左」时用了 `contains("右")`,而「左→右」里也有「右」,会把左到右误判成右到左。现在按标签开头的箭头方向判断,并检查两列存在且第一页确实在右侧。
+
+实测(Windows 真实窗口):两列 `433.5px 433.5px`,第一页 `x=436`、第二页 `x=0`(右→左),捕获 `build/probes/layout.png`;反例用一页章节跑,工具以 `few figures` 非零退出。窗口套件现在是 **13 PASS / 0 FAIL / 0 SKIP**,日志 `E:/Temp/nk-desk-probes-layout.log`。
+
 ## 夹具页改成可滚动尺寸(2026-11-03)
 
 `probesite.ServeOnePage` 原来供一张 8×8 的 PNG:读者能解码,但一页比窗口矮,读位置永远是 0,`-progress` 与 `-scroll` 只能证明上报链路,证明不了「位置被记住」。现在供 **320×1200** 的页(每 100 行一条色带,截图里能看出滚到哪),单测断言文档高度与宽度。
