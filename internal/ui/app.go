@@ -1313,9 +1313,11 @@ func (a *App) header(c *ui.Context, t *ui.Theme, sources []plugin.Record, option
 	ui.Row(c).Padding(12, 16).Gap(10).AlignItems(ui.Center).Children(func() {
 		ui.Text(c, "Nekophage").FontSize(18).Bold()
 		ui.Spacer(c)
-		if len(sources) == 0 {
-			ui.Text(c, "还没有漫画源").TextColor(t.TextMuted)
-		} else {
+		// No hint here when there are no sources: the row also holds a fixed-width
+		// mode switch, a select and buttons, so a wrapping sentence between them is
+		// squeezed to one character per line. The empty state below already says
+		// where to add a source.
+		if len(sources) > 0 {
 			// The list shows each source's name; the index picks its key.
 			sel := a.sourceLabel(sources)
 			if ui.Select(c, &sel, options).Width(170).Changed() {
