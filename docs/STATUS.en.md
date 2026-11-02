@@ -59,6 +59,12 @@ Ordinary video-source file/URL installation, restart restoration and video read 
 
 The historical transport-test log is `E:/Temp/desktop-media-proxy-tests.log`; current UI, HLS decoding and resume evidence are listed separately above. Network unit tests are not browser-decoding evidence. Existing comic requests retain their bounded whole-body behavior; media does not use that whole-response timeout and is controlled by the caller context and session close.
 
+## Windows installer and portable package 0.2.2 (2026-11-02, commit `bcbe602`)
+
+Includes subtitle-track selection and the audio/subtitle criteria. Portable ZIP `21,544,794` bytes, SHA-256 `c69db3d7762366784f891dd1cc23e99c97f89378621fcae3d90a7a754f6cf554`; per-user setup `18,701,040` bytes, SHA-256 `461e4fb02d046f22ffe72014d68a04dfd6899b1f4718e517bd1ca8247e145f74`.
+
+Measured: after a silent install into an isolated directory (`skipRegistration=1`), `-version` reported `0.2.2`/Core `214e7782`/commit `bcbe6025`; the installed program opened a real window titled `Nekophage`, responded normally, and `Uninstall.exe /S` removed the directory after it closed. The packaging script itself passes ZIP CRC, per-file hashes after extraction and the extracted `-version`. **Unverified**: clicking through to subtitle playback inside the packaged GUI (the subtitle evidence comes from `cmd/uicheck` on the same commit), plus signing and a machine without WebView2.
+
 ## Windows installer and portable package 0.2.1 (2026-11-02, commit `e27d5f7`)
 
 `python scripts/package-windows.py --nsis <makensis>` now emits a portable ZIP (`21,544,447` bytes, SHA-256 `a5e9f549927a2e937ba196e0fb862140d4c2fa39a3c9278ed05747d7b8f5c3b0`) and a per-user setup (`18,697,739` bytes, SHA-256 `58e980bacf3d6337abc8935ddfab950c392d4cf0ed6b2512b2bdc3d8d1e90025`). The script verifies the ZIP CRC, per-file hashes after extraction and the extracted `-version`; installation behaviour is measured separately.

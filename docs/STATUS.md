@@ -54,6 +54,12 @@ H.264+AAC 的 fMP4 HLS 夹具在真实 Windows WebView 中播放后,`webkitAudio
 
 这些传输层用例的历史日志为 `E:/Temp/desktop-media-proxy-tests.log`;当前的界面、HLS 解码与续播证据单列在上节,不把网络单测当作浏览器解码验证。既有漫画请求仍保留整包大小限制;媒体流不复用整包超时,生命周期由调用方上下文与播放会话关闭控制。
 
+## Windows 安装包与便携包 0.2.2(2026-11-02,提交 `bcbe602`)
+
+含字幕轨选择与音轨/字幕判据。便携 ZIP `21,544,794` 字节,SHA-256 `c69db3d7762366784f891dd1cc23e99c97f89378621fcae3d90a7a754f6cf554`;按用户 setup `18,701,040` 字节,SHA-256 `461e4fb02d046f22ffe72014d68a04dfd6899b1f4718e517bd1ca8247e145f74`。
+
+实测:静默安装到隔离目录(`skipRegistration=1`)后 `-version` 报 `0.2.2`/Core `214e7782`/提交 `bcbe6025`;安装后的程序开出标题为 `Nekophage` 的真实窗口并正常响应,关闭后 `Uninstall.exe /S` 删除目录。打包脚本自身通过 ZIP CRC、解压后逐文件哈希与解压程序 `-version`。**未验证**:打包后的 GUI 里逐项点到字幕播放(字幕证据来自同一提交的 `cmd/uicheck` 窗口),以及签名、无 WebView2 的机器。
+
 ## Windows 安装包与便携包 0.2.1(2026-11-02,提交 `e27d5f7`)
 
 `python scripts/package-windows.py --nsis <makensis>` 现在生成便携 ZIP(`21,544,447` 字节,SHA-256 `a5e9f549927a2e937ba196e0fb862140d4c2fa39a3c9278ed05747d7b8f5c3b0`)和按用户安装的 setup(`18,697,739` 字节,SHA-256 `58e980bacf3d6337abc8935ddfab950c392d4cf0ed6b2512b2bdc3d8d1e90025`)。打包脚本自身验证 ZIP CRC、解压后逐文件 SHA-256 与解压程序的 `-version`;安装行为单独实测。
