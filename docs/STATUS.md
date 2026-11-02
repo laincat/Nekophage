@@ -4,6 +4,12 @@
 
 更新:2026-10-31。下列结论来自 **Windows** 本机实测,包括真实漫画源与真实网络。当天新增的内容集中在三处:传输层重定向 Cookie 的真 bug(`CheckRoute` 读错了字段)、错误提示的中文化(与 iOS 同一规则:只翻认得的,其余保留 Core 原文)、以及 `live-sources.sh` 的重复跑与 `FLAKY` 分类。
 
+## 当前 Windows 窗口复跑(2026-11-02,代码 `00a1055`)
+
+用独立测试 profile 与 loopback 图片夹具运行 `cmd/uicheck`:原生详情实际显示 `Probe Comic`、封面、标签与 Chapter 1,并打开阅读器。磁盘 `shelf.json` 读回 `callback_probe / Chapter 1 / page 1`。独立 `cmd/readercheck` 再次验证 `figures=1 images=1 decoded=1 first=8x8`。这是当前取消/缓存改动后的真实 Windows 窗口与解码证据,不使用截图体积推断阅读器内容;夹具不证明真实站点当前可用。
+
+日志 `E:/Temp/desktop-delivery-ui.log` 与 `E:/Temp/desktop-delivery-reader.log`,原生详情截图在 `build/probes/delivery-00a1055/detail.png`。新增 `scripts/package-windows.py` 生成未签名便携 ZIP,并验证解压后的文件校验与 `-version`;窗口验证与打包检查分别记录,不把命令行启动等同于界面通过。
+
 ## 页面读取取消(2026-11-02)
 
 代次取消已扩展至浏览、分类/排行、详情、标签与详情中的源收藏读取。切换模式、切源、关闭详情或打开另一部作品时,过期读取不会继续等待网络,也不能把迟到的内容写回新页面。详情的评论能力检查移到后台并共享详情上下文,避免在 UI 锁内等待 Core。切换源时同时清掉旧分类声明;从多源结果点入详情仍保留原网格,返回不丢结果。

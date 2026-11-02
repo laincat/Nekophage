@@ -23,12 +23,12 @@ Logic comes from [VeneraCat Core](https://github.com/laincat/VeneraCat-Core), co
 - **Kept pages**: keep the page you are reading with one click, see them as thumbnails on the shelf, and jump back to that chapter.
 - **Shelf**: reading history and favourites; where you stopped is kept with the page and a percentage. Opening a chapter remembers where you are, the details screen keeps a comic in the folder you pick, and 继续 goes straight back to that chapter; folders can be created, renamed and deleted, and comics moved between them.
 - **Backup import**: reads an official `.venera` backup, previews it, then imports what is supported — source scripts, installed through the normal flow so nothing from the backup runs unchecked, and their data, kept exactly as written.
-- **Magpie plugins and routing (planned)**: initially connect to the locally installed Magpie and reuse its provider/other plugins and model-group routing. Accounts and rules stay in Magpie; Nekophage handles connections, task mappings and calls. Windows/macOS first, with Linux/Web interfaces reserved. Not implemented; see [docs/MAGPIE-DESKTOP.en.md](docs/MAGPIE-DESKTOP.en.md) for scope and acceptance.
+- **Local Magpie**: connection, model discovery, streaming through three standard protocols and a cancellation entry are implemented, with evidence against the installed gateway on Windows. Magpie continues to own accounts, provider plugins and routing; the desktop client does not duplicate them. macOS and other environments require their own verification. See [docs/MAGPIE-DESKTOP.en.md](docs/MAGPIE-DESKTOP.en.md).
 - **Workbench**: a later module, modelled on Magpie's built-in module switches; see [docs/ARCHITECTURE.en.md](docs/ARCHITECTURE.en.md).
 
 ## Status
 
-The first phase is the reading path: add a comic source → search → details → read. It builds, passes its unit and end-to-end tests, and opens its window on Windows; real comic sources, macOS, Linux and the verification window are not verified yet. See [docs/STATUS.en.md](docs/STATUS.en.md).
+The reading path (add a source → search → details → read) has real-source and offline-fixture evidence on Windows. The current tree has rerun native details, actual reader decoding and persisted shelf progress; request cancellation and image budgets have race tests. Evidence remains specific to its commit and platform: Windows success does not validate current macOS/Linux behavior. Video and the studio are not connected yet. See [docs/STATUS.en.md](docs/STATUS.en.md).
 
 ## Building
 
@@ -36,10 +36,13 @@ Needs Go 1.27 or later.
 
 ```sh
 scripts/fetch-core.sh      # clones Core into build/core (version in scripts/core-version)
-go build .                 # builds the Nekophage executable
-./Nekophage -version        # version, Core commit, source API level, own commit and Go runtime, no window
-go test ./...              # unit and end-to-end tests
+go build -o build/Nekophage.exe .  # Windows; keep the output under build/
+./build/Nekophage.exe -version     # version, Core commit, source API level, own commit and Go runtime, no window
+go test ./...                     # unit and end-to-end tests
+python scripts/package-windows.py # Windows + Python 3.11+: build and verify a portable ZIP
 ```
+
+On macOS, build the native program with `go build -o build/Nekophage .`. The Windows packaging script writes a ZIP under `build/releases/` containing the executable, license, bilingual instructions, build information and SHA-256 checksums. It actually extracts the archive, verifies all file hashes and runs the extracted executable with `-version`. It does not install the app, alter user data or publish remotely.
 
 `go.mod` replaces Core with `build/core`; once Core has release tags it becomes a plain dependency. Linux needs GTK 3 (`libgtk-3-0`) and, for web pages, WebKitGTK 4.1 (`libwebkit2gtk-4.1-0`); Windows needs the WebView2 runtime (Windows 11 has it).
 

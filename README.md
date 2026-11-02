@@ -23,12 +23,12 @@ Nekularity 的桌面端:用 Venera 兼容的漫画源阅读,并把视频播放�
 - **图片收藏**:阅读器里一键收藏当前页,书架里看成排的缩略图,能跳回那一话。
 - **书架**:阅读历史与收藏。读到哪儿会连同页码与百分比一起记下。打开章节就记下位置,详情页选收藏夹一键收藏,「继续」直接回到上次那一话;收藏夹可新建、重命名、删除,条目可换夹。
 - **备份导入**:读官方 `.venera` 备份,先预览再选择;导入漫画源脚本、源数据、阅读历史与收藏(经正常安装流程校验,不执行备份里的脚本),值按原样保留。
-- **Magpie 插件与路由(规划中)**:首期连接本机已安装的 Magpie,复用其供应商/其他插件与模型组路由;账号和规则继续在 Magpie 管理,Nekophage 负责连接、任务映射与调用。Windows/macOS 优先,Linux/Web 预留接口。尚未实现,范围与验收见 [docs/MAGPIE-DESKTOP.md](docs/MAGPIE-DESKTOP.md)。
+- **本机 Magpie**:已实现连接、模型目录、三种标准协议的流式回答与取消入口;Windows 上有真实安装版网关的运行证据。账号、供应商插件与路由继续由 Magpie 管理,不在桌面客户端复制一套;macOS 与其他环境仍需各自验证。见 [docs/MAGPIE-DESKTOP.md](docs/MAGPIE-DESKTOP.md)。
 - **制作台**:后续模块,参照 Magpie 的内置模块开关设计,见 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)。
 
 ## 状态
 
-第一阶段是阅读主线:添加漫画源 → 搜索 → 详情 → 阅读。已在 Windows 上编译、跑通单元与端到端测试并开出窗口;真实漫画源、macOS、Linux 与验证窗口尚未验收,详见 [docs/STATUS.md](docs/STATUS.md)。
+阅读主线(添加漫画源 → 搜索 → 详情 → 阅读)在 Windows 上有真实源和离线夹具证据。当前树已复跑原生详情、阅读器实际解码与书架落盘;请求取消和图片预算经过竞态测试。不同提交与平台的验证分别记录,不把 Windows 通过当作当前 macOS/Linux 已验收;视频与制作台尚未接入。详见 [docs/STATUS.md](docs/STATUS.md)。
 
 ## 编译
 
@@ -36,10 +36,13 @@ Nekularity 的桌面端:用 Venera 兼容的漫画源阅读,并把视频播放�
 
 ```sh
 scripts/fetch-core.sh      # 把 Core 拉到 build/core(版本见 scripts/core-version)
-go build .                 # 生成 Nekophage 可执行文件
-./Nekophage -version        # 版本、Core 提交、源 API 级别、自身提交与 Go 运行时,不开窗
-go test ./...              # 单元与端到端测试
+go build -o build/Nekophage.exe .  # Windows,产物放 build/ 中
+./build/Nekophage.exe -version     # 版本、Core 提交、源 API 级别、自身提交与 Go 运行时,不开窗
+go test ./...                     # 单元与端到端测试
+python scripts/package-windows.py # Windows + Python 3.11+:生成并验证便携 ZIP
 ```
+
+macOS 可用 `go build -o build/Nekophage .` 构建本机程序。Windows 打包脚本把 ZIP 写到 `build/releases/`,内含可执行文件、许可证、双语使用说明、构建信息与 SHA-256;会实际解压、检查所有文件哈希并运行解压后程序的 `-version`。它不安装应用、不修改用户数据,也不发布到远端。
 
 `go.mod` 用 `replace` 指向 `build/core`;Core 有了发布标签后改成普通依赖即可。Linux 上需要 GTK 3(`libgtk-3-0`),WebView 页面还需要 WebKitGTK 4.1(`libwebkit2gtk-4.1-0`);Windows 需要 WebView2 运行时(Windows 11 自带)。
 
