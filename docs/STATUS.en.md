@@ -9,6 +9,14 @@ The four CI jobs of Core's `6e07429` are green (three Go platforms plus Apple's 
 
 **Pin moved to `6e07429` (2026-11-01)**: Core gained the three standard AI entry points and the optional chunked transport (`HostStream`), and it fixed a deadlock in the package bridge — the package pushed to `__magpieChatPush` from inside its own hook while the reader stopped at the end marker, so the writer waited for a reader that had gone. The desktop client **does not implement `HostStream` yet**, so replies still arrive whole; `scripts/fetch-core.sh` has aligned `build/core` to that commit and `scripts/check-core-pin.sh` passes.
 
+## Windows 0.2.4 package (2026-11-02, commit `29bab49`)
+
+Portable ZIP `21,547,137` bytes, SHA-256 `da5098c58b519c91544e6d5decee79a690cbf0a501d518f8347df0c4f04f336c`; per-user setup `18,705,377` bytes, SHA-256 `f089f62aa5429ffee6a8adc345fe044f3f048d11f8dce5d04661c9dafb55e105`. Receipt: `E:/Temp/desktop-package-0.2.4-receipt.json`.
+
+Packaging caught a real defect: playing the same fixture in the 0.2.3 package produced **no subtitle track and no `subs.m3u8` request**. Default playback used the browser's native HLS, which on WebView2 ignores `EXT-X-MEDIA` subtitle groups; `cmd/uicheck` without `-video-hlsjs` reproduces it (`decoder=native`, `activeSubtitleCues=0`). `851884d` makes HLS sessions prefer the bundled HLS.js with native only as a fallback, keeping `-video-native` to exercise that path.
+
+Measured: after an isolated silent install, `-version` reports `0.2.4`/Core `214e7782`/commit `29bab49`; in the **packaged GUI** the path Video → search → details → Episode 1 → Play shows the subtitle selector on 中文 and the picture carries 第0段字幕 / 字幕渲染检查, the fixture server logs `subs.m3u8` and `sub0.vtt`, screenshot `E:/Temp/desktop-package-0.2.4-subtitle.png`, and `Uninstall.exe /S` removes the directory. **Unverified**: manual language switching/Off inside this package, macOS/iOS subtitles, signing and a machine without WebView2.
+
 ## Subtitle delivery (2026-11-02)
 
 Previously the default was the browser's own HLS: the same fixture in an actual WebView **requested no `subs.m3u8` and had no subtitle track at all** (`decoder=native`, `activeSubtitleCues=0`), while forcing HLS.js worked. That is a product defect, not a fixture problem — WebView2's native HLS ignores `EXT-X-MEDIA` subtitle groups. HLS sessions now prefer the bundled HLS.js and fall back to native only when HLS.js cannot run; `-video-native` still exercises the fallback, where missing subtitles are an accepted, recorded limitation. The default path measures `decoder=hls.js`, `activeSubtitleCues=2` and a `2.006s` resume (`E:/Temp/desktop-subtitle-prefer-hls.log`).

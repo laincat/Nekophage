@@ -4,6 +4,14 @@
 
 更新:2026-11-02。以下按章节区分 Windows 真实站点、loopback 媒体夹具、原生窗口与单测的证据。最新一轮完成 HLS.js 与原生 MP4 的真实解码、页面暂停落盘和重新打开续播;不以本地夹具代替真实账号或站点验证。
 
+## Windows 0.2.4 安装包(2026-11-02,提交 `29bab49`)
+
+便携 ZIP `21,547,137` 字节,SHA-256 `da5098c58b519c91544e6d5decee79a690cbf0a501d518f8347df0c4f04f336c`;按用户 setup `18,705,377` 字节,SHA-256 `f089f62aa5429ffee6a8adc345fe044f3f048d11f8dce5d04661c9dafb55e105`。回执 `E:/Temp/desktop-package-0.2.4-receipt.json`。
+
+打包过程抓到一个真实缺陷:0.2.3 包在真实窗口中播放同一夹具时**没有任何字幕轨,也不请求 `subs.m3u8`**。原因是默认走了浏览器原生 HLS,而 WebView2 的原生路径忽略 `EXT-X-MEDIA` 字幕组;用 `cmd/uicheck` 去掉 `-video-hlsjs` 可复现(`decoder=native`、`activeSubtitleCues=0`)。`851884d` 改为 HLS 会话优先内置 HLS.js,原生只作回退,并保留 `-video-native` 复现回退路径。
+
+实测:隔离静默安装后 `-version` 报 `0.2.4`/Core `214e7782`/提交 `29bab49`;在**打包后的 GUI** 里点「视频→搜索→详情→第 1 集→播放」,字幕选择框显示「中文」,画面出现「第0段字幕 / 字幕渲染检查」,夹具服务器日志记录到 `subs.m3u8` 与 `sub0.vtt` 请求,截图 `E:/Temp/desktop-package-0.2.4-subtitle.png`;`Uninstall.exe /S` 删除安装目录。**未验证**:该包内手动切换语言/关闭字幕、macOS/iOS 字幕、签名与无 WebView2 的机器。
+
 ## 字幕链路(2026-11-02)
 
 此前默认走浏览器原生 HLS:同一夹具在真实 WebView 中**既不请求 `subs.m3u8` 也没有任何字幕轨**(`decoder=native`,`activeSubtitleCues=0`),而强制 HLS.js 时字幕正常。这是产品缺陷而非夹具问题——WebView2 的原生 HLS 忽略 `EXT-X-MEDIA` 字幕组。现在 HLS 会话一律优先内置 HLS.js,只在 HLS.js 不可用时回退原生;`-video-native` 仍可复现回退路径,该路径无字幕是有意接受、并已记录的限制。默认路径实测 `decoder=hls.js`、`activeSubtitleCues=2`、`2.006s` 续播(`E:/Temp/desktop-subtitle-prefer-hls.log`)。
