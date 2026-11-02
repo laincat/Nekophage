@@ -37,10 +37,15 @@ func main() {
 	scan := flag.Bool("scan", false, "list the first chapters with their page counts")
 	progressCheck := flag.Bool("progress", false, "check that the page reports its reading position")
 	servePort := flag.Int("serve", 0, "also serve one PNG on this port, for a source whose chapter points at loopback")
+	failFirst := flag.Int("fail", 0, "with -serve, answer this many requests with a server error first")
+	retryCheck := flag.Bool("retry", false, "check that a page which failed says so and recovers when retried")
 	flag.Parse()
 	if *script == "" || *query == "" {
 		flag.Usage()
 		os.Exit(2)
+	}
+	if *failFirst > 0 && *servePort == 0 {
+		log.Fatal("-fail needs -serve: it fails requests on the loopback server")
 	}
 
 	// A source can hand back an image address on loopback, which is how a chapter
@@ -48,7 +53,7 @@ func main() {
 	// fixture points at 127.0.0.1:18731. Serving here makes the same trick available
 	// on the desktop side.
 	if *servePort > 0 {
-		stop, err := probesite.ServeOnePage(*servePort)
+		stop, err := probesite.ServeOnePageFailing(*servePort, *failFirst)
 		if err != nil {
 			log.Fatalf("serve: %v", err)
 		}
@@ -162,10 +167,39 @@ func main() {
 				}
 			}
 			checkErr = nil
-			if n, ok := loaded.(float64); ok && n > 0 {
+			if *retryCheck {
+				// The decode assertion below reads the page before the retry, which is
+				// empty by design here; the retry block reads it again afterwards.
+			} else if n, ok := loaded.(float64); ok && n > 0 {
 				log.Printf("the reader rendered %v of %v pages", loaded, total)
 			} else {
 				checkErr = fmt.Errorf("no image decoded: images=%v decoded=%v", total, loaded)
+			}
+			if *retryCheck {
+				// The fixture failed on purpose: the first look has to show the reader
+				// saying so, and the retry it offers has to bring the picture back.
+				failed := report("document.querySelectorAll('.retry').length")
+				log.Printf("pages reporting a failure: %v", failed)
+				if n, ok := failed.(float64); !ok || n == 0 {
+					checkErr = fmt.Errorf("a page that failed did not say so: .retry=%v", failed)
+				} else {
+					_, _ = view.Page().Eval("Array.from(document.querySelectorAll('.retry button')).forEach(b => b.click()); 0")
+					time.Sleep(4 * time.Second)
+					left := report("document.querySelectorAll('.retry').length")
+					decoded := report("Array.from(document.images).filter(i => i.complete && i.naturalWidth > 0).length")
+					log.Printf("after retrying: failures=%v decoded=%v", left, decoded)
+					cleared := true
+					if n, ok := left.(float64); !ok || n != 0 {
+						checkErr = fmt.Errorf("the failure notice stayed after retrying: .retry=%v", left)
+						cleared = false
+					}
+					if n, ok := decoded.(float64); !ok || n == 0 {
+						checkErr = fmt.Errorf("the retry decoded nothing: decoded=%v", decoded)
+					} else if cleared {
+						log.Printf("the reader recovered the page it could not load")
+						checkErr = nil
+					}
+				}
 			}
 			if *progressCheck && checkErr == nil {
 				// Scroll, then ask the page what it reported.

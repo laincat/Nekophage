@@ -73,6 +73,15 @@ fi
 run "the reader decodes a served page" \
 	"$out/reader-probe.log" sh scripts/reader-probe.sh
 
+# A page that does not load has to say so and come back when retried. The server
+# fails the first two requests on purpose, so the notice is reachable without a
+# network and the retry is what has to recover the picture.
+rc=0
+go run ./cmd/readercheck -script internal/reader/testdata/loopback_source.js \
+	-query probe -serve 18731 -fail 2 -retry -out "$out/reader-retry.png" \
+	>"$out/reader-retry.log" 2>&1 || rc=$?
+report "$rc" "a failed page offers a retry that recovers" "$out/reader-retry.log"
+
 # A thread the source answers, in a window, with no network: the comment screen is
 # the one part of the source contract a capture tool can drive on its own.
 if [ -n "${NK_PROBE_SRC:-}" ]; then

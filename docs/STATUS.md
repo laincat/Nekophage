@@ -20,6 +20,17 @@
 
 这一轮还暴露并修掉了一个环境缺陷:`fetch-core.sh` 传外部 Core 路径时,`go.mod` 里指向 `./build/core` 的 replace 仍生效,构建直接失败。现在工作区改用 `go work edit -replace`,外部模式跳过 `go mod tidy` 并说明原因;两种模式都复验过(外部 fetch/build/test 通过,默认模式仍取到 pin 并通过 `check.sh`),提交 `16025c4`。限制:这是开发构建打包,不是发布产物;播放、字幕与真实站点未在这个 `.app` 内验证。
 
+## 失败页的提示与重试有了端到端检查(2026-11-03)
+
+阅读器在图片加载失败时会显示「第 N 页加载失败 / 重试」,但此前没有任何检查碰过这条路径。新增 `probesite.ServeOnePageFailing(port, failures)`:前 N 个请求返回 500,之后正常给图;`readercheck` 增加 `-fail N` 与 `-retry`。
+
+`-retry` 的判据是两步:首次加载后必须**存在**失败提示(`.retry` 元素数量大于 0),点掉重试后必须**没有**提示且至少有一张图解码成功。两个方向都验过:
+
+- `-fail 2 -retry`:失败提示 2 个 → 重试后 `failures=0 decoded=2`,日志 `E:/Temp/nk-retry-recover.log`;
+- `-fail 0 -retry`:以 `a page that failed did not say so: .retry=0` 非零退出,日志 `E:/Temp/nk-retry-negative.log`——没有失败时这条检查不会假通过。
+
+窗口套件新增这一项:无外部变量时 **7 PASS / 3 SKIP**,给齐变量时 **14 PASS / 0 FAIL / 0 SKIP**(`E:/Temp/nk-probes-retry-default.log`、`E:/Temp/nk-probes-retry-full.log`)。
+
 ## 滚动检查改按页面实际高度取目标(2026-11-03)
 
 `readercheck -scroll` 原来写死「滚到 1200、重开后至少 800」。这有两个毛病:夹具页比 1200 矮时会因为页短而失败,而一个根本不能滚的页面在阈值为 0 时又会被放过。现在目标由页面算:`min(1200, max(0, 可滚动高度 - 40))`,算出的距离小于 100 就直接判「页面不足以验证滚动」;重开后要求至少回到该距离的 80%。

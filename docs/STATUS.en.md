@@ -25,6 +25,17 @@ Launch check: after `open build/macos/Nekophage.app` the process exists, and Cor
 
 The round also found and fixed an environment defect: pointing `fetch-core.sh` at an external Core checkout still hit go.mod's `./build/core` replacement and failed to build. The workspace now carries a `go work edit -replace`, and external mode skips `go mod tidy` with the reason stated; both modes were rechecked (external fetch/build/test pass, and the default path still fetches the pin and passes `check.sh`), commit `16025c4`. Limits: this is a development build, not a release artifact; playback, subtitles and live sites were not exercised inside this `.app`.
 
+## The failed-page notice and its retry now have an end-to-end check (2026-11-03)
+
+The reader shows "page N failed to load / retry" when a picture does not arrive, and nothing had ever exercised that path. `probesite.ServeOnePageFailing(port, failures)` answers the first N requests with a server error and the rest with the page, and `readercheck` grew `-fail N` and `-retry`.
+
+`-retry` asks two things: the failure notice must be there after the first load (a non-zero count of `.retry` elements), and after clicking retry there must be no notice left and at least one decoded picture. Both directions were checked:
+
+- `-fail 2 -retry`: two notices, then `failures=0 decoded=2` (`E:/Temp/nk-retry-recover.log`);
+- `-fail 0 -retry`: exits non-zero with `a page that failed did not say so: .retry=0` (`E:/Temp/nk-retry-negative.log`), so the check cannot pass when nothing failed.
+
+The window suite carries it: **7 PASS / 3 SKIP** with no external variables and **14 PASS / 0 FAIL / 0 SKIP** with all of them (`E:/Temp/nk-probes-retry-default.log`, `E:/Temp/nk-probes-retry-full.log`).
+
 ## The scroll check now takes its target from the page (2026-11-03)
 
 `readercheck -scroll` used to scroll to a fixed 1200 and require at least 800 after reopening. That had two faults: a fixture page shorter than 1200 failed for being short, and a page that cannot scroll at all slipped past a threshold of zero. The target now comes from the page, `min(1200, max(0, scrollable height - 40))`; a target under 100 is reported as a page that cannot demonstrate scrolling, and the reopened page must come back within 80% of it.

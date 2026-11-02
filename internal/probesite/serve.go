@@ -15,12 +15,21 @@ import (
 	"net"
 	"net/http"
 	"strconv"
+	"sync/atomic"
 	"time"
 )
 
 // ServeOnePage answers every request on 127.0.0.1:port with a small PNG. The
 // returned function stops it.
 func ServeOnePage(port int) (func(), error) {
+	return ServeOnePageFailing(port, 0)
+}
+
+// ServeOnePageFailing answers the first `failures` requests with a server error
+// and every request after that with the page. A reader that shows a retry when a
+// picture fails is only worth believing if the failure can be produced, and a
+// retry is only worth showing if it recovers.
+func ServeOnePageFailing(port, failures int) (func(), error) {
 	// Taller than any window on purpose: an 8x8 page cannot scroll, so a check
 	// that reads the reading position back would always see zero and prove nothing
 	// about scrolling. The width matches a phone-ish column so the reader lays it
@@ -45,7 +54,12 @@ func ServeOnePage(port int) (func(), error) {
 	page := buf.Bytes()
 
 	mux := http.NewServeMux()
+	var asked atomic.Int64
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		if n := asked.Add(1); n <= int64(failures) {
+			http.Error(w, "not this time", http.StatusInternalServerError)
+			return
+		}
 		w.Header().Set("Content-Type", "image/png")
 		w.Header().Set("Content-Length", strconv.Itoa(len(page)))
 		_, _ = w.Write(page)
