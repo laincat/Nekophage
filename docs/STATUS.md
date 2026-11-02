@@ -10,6 +10,16 @@
 
 现在在接收完正文、接受上报前重新检查媒体代理已有的取消 context,关闭后的迟到上报返回 410,不调用保存回调;服务关闭与单会话关闭共用此信号,不另建生命周期状态。race 回归包含上述四种组合及存活会话正常进度/字幕路径,通过日志 `E:/Temp/nk-session-late-reports-after.log`。这是 HTTP 处理器的确定性时序测试,不声称做了实际界面或 TCP 断连验收。取消前已被回调接纳的操作仍允许结束,本修复不回滚已接受的保存。0.2.5 本地包 `e1c2da4` 不包含此后续修复,0.2.6 包(`3359910`)包含。
 
+## macOS App 打包与启动(2026-11-03,提交 `580f9fd`)
+
+新增 `scripts/package-macos.sh` 后,在 macOS 27.0.1 arm64 / Go 1.27.3 上真实构建:`go build -trimpath -ldflags "-s -w"` 产出 `build/macos/Nekophage.app`,Info.plist 由脚本生成并通过 `plutil -lint`,版本取自程序自报的 `0.2.7`,Core pin `214e7782`。App 总体积 `25,487,983` 字节,可执行文件 `25,449,712` 字节、SHA-256 `0d8ae671d4b55473790b29068085f829f0a44af6b6ee5f29e45d89e638384d58`。
+
+签名是 **ad-hoc**(`codesign --force --sign -`):`codesign --verify --verbose=2` 报 `valid on disk` 与 `satisfies its Designated Requirement`,这是 Apple Silicon 上运行 Go 二进制的必要条件,**但不是 Developer ID,也没有公证**;换一台机器仍会被 Gatekeeper 拒绝,需要仓库没有的凭据。
+
+启动核对:`open build/macos/Nekophage.app` 后进程存在,CoreGraphics 窗口列表确认 owner `Nekophage`、标题 `Nekophage`、尺寸 **1100 × 760**、位置 `(410, 78)`;窗口截图 `/tmp/nk-mac-window.png` `81,740` 字节(1146×806),可见工具栏与空库提示;全屏截图因终端无屏幕录制权限为全黑,只作权限证据。`osascript quit` 后进程与 PID 均消失。日志在 `/tmp/nk-mac-pkg-evidence/`。
+
+这一轮还暴露并修掉了一个环境缺陷:`fetch-core.sh` 传外部 Core 路径时,`go.mod` 里指向 `./build/core` 的 replace 仍生效,构建直接失败。现在工作区改用 `go work edit -replace`,外部模式跳过 `go mod tidy` 并说明原因;两种模式都复验过(外部 fetch/build/test 通过,默认模式仍取到 pin 并通过 `check.sh`),提交 `16025c4`。限制:这是开发构建打包,不是发布产物;播放、字幕与真实站点未在这个 `.app` 内验证。
+
 ## macOS 阅读主线(2026-11-03,提交 `3c42463`)
 
 仓库没有远端,代码以 git bundle 经私有 gist 传到 Mac(base64 `3,190,624` 字节,SHA-256 `093cbfc4…c2e3a173`;bundle `2,392,967` 字节)。`git bundle verify` 通过,clone 后 HEAD 为 `3c42463`,Core 由 `scripts/fetch-core.sh` 取到 pin `214e7782`。macOS 27.0.1 arm64 / Go 1.27.3 上 `go build ./...` 通过。

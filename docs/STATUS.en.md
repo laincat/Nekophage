@@ -15,6 +15,16 @@ A synchronization barrier reproduced a lifecycle defect: an HTTP request resolve
 
 Reports now recheck the media proxy's existing cancellation context after receiving the body and before acceptance. Late reports return 410 without invoking persistence; server and session closure share the signal, with no additional lifecycle state. Race regression covers the four combinations and normal live-session progress/subtitle paths (`E:/Temp/nk-session-late-reports-after.log`). This is a deterministic HTTP-handler timing test, not UI or TCP-disconnection acceptance. Operations accepted by a callback before cancellation may finish; the fix does not roll back accepted saves. The local 0.2.5 package at `e1c2da4` does not include this subsequent fix; the 0.2.6 package (`3359910`) does.
 
+## macOS App packaging and launch (2026-11-03, commit `580f9fd`)
+
+With the new `scripts/package-macos.sh`, a real build ran on macOS 27.0.1 arm64 with Go 1.27.3: `go build -trimpath -ldflags "-s -w"` produced `build/macos/Nekophage.app`, the script generated and `plutil -lint`-checked the Info.plist, and the version comes from the binary's own `0.2.7` with Core at pin `214e7782`. The bundle is 25,487,983 bytes; the executable is 25,449,712 bytes with SHA-256 `0d8ae671d4b55473790b29068085f829f0a44af6b6ee5f29e45d89e638384d58`.
+
+The signature is **ad-hoc** (`codesign --force --sign -`): `codesign --verify --verbose=2` reports `valid on disk` and `satisfies its Designated Requirement`, which is what lets a Go binary run on Apple Silicon, but it is **not a Developer ID signature and not notarised**; another machine's Gatekeeper still refuses it without credentials this repository does not have.
+
+Launch check: after `open build/macos/Nekophage.app` the process exists, and CoreGraphics reports a window owned by `Nekophage`, titled `Nekophage`, **1100 × 760** at `(410, 78)`; the capture `/tmp/nk-mac-window.png` is 81,740 bytes (1146×806) and shows the toolbar and the empty-library hint. The full-screen capture is black because the terminal lacks screen-recording permission, which is recorded as permission evidence only. `osascript quit` left no process or PID behind. Logs are under `/tmp/nk-mac-pkg-evidence/`.
+
+The round also found and fixed an environment defect: pointing `fetch-core.sh` at an external Core checkout still hit go.mod's `./build/core` replacement and failed to build. The workspace now carries a `go work edit -replace`, and external mode skips `go mod tidy` with the reason stated; both modes were rechecked (external fetch/build/test pass, and the default path still fetches the pin and passes `check.sh`), commit `16025c4`. Limits: this is a development build, not a release artifact; playback, subtitles and live sites were not exercised inside this `.app`.
+
 ## macOS reading mainline (2026-11-03, commit `3c42463`)
 
 The repository has no remote, so the code travelled as a git bundle through a private gist (base64 3,190,624 bytes, SHA-256 `093cbfc4…c2e3a173`; bundle 2,392,967 bytes). `git bundle verify` passed, the clone's HEAD is `3c42463`, and `scripts/fetch-core.sh` fetched Core at pin `214e7782`. `go build ./...` passed on macOS 27.0.1 arm64 with Go 1.27.3.
