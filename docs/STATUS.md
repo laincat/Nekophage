@@ -29,7 +29,7 @@
 | `…-windows-amd64-daf55ac.zip` | 21,561,961 | `d7dc173b…4d79bf` |
 | `…-windows-amd64-daf55ac-setup.exe` | 18,716,090 | `b70d7799…fec015` |
 
-`Start-Process setup.exe -ArgumentList '/S' -Wait` 退出 0;装出来的可执行自报 `Nekophage 0.2.7`、`Core 8e14aade75f563a95f50d4ec80be27bae0d02c63`、commit `daf55ac`,与包名一致;`Uninstall.exe /S` 退出 0,三秒后安装目录消失,`APPDATA/Nekophage` 保留。前一份包(`5c5ce67`)记录的是 Core `214e7782`,两份都是各自提交上的真实产物,不互相替代。日志 `E:/Temp/nk-package-pin-build.log`。
+解压到任意目录(不是安装目录)直接运行,`Nekophage.exe -version` 同样自报 `0.2.7` / `8e14aad…` / `daf55ac`,说明便携包不依赖安装位置。`Start-Process setup.exe -ArgumentList '/S' -Wait` 退出 0;装出来的可执行自报 `Nekophage 0.2.7`、`Core 8e14aade75f563a95f50d4ec80be27bae0d02c63`、commit `daf55ac`,与包名一致;`Uninstall.exe /S` 退出 0,三秒后安装目录消失,`APPDATA/Nekophage` 保留。前一份包(`5c5ce67`)记录的是 Core `214e7782`,两份都是各自提交上的真实产物,不互相替代。日志 `E:/Temp/nk-package-pin-build.log`。
 
 ## Core pin 推到 `8e14aad`(2026-11-03)
 

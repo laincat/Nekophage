@@ -34,7 +34,7 @@ Rebuilt on `daf55ac` (Core `8e14aad`) and installed once more:
 | `…-windows-amd64-daf55ac.zip` | 21,561,961 | `d7dc173b…4d79bf` |
 | `…-windows-amd64-daf55ac-setup.exe` | 18,716,090 | `b70d7799…fec015` |
 
-`Start-Process setup.exe -ArgumentList '/S' -Wait` exits 0; the installed binary reports `Nekophage 0.2.7`, `Core 8e14aade75f563a95f50d4ec80be27bae0d02c63` and commit `daf55ac`, matching the file name; `Uninstall.exe /S` exits 0 and the install directory is gone three seconds later while `APPDATA/Nekophage` stays. The earlier package (`5c5ce67`) recorded Core `214e7782`; both are real artefacts of their own commits and neither stands in for the other. Log `E:/Temp/nk-package-pin-build.log`.
+Unpacked into an arbitrary directory and run from there, `Nekophage.exe -version` reports the same `0.2.7` / `8e14aad…` / `daf55ac`, so the portable ZIP does not depend on the install location. `Start-Process setup.exe -ArgumentList '/S' -Wait` exits 0; the installed binary reports `Nekophage 0.2.7`, `Core 8e14aade75f563a95f50d4ec80be27bae0d02c63` and commit `daf55ac`, matching the file name; `Uninstall.exe /S` exits 0 and the install directory is gone three seconds later while `APPDATA/Nekophage` stays. The earlier package (`5c5ce67`) recorded Core `214e7782`; both are real artefacts of their own commits and neither stands in for the other. Log `E:/Temp/nk-package-pin-build.log`.
 
 ## The Core pin moved to `8e14aad` (2026-11-03)
 
