@@ -14,7 +14,9 @@
 
 这一版把媒体会话迟到写入的修复带进包里(0.2.5 的 `e1c2da4` 不含该修复)。版本号在 `main.go` 中升到 0.2.6;便携 ZIP `21,557,923` 字节,SHA-256 `5b67cd240f2faf9b6097a5bafef8b2542eb9ab43d05bd2919b6c47dabe8cc335`;setup `18,712,671` 字节,SHA-256 `0d2955eaf9e3881fdad4210122e761d76c8f9157ed284b4d68440c182b20ad30`。`package-windows.py` 的构建、ZIP CRC、逐文件哈希与解压程序版本检查通过;`scripts/check.sh` 在 `7bd9965` 上通过。
 
-安装核对**不是隔离安装**:NSIS 的 `$LOCALAPPDATA` 来自 shell 文件夹 API,重定向环境变量无效,`/S /NOREGISTER` 实际装进了真实 `%LOCALAPPDATA%\Programs\Nekophage`,会先覆盖此前的测试安装。安装后程序报 0.2.6、Core `214e7782`、提交 `3359910`、`go1.27.3 windows/amd64`;随后用 `Uninstall.exe /S` 静默卸载,目录已删除,`%APPDATA%\Nekophage` 配置保留。0.2.6 **未做**安装包窗口的播放、字幕或续播验收,那部分证据仍属于 0.2.5;无 Git remote,未做任何远端发布。
+安装核对**不是隔离安装**:NSIS 的 `$LOCALAPPDATA` 来自 shell 文件夹 API,重定向环境变量无效,`/S /NOREGISTER` 实际装进了真实 `%LOCALAPPDATA%\Programs\Nekophage`,会先覆盖此前的测试安装。安装后程序报 0.2.6、Core `214e7782`、提交 `3359910`、`go1.27.3 windows/amd64`;随后用 `Uninstall.exe /S` 静默卸载,目录已删除,`%APPDATA%\Nekophage` 配置保留。
+
+0.2.6 的便携包另做了一次启动核对:用 ZIP 解包出的 `Nekophage.exe`(不经安装)配隔离 `APPDATA`/`LOCALAPPDATA` 启动,窗口标题 `Nekophage`、1100×760,截图 `E:/Temp/nk-run-026/window.png`,关闭窗口后进程退出。截图同时暴露一个真实布局缺陷:无漫画源时表头那句提示被固定宽度控件挤成一字一行,与标题重叠;该缺陷在当前开发构建中已修(`e54944d`,提示删掉,空状态本来就有说明),修复后的窗口截图 `E:/Temp/nk-run-dev-out/window.png`。**0.2.6 包不含该修复**,播放与字幕流程仍未在包内验收。0.2.6 **未做**安装包窗口的播放、字幕或续播验收,那部分证据仍属于 0.2.5;无 Git remote,未做任何远端发布。
 
 ## Windows 0.2.5 本地测试包(2026-11-03,提交 `e1c2da4`)
 
