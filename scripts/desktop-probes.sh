@@ -113,6 +113,15 @@ go run ./cmd/subcheck -dir internal/player/testdata/hls-subs \
 	-out "$out/subtitle.png" >"$out/subtitle.log" 2>&1 || rc=$?
 report "$rc" "a subtitle choice survives reopening" "$out/subtitle.log"
 
+# The native interface, not the reader page: a grid that found nothing and a
+# grid that rendered capture to almost the same size, so the check reads how
+# many results the window holds and what the first one is called.
+rc=0
+go run ./cmd/uicheck -script internal/reader/testdata/loopback_source.js \
+	-query probe -serve 18731 -open -expect "Loopback Comic" \
+	-out "$out/search.png" >"$out/search.log" 2>&1 || rc=$?
+report "$rc" "a search finds the fixture comic in the window" "$out/search.log"
+
 # A thread the source answers, in a window, with no network: the comment screen is
 # the one part of the source contract a capture tool can drive on its own.
 if [ -n "${NK_PROBE_SRC:-}" ]; then

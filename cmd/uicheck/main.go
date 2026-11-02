@@ -9,6 +9,7 @@ import (
 	"bytes"
 	"context"
 	"flag"
+	"fmt"
 	"image"
 	"image/png"
 	"log"
@@ -16,6 +17,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/egoist/mygo"
@@ -43,6 +45,7 @@ func main() {
 	rank := flag.String("rank", "", "pick a ranking option after the category page opens")
 	favorites := flag.Bool("favorites", false, "capture the source's own favorites")
 	servePort := flag.Int("serve", 0, "also serve one PNG on this port, for a source whose chapter points at loopback")
+	expect := flag.String("expect", "", "fail unless the first result's title contains this")
 	callback := flag.String("callback", "", "run one of the source's setting callbacks")
 	tag := flag.String("tag", "", "press a tag on the opened comic, as namespace|tag")
 	dialogShot := flag.Bool("dialog", false, "open a source dialog window and capture it")
@@ -201,6 +204,18 @@ func main() {
 				log.Printf("capture: %s (%d bytes)", *out, len(data))
 			}
 			shotErr = inspect(data)
+			if *expect != "" {
+				// A grid that renders and a grid that found nothing capture to
+				// almost the same size, so the count and the first title are what
+				// the check has to read.
+				count, first, errText := app.SearchForCheck()
+				log.Printf("search: count=%d first=%q err=%q", count, first, errText)
+				if count == 0 {
+					shotErr = fmt.Errorf("search returned nothing (%s)", errText)
+				} else if !strings.Contains(first, *expect) {
+					shotErr = fmt.Errorf("first result %q does not contain %q", first, *expect)
+				}
+			}
 			if *categoryShot {
 				// Two halves have to agree: the parts are drawn from `category`, the
 				// results come from `categoryComics`. Counting both is how a page that

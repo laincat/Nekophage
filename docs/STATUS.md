@@ -52,6 +52,17 @@ Nekophage 的 pin 从 `214e7782` 升到 `8e14aad`,也就是包含 `b2610a5`(异�
 
 一个操作坑:在 bash 里直接 `./setup.exe /S` 会静默退出而不安装(参数被 shell 拧了),必须走 PowerShell 的 `Start-Process -ArgumentList '/S'`。日志 `E:/Temp/nk-package-head-build.log`。
 
+## 原生界面的搜索也进了默认套件(2026-11-03)
+
+上一轮我把 `uicheck` 判为“加了也只是永远绿”:它只截图、不断言,而**找到结果**和**什么都没找到**的界面截图大小几乎一样。这轮补上了断言,才把它纳入:
+
+- App 增加 `SearchForCheck()`:返回结果数、第一条标题、失败文案——和已有的 `FavoritesForCheck`、`CommentsForCheck` 同一思路;
+- `cmd/uicheck` 增加 `-expect`:第一条标题必须包含给定文本,否则非零退出。
+
+两个方向都实测过:`-expect 'Loopback Comic'` → `search: count=1 first="Loopback Comic" err=""`、退出 0;`-expect 'Nonexistent Title'` → `first result "Loopback Comic" does not contain "Nonexistent Title"`、退出 1。
+
+窗口套件因此变成无外部变量 **12 PASS / 3 SKIP**,给齐变量 **16 PASS / 0 FAIL / 0 SKIP**。日志 `E:/Temp/nk-uicheck-ok.log`、`E:/Temp/nk-uicheck-neg.log`、`E:/Temp/nk-probes-with-search.log`。
+
 ## 字幕选择进入默认窗口套件(2026-11-03)
 
 `cmd/subcheck` 也进了 `scripts/desktop-probes.sh`。判据不是「存下了名字」,而是重开后**渲染的正是那条字幕**:`chosen: selected="English" active="Subtitle rendering proof" cues=[en:1]` → `reopened: selected="English" active="Subtitle rendering proof" cues=[en:1]`。这条路径以前真的错过:选择只活在页面里,关掉播放器再打开会退回清单默认值。

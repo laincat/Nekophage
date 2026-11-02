@@ -57,6 +57,17 @@ Install: `Start-Process setup.exe -ArgumentList '/S' -Wait` exits 0, `LOCALAPPDA
 
 One operational trap: `./setup.exe /S` from bash exits silently without installing because the shell mangles the arguments; it has to go through PowerShell's `Start-Process -ArgumentList '/S'`. Logs in `E:/Temp/nk-package-head-build.log`.
 
+## The native search joins the default suite too (2026-11-03)
+
+Last round I set `uicheck` aside as a check that could only ever be green: it captured a picture and asserted nothing, and a grid that found something captures to nearly the same size as one that found nothing. This round it got an assertion, which is what made it worth including:
+
+- the app grew `SearchForCheck()`: the number of results, the first title and the failure sentence, in the same shape as `FavoritesForCheck` and `CommentsForCheck`;
+- `cmd/uicheck` grew `-expect`: the first title has to contain the given text or it exits non-zero.
+
+Both directions were measured: `-expect 'Loopback Comic'` gives `search: count=1 first="Loopback Comic" err=""` and exit 0; `-expect 'Nonexistent Title'` gives `first result "Loopback Comic" does not contain "Nonexistent Title"` and exit 1.
+
+The window suite is therefore **12 PASS / 3 SKIP** with no external variables and **16 PASS / 0 FAIL / 0 SKIP** with all of them. Logs `E:/Temp/nk-uicheck-ok.log`, `E:/Temp/nk-uicheck-neg.log` and `E:/Temp/nk-probes-with-search.log`.
+
 ## The subtitle choice joins the default window suite (2026-11-03)
 
 `cmd/subcheck` is in `scripts/desktop-probes.sh` now. The check is not "the name was stored" but "the cue rendered after reopening is the one that was chosen": `chosen: selected="English" active="Subtitle rendering proof" cues=[en:1]` → `reopened: selected="English" active="Subtitle rendering proof" cues=[en:1]`. This path has been wrong before: the choice lived only in the page, so closing the player and opening it again fell back to the manifest default.

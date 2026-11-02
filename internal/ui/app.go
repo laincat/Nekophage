@@ -1991,6 +1991,20 @@ func (a *App) CategoryForCheck() (parts, values, page, comics int, errText strin
 	return parts, values, page, comics, a.errText
 }
 
+// SearchForCheck reports what the results grid holds: how many comics the last
+// search produced, the title of the first, and the sentence shown when it failed.
+// A capture cannot tell a rendered grid from an empty one, so a tool needs the
+// numbers the window is actually drawing from.
+func (a *App) SearchForCheck() (count int, firstTitle, errText string) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	count = len(a.results)
+	if count > 0 {
+		firstTitle = a.results[0].Title
+	}
+	return count, firstTitle, a.errText
+}
+
 // BrowseForCheck reports what the browse view is showing: how many sections the
 // source declares, how many chips the view draws for them, and how many comics the
 // current section holds.
