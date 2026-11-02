@@ -78,3 +78,55 @@ func TestVideoProgressSurvivesReopenAndReplacesThePosition(t *testing.T) {
 		t.Fatal("a video record without a source was accepted")
 	}
 }
+
+func TestVideoSubtitleSurvivesProgressAndReopen(t *testing.T) {
+	root := t.TempDir()
+	s, err := Open(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := s.RecordVideo(VideoHistory{Source: "probe", ItemID: "show", EpisodeID: "ep1",
+		Position: 30, Duration: 600}); err != nil {
+		t.Fatal(err)
+	}
+	// A preference for an unknown episode must not create history on its own.
+	if ok, err := s.SetVideoSubtitle("probe", "show", "ep9", &VideoSubtitle{Name: "English"}); err != nil || ok {
+		t.Fatalf("unknown episode = %v, %v", ok, err)
+	}
+	if ok, err := s.SetVideoSubtitle("probe", "show", "ep1",
+		&VideoSubtitle{Name: "English", Language: "en"}); err != nil || !ok {
+		t.Fatalf("save subtitle = %v, %v", ok, err)
+	}
+	// Progress arrives every few seconds and replaces the record; it must not
+	// drop the choice that record already holds.
+	if err := s.RecordVideo(VideoHistory{Source: "probe", ItemID: "show", EpisodeID: "ep1",
+		Position: 90, Duration: 600}); err != nil {
+		t.Fatal(err)
+	}
+	reopened, err := Open(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, ok := reopened.VideoProgress("probe", "show", "ep1")
+	if !ok || got.Position != 90 {
+		t.Fatalf("progress after reopen = %+v, %v", got, ok)
+	}
+	if got.Subtitle == nil || got.Subtitle.Name != "English" || got.Subtitle.Language != "en" || got.Subtitle.Off {
+		t.Fatalf("subtitle after progress and reopen = %+v", got.Subtitle)
+	}
+	// An explicit "off" is a choice, and it is distinguishable from unset.
+	if ok, err := reopened.SetVideoSubtitle("probe", "show", "ep1", &VideoSubtitle{Off: true}); err != nil || !ok {
+		t.Fatalf("save off = %v, %v", ok, err)
+	}
+	again, err := Open(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	off, _ := again.VideoProgress("probe", "show", "ep1")
+	if off.Subtitle == nil || !off.Subtitle.Off || off.Subtitle.Name != "" {
+		t.Fatalf("off choice = %+v", off.Subtitle)
+	}
+	if history := again.VideoHistory(0); len(history) != 1 {
+		t.Fatalf("a preference created history: %+v", history)
+	}
+}

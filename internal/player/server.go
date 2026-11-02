@@ -45,6 +45,16 @@ type Progress struct {
 
 const maxProgressBody = 4096
 
+// Subtitle is one saved subtitle selection for an episode. Off records an
+// explicit "关闭"; otherwise Name and Language identify the track.
+type Subtitle struct {
+	Off      bool   `json:"off,omitempty"`
+	Name     string `json:"name,omitempty"`
+	Language string `json:"language,omitempty"`
+}
+
+const maxSubtitleBody = 1024
+
 // Server hosts player pages and media on loopback. Each session's URLs carry a
 // random capability token; the port listens on 127.0.0.1 only.
 type Server struct {
@@ -52,6 +62,12 @@ type Server struct {
 	httpServer *http.Server
 	// OnProgress receives playback positions. It runs on the HTTP goroutine.
 	OnProgress func(Meta, Progress)
+	// Subtitle returns the selection saved for a session's episode. Without
+	// it the page follows the manifest default, as it always did.
+	Subtitle func(Meta) (Subtitle, bool)
+	// OnSubtitle receives a choice the viewer made. It runs on the HTTP
+	// goroutine.
+	OnSubtitle func(Meta, Subtitle)
 
 	mu       sync.Mutex
 	sessions map[string]*Session
@@ -174,6 +190,8 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		_, _ = w.Write(hlsScript)
 	case "progress":
 		session.serveProgress(w, r)
+	case "subtitle":
+		session.serveSubtitle(w, r)
 	default:
 		if !strings.HasPrefix(rest, "media/") {
 			http.NotFound(w, r)
@@ -224,4 +242,52 @@ func (s *Session) serveProgress(w http.ResponseWriter, r *http.Request) {
 		s.server.OnProgress(meta, progress)
 	}
 	w.WriteHeader(http.StatusNoContent)
+}
+
+// serveSubtitle reads and writes the episode's subtitle choice. The page asks
+// once on load and reports each change, so reopening an episode restores what
+// the viewer picked rather than the manifest default.
+func (s *Session) serveSubtitle(w http.ResponseWriter, r *http.Request) {
+	s.mu.Lock()
+	meta := s.meta
+	s.mu.Unlock()
+	switch r.Method {
+	case http.MethodGet:
+		// A missing choice is an empty answer, not an error: the page falls
+		// back to the manifest default exactly as before.
+		body := struct {
+			Chosen bool `json:"chosen"`
+			Subtitle
+		}{}
+		if s.server.Subtitle != nil {
+			if choice, ok := s.server.Subtitle(meta); ok {
+				body.Chosen, body.Subtitle = true, choice
+			}
+		}
+		w.Header().Set("Content-Type", "application/json; charset=utf-8")
+		w.Header().Set("Cache-Control", "no-store")
+		_ = json.NewEncoder(w).Encode(body)
+	case http.MethodPost:
+		body, err := io.ReadAll(io.LimitReader(r.Body, maxSubtitleBody+1))
+		if err != nil || len(body) > maxSubtitleBody {
+			http.Error(w, "subtitle body is too large", http.StatusRequestEntityTooLarge)
+			return
+		}
+		var choice Subtitle
+		if err := json.Unmarshal(body, &choice); err != nil {
+			http.Error(w, "subtitle is not JSON", http.StatusBadRequest)
+			return
+		}
+		if !choice.Off && choice.Name == "" && choice.Language == "" {
+			http.Error(w, "subtitle needs a track or off", http.StatusBadRequest)
+			return
+		}
+		if s.server.OnSubtitle != nil {
+			s.server.OnSubtitle(meta, choice)
+		}
+		w.WriteHeader(http.StatusNoContent)
+	default:
+		w.Header().Set("Allow", "GET, POST")
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+	}
 }

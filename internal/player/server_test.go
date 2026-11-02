@@ -3,6 +3,7 @@ package player
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -241,5 +242,105 @@ func TestServerStopsOnClose(t *testing.T) {
 	if response, err := client.Get("http://" + address + "/"); err == nil {
 		response.Body.Close()
 		t.Fatal("the loopback server still answered after Close")
+	}
+}
+
+func TestSubtitleChoiceRoundTripAndValidation(t *testing.T) {
+	media := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprint(w, "media-bytes")
+	}))
+	defer media.Close()
+	server, err := NewServer()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer server.Close()
+	var saved []Subtitle
+	server.OnSubtitle = func(meta Meta, choice Subtitle) { saved = append(saved, choice) }
+	// The first session knows a choice; the second does not. Same episode,
+	// so the page can be reopened in either direction.
+	var current *Subtitle
+	server.Subtitle = func(meta Meta) (Subtitle, bool) {
+		if current == nil {
+			return Subtitle{}, false
+		}
+		return *current, true
+	}
+	open := func() *Session {
+		session, err := server.Open(httpSource{client: http.DefaultClient}, "probe",
+			testPlay(t, media.URL, video.FormatMP4), Meta{Source: "probe", ItemID: "clip", EpisodeID: "ep1"})
+		if err != nil {
+			t.Fatal(err)
+		}
+		return session
+	}
+	session := open()
+	prefix := session.URL("Probe", 0)
+	prefix = prefix[:strings.Index(prefix, "/play")]
+	defer session.Close()
+
+	get := func() map[string]any {
+		resp, err := http.Get(prefix + "/subtitle")
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer resp.Body.Close()
+		if resp.StatusCode != http.StatusOK {
+			t.Fatalf("GET subtitle = %d", resp.StatusCode)
+		}
+		var body map[string]any
+		if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
+			t.Fatal(err)
+		}
+		if cc := resp.Header.Get("Cache-Control"); cc != "no-store" {
+			t.Fatalf("subtitle cache control = %q", cc)
+		}
+		return body
+	}
+	post := func(body string) int {
+		resp, err := http.Post(prefix+"/subtitle", "application/json", strings.NewReader(body))
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer resp.Body.Close()
+		return resp.StatusCode
+	}
+
+	if body := get(); body["chosen"] != false {
+		t.Fatalf("no choice yet = %v", body)
+	}
+	if code := post(`{"name":"English","language":"en"}`); code != http.StatusNoContent {
+		t.Fatalf("POST subtitle = %d", code)
+	}
+	if len(saved) != 1 || saved[0].Name != "English" || saved[0].Language != "en" || saved[0].Off {
+		t.Fatalf("saved = %+v", saved)
+	}
+	// What the app stored is what the next page load sees.
+	current = &Subtitle{Name: "English", Language: "en"}
+	if body := get(); body["chosen"] != true || body["name"] != "English" || body["language"] != "en" {
+		t.Fatalf("saved choice = %v", body)
+	}
+	if code := post(`{"off":true}`); code != http.StatusNoContent {
+		t.Fatalf("POST off = %d", code)
+	}
+	current = &Subtitle{Off: true}
+	if body := get(); body["chosen"] != true || body["off"] != true {
+		t.Fatalf("off choice = %v", body)
+	}
+	for _, bad := range []string{``, `not json`, `{}`, `{"name":""}`} {
+		if code := post(bad); code != http.StatusBadRequest {
+			t.Fatalf("POST %q = %d, want 400", bad, code)
+		}
+	}
+	if code := post(strings.Repeat("x", maxSubtitleBody+1)); code != http.StatusRequestEntityTooLarge {
+		t.Fatalf("oversized POST = %d, want 413", code)
+	}
+	resp, err := http.Head(prefix + "/subtitle")
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusMethodNotAllowed {
+		t.Fatalf("HEAD subtitle = %d", resp.StatusCode)
 	}
 }

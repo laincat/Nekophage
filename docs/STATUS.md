@@ -16,7 +16,17 @@
 
 Lead 通过 Cindy 桌面工具操作未修改的 0.2.4 安装包,在暂停的同一 `0:01` 画面完成「中文→English→关闭→中文」:英文时画面有 `Subtitle rendering proof`,关闭后该文字消失,恢复中文后显示 `字幕渲染检查`。这次选中了真实下拉选项,没有用 DOM 注入代替控件操作。三张对照截图为 `E:/Temp/desktop-subtitle-024-english-paused.png`、`E:/Temp/desktop-subtitle-024-off-paused.png`、`E:/Temp/desktop-subtitle-024-chinese-restored.png`;完整回执 `E:/Temp/desktop-subtitle-language-024-receipt.json`。
 
-最终夹具使用与 `cmd/uicheck` 相同的 Go `http.FileServer`、登录 Cookie 与 Referer 校验,支持真实 Range;日志 `E:/Temp/nk-subtitle-language-024/range-fixture.stderr.log` 中中文/英文清单、VTT 与媒体范围请求均为 `auth=true`。最初不支持 Range 的 Python 服务不计入这些结论。所有任务窗口通过界面关闭、进程退出、卸载与夹具停止已确认(`E:/Temp/desktop-subtitle-language-024-cleanup.log`)。这证明当前 Windows 包内的语言切换/关闭;不证明跨播放器重开或变体组刷新时的选择持久化、其他字幕样式或 macOS/iOS。
+最终夹具使用与 `cmd/uicheck` 相同的 Go `http.FileServer`、登录 Cookie 与 Referer 校验,支持真实 Range;日志 `E:/Temp/nk-subtitle-language-024/range-fixture.stderr.log` 中中文/英文清单、VTT 与媒体范围请求均为 `auth=true`。最初不支持 Range 的 Python 服务不计入这些结论。所有任务窗口通过界面关闭、进程退出、卸载与夹具停止已确认(`E:/Temp/desktop-subtitle-language-024-cleanup.log`)。这证明当前 Windows 包内的语言切换/关闭。跨播放器重开的持久化已在后续单独补上,见「字幕选择跨播放器重开保持」;变体组刷新后的选择、其他字幕样式与 macOS/iOS 仍不在这些结论内。
+
+## 字幕选择跨播放器重开保持(2026-11-02)
+
+此前字幕选择只活在本页:`subtitleChoice` 是页面变量,关闭播放器再打开同一集会回到清单默认轨。现在选择与播放位置一起存进书架记录(`VideoHistory.Subtitle`,关闭也作为一种选择),播放器页在加载时向 `subtitle` 端点询问一次、每次改动回报一次;Go 侧用 `SetVideoSubtitle` 更新已存在的剧集记录,因此单纯记住偏好不会把没看过的剧集写进历史。进度上报每几秒替换同一记录,`RecordVideo` 保留已有字幕选择,不会把它冲掉。
+
+同一轮修掉一个真实映射缺陷:选择框的选项值是轨道位置,而 `SUBTITLE_TRACK_SWITCH` 过去把它当成 HLS 轨道 id 写回选择框;当两者不相等时,下拉显示的轨道与实际渲染的轨道会分叉。现在选项列表与提交值都来自同一份 `subtitleTrackList`,`hls.subtitleTrack` 用轨道自身的 `id`。
+
+证据来自新的开发工具 `cmd/subcheck`:它在真实 WebView2 里开 HLS 会话(仓内夹具 `internal/player/testdata/hls-subs`,英文 `DEFAULT=NO`、中文 `DEFAULT=YES`),用真实书架存偏好,然后**新建会话重开同一集**。第一轮显示默认中文;选中 English 后书架记录为 `{Name:English, Language:en}`,画面文本 `Subtitle rendering proof`;重开后的新页面 `selected="English"`、`value=0`、`cues=[en:1]`,渲染的仍是英文 cue(`E:/Temp/nk-subcheck-run3.log`)。窗口截图 `build/probes/subtitle-reopen/reopened.png` 只含原生层,不含 WebView 画面。
+
+限制:这是开发工具打开的真实窗口与真实 HLS.js 会话,不是 0.2.4 安装包内的 GUI 点击;夹具在仓内,不涉及在线站点;字幕字号/位置样式、画中画、变体组切换后的选择、macOS 与 iOS 仍未验证。`sh scripts/check.sh` 通过,日志 `E:/Temp/nk-subtitle-persist-full-check.log`。
 
 ## 字幕链路(2026-11-02)
 

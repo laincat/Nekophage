@@ -57,43 +57,79 @@
   let subtitleChoice = null;
   function trackName(track) { return track.name || track.label || track.lang || track.language || ''; }
   function trackLanguage(track) { return track.lang || track.language || ''; }
+  // The list the select was built from. An option's value is its position in
+  // this list, which is not the same as an HLS track id: HLS.js discovers
+  // groups in its own order, and the native element lists them in manifest
+  // order. Mapping through the list is what keeps "English" meaning English.
+  let subtitleTrackList = [];
   function subtitleOptions(tracks, selected) {
+    subtitleTrackList = Array.from(tracks);
     subtitleSelect.replaceChildren(new Option('关闭', '-1'));
-    Array.from(tracks).forEach(function (track, i) {
+    subtitleTrackList.forEach(function (track, i) {
       subtitleSelect.add(new Option(trackName(track) || ('字幕 ' + (i + 1)), String(i)));
     });
-    subtitleLabel.hidden = tracks.length === 0;
+    subtitleLabel.hidden = subtitleTrackList.length === 0;
     subtitleSelect.value = String(selected);
   }
   function chosenSubtitle(tracks) {
     if (subtitleChoice === false) return -1;
-    return tracks.findIndex(function (track) {
+    return Array.from(tracks).findIndex(function (track) {
       return subtitleChoice === null ? track.default
         : trackName(track) === subtitleChoice.name && trackLanguage(track) === subtitleChoice.language;
     });
   }
   function updateHLSSubtitles() {
     const tracks = hls.subtitleTracks || [];
-    const selected = chosenSubtitle(tracks);
-    hls.subtitleTrack = selected;
-    hls.subtitleDisplay = selected >= 0;
-    subtitleOptions(tracks, selected);
+    const index = chosenSubtitle(tracks);
+    const track = index >= 0 ? tracks[index] : null;
+    // subtitleTrack is a track id, not a position: passing the position picks
+    // whatever happens to have that id.
+    hls.subtitleTrack = track && track.id !== undefined ? track.id : -1;
+    hls.subtitleDisplay = !!track;
+    subtitleOptions(tracks, index);
   }
   function updateNativeSubtitles() {
     if (hls) return;
     const tracks = Array.from(video.textTracks);
+    const index = subtitleChoice !== null ? chosenSubtitle(tracks)
+      : tracks.findIndex(function (track) { return track.mode === 'showing'; });
     if (subtitleChoice !== null) {
-      const selected = chosenSubtitle(tracks);
-      tracks.forEach(function (track, i) { track.mode = i === selected ? 'showing' : 'disabled'; });
+      tracks.forEach(function (track, i) { track.mode = i === index ? 'showing' : 'disabled'; });
     }
-    subtitleOptions(tracks, tracks.findIndex(function (track) { return track.mode === 'showing'; }));
+    subtitleOptions(tracks, index);
   }
   subtitleSelect.addEventListener('change', function () {
-    const tracks = hls ? hls.subtitleTracks : Array.from(video.textTracks);
-    const track = tracks[Number(subtitleSelect.value)];
+    const track = subtitleTrackList[Number(subtitleSelect.value)];
+    subtitleTouched = true;
     subtitleChoice = track ? { name: trackName(track), language: trackLanguage(track) } : false;
     if (hls) updateHLSSubtitles(); else updateNativeSubtitles();
+    rememberSubtitle(track ? { name: trackName(track), language: trackLanguage(track) } : { off: true });
   });
+
+  // The choice outlives the page: it is stored with the episode's position, so
+  // reopening the episode does not fall back to the manifest default. Indexes
+  // are not stored — a provider may reorder tracks between plays, so the choice
+  // is remembered as name + language and matched again when the list arrives.
+  let subtitleTouched = false;
+  function rememberSubtitle(choice) {
+    if (!token) return;
+    const body = JSON.stringify(choice);
+    fetch('subtitle', { method: 'POST', body: body,
+      headers: { 'Content-Type': 'application/json' }, keepalive: true })
+      .catch(function () { /* the choice is best effort, like progress */ });
+  }
+  function applySavedSubtitle() {
+    if (!token) return;
+    fetch('subtitle', { cache: 'no-store' }).then(function (r) { return r.json(); })
+      .then(function (saved) {
+        // A click that lands while this request is in flight wins: the viewer
+        // saw the list before the answer arrived.
+        if (!saved || !saved.chosen || subtitleTouched) return;
+        subtitleChoice = saved.off ? false : { name: saved.name || '', language: saved.language || '' };
+        if (hls) updateHLSSubtitles(); else updateNativeSubtitles();
+      })
+      .catch(function () { /* no saved choice: follow the default */ });
+  }
   video.textTracks.addEventListener('addtrack', updateNativeSubtitles);
   video.textTracks.addEventListener('change', updateNativeSubtitles);
   const forced = params.get('mode') || '';
@@ -167,8 +203,11 @@
     });
     hls.on(Hls.Events.MANIFEST_PARSED, function () { noteAudio(true); });
     hls.on(Hls.Events.SUBTITLE_TRACKS_UPDATED, updateHLSSubtitles);
-    hls.on(Hls.Events.SUBTITLE_TRACK_SWITCH, function (_event, data) {
-      subtitleSelect.value = String(data.id);
+    hls.on(Hls.Events.SUBTITLE_TRACK_SWITCH, function () {
+      // data.id is a track id; the select's values are positions in the list
+      // built from subtitleTracks. Recompute instead of assuming they match.
+      const tracks = hls.subtitleTracks || [];
+      subtitleOptions(tracks, chosenSubtitle(tracks));
     });
     hls.loadSource(source.href);
     hls.attachMedia(video);
@@ -187,6 +226,7 @@
     if (video.paused) video.play().catch(function () {}); else video.pause();
   });
 
+  applySavedSubtitle();
   play();
 })();
 </script>

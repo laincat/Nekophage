@@ -294,6 +294,10 @@ func (a *App) openPlayer(play *video.Play, meta player.Meta, title string, start
 			return err
 		}
 		server.OnProgress = a.saveVideoProgress
+		// The subtitle choice is remembered per episode next to its position,
+		// so reopening the episode restores the track the viewer picked.
+		server.Subtitle = a.savedVideoSubtitle
+		server.OnSubtitle = a.saveVideoSubtitle
 		a.mu.Lock()
 		a.playerSrv = server
 		a.mu.Unlock()
@@ -402,6 +406,34 @@ func (a *App) saveVideoProgress(meta player.Meta, progress player.Progress) {
 		Position: progress.Time, Duration: progress.Duration,
 	}); err != nil {
 		debugLog("video progress write failed: %v", err)
+	}
+}
+
+// savedVideoSubtitle answers with the track already chosen for this episode.
+func (a *App) savedVideoSubtitle(meta player.Meta) (player.Subtitle, bool) {
+	if a.shelf == nil || meta.ItemID == "" {
+		return player.Subtitle{}, false
+	}
+	record, ok := a.shelf.VideoProgress(meta.Source, meta.ItemID, meta.EpisodeID)
+	if !ok || record.Subtitle == nil {
+		return player.Subtitle{}, false
+	}
+	return player.Subtitle{Off: record.Subtitle.Off, Name: record.Subtitle.Name,
+		Language: record.Subtitle.Language}, true
+}
+
+// saveVideoSubtitle stores a choice the viewer made. An episode the shelf does
+// not know yet is ignored: progress creates the record, and a preference alone
+// should not put an episode into history.
+func (a *App) saveVideoSubtitle(meta player.Meta, choice player.Subtitle) {
+	if a.shelf == nil || meta.ItemID == "" {
+		return
+	}
+	stored := &shelf.VideoSubtitle{Off: choice.Off, Name: choice.Name, Language: choice.Language}
+	if ok, err := a.shelf.SetVideoSubtitle(meta.Source, meta.ItemID, meta.EpisodeID, stored); err != nil {
+		debugLog("video subtitle write failed: %v", err)
+	} else if !ok {
+		debugLog("video subtitle skipped: episode not in history yet")
 	}
 }
 

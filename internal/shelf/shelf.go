@@ -83,7 +83,20 @@ type VideoHistory struct {
 	// Position and Duration are seconds; Position is where playback stopped.
 	Position float64 `json:"position,omitempty"`
 	Duration float64 `json:"duration,omitempty"`
-	Time     int64   `json:"time"`
+	// Subtitle is the track the viewer picked for this episode. An explicit
+	// "off" is a choice too, so it is kept apart from "never chosen".
+	Subtitle *VideoSubtitle `json:"subtitle,omitempty"`
+	Time     int64          `json:"time"`
+}
+
+// VideoSubtitle is one viewer's subtitle selection for an episode. The track
+// is identified by name and language rather than index, because a provider can
+// reorder or refresh its subtitle groups between plays.
+type VideoSubtitle struct {
+	// Off records an explicit "关闭" choice.
+	Off      bool   `json:"off,omitempty"`
+	Name     string `json:"name,omitempty"`
+	Language string `json:"language,omitempty"`
 }
 
 // Folder is a named list of comics.
@@ -519,6 +532,16 @@ func (s *Shelf) RecordVideo(v VideoHistory) error {
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	// A progress report carries position only; the subtitle choice lives in the
+	// same record, so replacing the record must not drop it.
+	if v.Subtitle == nil {
+		for _, e := range s.videos {
+			if sameVideo(e, v) {
+				v.Subtitle = e.Subtitle
+				break
+			}
+		}
+	}
 	out := make([]VideoHistory, 0, len(s.videos)+1)
 	out = append(out, v)
 	for _, e := range s.videos {
@@ -532,6 +555,31 @@ func (s *Shelf) RecordVideo(v VideoHistory) error {
 	}
 	s.videos = out
 	return s.save()
+}
+
+// SetVideoSubtitle remembers the subtitle track chosen for an episode. It
+// updates an existing record and reports false for an episode the shelf does
+// not know yet, so a preference never creates history on its own.
+func (s *Shelf) SetVideoSubtitle(source, itemID, episodeID string, choice *VideoSubtitle) (bool, error) {
+	if source == "" || itemID == "" {
+		return false, errors.New("shelf: video history needs a source and an item")
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for i := range s.videos {
+		e := &s.videos[i]
+		if e.Source != source || e.ItemID != itemID || e.EpisodeID != episodeID {
+			continue
+		}
+		if choice == nil {
+			e.Subtitle = nil
+		} else {
+			copy := *choice
+			e.Subtitle = &copy
+		}
+		return true, s.save()
+	}
+	return false, nil
 }
 
 // VideoProgress returns the saved position of one episode.
