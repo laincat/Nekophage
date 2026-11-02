@@ -8,7 +8,9 @@
 
 H.264+AAC 的 fMP4 HLS 夹具在真实 Windows WebView 中播放后,`webkitAudioDecodedByteCount` 实读为 **18,537 字节**,画面 `320×180`、鉴权/Range 正常,暂停 `1.975s` 重开恢复 `1.975s`;日志 `E:/Temp/desktop-audio-decoded-counter.log`。探针 `-video-audio` 现在要求实际解码字节数大于零;不提供计数的浏览器只能记为未观测。
 
-更强的负向对照故意让清单声明 AAC,实际媒体仍无音轨:得到 `audioDeclared=yes audioDecodedBytes=0`,退出码 1,日志 `E:/Temp/desktop-audio-false-manifest-negative.log`。此前 `8f1d812` 的 `audio=yes` 仅来自清单/编解码器信息,不能证明解码;该旧判据已替换。这次的实际字节计数仍**不等于扬声器实际发声**,原生 MP4 音轨也未验证。
+原生 MP4 音轨同样通过:把同一带音轨素材的初始化片段与分片拼成一个 `clip.mp4`(`internal/player/testdata/mp4-audio`)后,原生解码路径实读 `audioDecodedBytes=17802`,`decoder=native`,暂停 `2.054s` 重开恢复 `2.054s`,日志 `E:/Temp/desktop-mp4-audio-native.log`;同一方式拼出的无音轨文件得到 `audioDecodedBytes=0` 并以退出码 1 结束(`E:/Temp/desktop-mp4-video-only-negative.log`)。
+
+更强的负向对照故意让清单声明 AAC,实际媒体仍无音轨:得到 `audioDeclared=yes audioDecodedBytes=0`,退出码 1,日志 `E:/Temp/desktop-audio-false-manifest-negative.log`。此前 `8f1d812` 的 `audio=yes` 仅来自清单/编解码器信息,不能证明解码;该旧判据已替换。这次的实际字节计数仍**不等于扬声器实际发声**;原生 MP4 音轨已按上述夹具验证到解码字节计数。
 
 ## 视频读取取消(2026-11-02)
 

@@ -13,7 +13,9 @@ The four CI jobs of Core's `6e07429` are green (three Go platforms plus Apple's 
 
 After playing the H.264+AAC fMP4 HLS fixture in an actual Windows WebView, `webkitAudioDecodedByteCount` reads **18,537 bytes**, the picture is `320×180`, authentication/Range work, and paused `1.975s` resumes at `1.975s`. Log: `E:/Temp/desktop-audio-decoded-counter.log`. The probe's `-video-audio` now requires a positive actual decoded-byte counter; browsers without that counter remain unobserved.
 
-A stronger negative control falsely declares AAC in the manifest but contains video only: `audioDeclared=yes audioDecodedBytes=0`, exit status 1, log `E:/Temp/desktop-audio-false-manifest-negative.log`. The earlier `8f1d812` criterion used manifest/codec metadata alone and did not establish decoding; it is replaced. Actual decoded bytes still do **not** establish audible speaker output, and native MP4 audio remains unverified.
+Native MP4 audio passes as well: concatenating the init segment and media segments of the same audio-carrying media into one `clip.mp4` (`internal/player/testdata/mp4-audio`) makes the native path report `audioDecodedBytes=17802`, `decoder=native`, and a paused `2.054s` reopens at `2.054s` (`E:/Temp/desktop-mp4-audio-native.log`); the video-only file built the same way reports `audioDecodedBytes=0` and exits 1 (`E:/Temp/desktop-mp4-video-only-negative.log`).
+
+A stronger negative control falsely declares AAC in the manifest but contains video only: `audioDeclared=yes audioDecodedBytes=0`, exit status 1, log `E:/Temp/desktop-audio-false-manifest-negative.log`. The earlier `8f1d812` criterion used manifest/codec metadata alone and did not establish decoding; it is replaced. Actual decoded bytes still do **not** establish audible speaker output; native MP4 audio is now verified down to the decoded-byte counter with the fixture above.
 
 ## Video read cancellation (2026-11-02)
 
