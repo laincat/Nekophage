@@ -4,6 +4,10 @@
 
 更新:2026-11-03。以下按章节区分 Windows 真实站点、loopback 媒体夹具、原生窗口、单测与 macOS 的证据。
 
+## 已发布 Core b55c1a4 的桌面候选(2026-11-03)
+
+独立分支 `update/core-b55c1a4`、提交 `e21b04c` 使用干净的固定 Core 工作树 `E:/Temp/core-b55-consumer`。`bash scripts/check.sh` 七项通过,生成二进制 `E:/Temp/nk-b55-candidates/Nekophage-b55.exe` 的实际 `-version` 报告 `e21b04c` 与 Core `b55c1a488746efc1454e4f4781e4e83dc577d187`。日志 `E:/Temp/nk-b55-candidates/desktop-check.log`、`desktop-build-version.log`。本候选新 pin 的窗口与 macOS 验收待补,main 仍用 `4f213ff`;下面 `2c9c83b` 的包内媒体结果保留原提交归属。
+
 ## 新 Core 候选的安装包内媒体补验(2026-11-03)
 
 Lead 在 Windows 实际安装 0.2.7/`db024bd`(Core `2c9c83b`)后,通过原生视频搜索→详情→选集进入包内 WebView。`-data-dir` 使用全新资料,只预置仓库本地视频夹具的源定义,未注入 Cookie 或进度;本轮不验证源安装 UI。播放器先显示中文字幕,同一暂停画面通过字幕选择框切到 English 后显示 `Subtitle rendering proof`,再关闭后字幕消失,`videoSubtitles.choice.off=true` 写入磁盘。原生播放控件让画面与时钟从 0:00 前进到 0:10。夹具日志确认所有 Referer/Cookie 校验为 true,清单 200 且无 Range/If-Range,媒体为精确长度的 206 字节范围,英文清单与 VTT 被请求。

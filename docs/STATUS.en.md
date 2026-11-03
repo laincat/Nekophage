@@ -4,6 +4,10 @@ English | [简体中文](STATUS.md)
 
 Updated 2026-11-03. Sections distinguish Windows live sites, loopback media fixtures, native windows, unit tests and macOS.
 
+## Desktop candidate for published Core b55c1a4 (2026-11-03)
+
+Isolated branch `update/core-b55c1a4`, commit `e21b04c`, uses the clean fixed Core worktree `E:/Temp/core-b55-consumer`. All seven checks in bash scripts/check.sh pass, and actual -version output from `E:/Temp/nk-b55-candidates/Nekophage-b55.exe` reports `e21b04c` with Core `b55c1a488746efc1454e4f4781e4e83dc577d187`. Logs `E:/Temp/nk-b55-candidates/desktop-check.log`, `desktop-build-version.log`. New-pin window/macOS acceptance remains pending; main still uses `4f213ff`, and the package-media evidence below at `2c9c83b` keeps its original commit attribution.
+
 ## Media acceptance inside the new Core candidate package (2026-11-03)
 
 The Lead actually installed 0.2.7/`db024bd` (Core `2c9c83b`) on Windows and used native video search → detail → episode selection to open its packaged WebView. A fresh `-data-dir` contained only a source definition for the repository local-video fixture, without seeded cookies or progress; source-installation UI was not tested. Chinese captions appeared first; on the same paused frame, selecting English displayed `Subtitle rendering proof`, then Off removed the captions and wrote `videoSubtitles.choice.off=true` to disk. The native play control advanced both picture and clock from 0:00 to 0:10. Fixture logs confirm all Referer/Cookie checks true, manifests returning 200 without Range/If-Range, exact-length media byte ranges returning 206, and requests for the English playlist/VTT.
