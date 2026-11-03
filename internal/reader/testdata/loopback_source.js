@@ -41,6 +41,22 @@ class LoopbackPages extends ComicSource {
     }),
   }
 
+  // Two browses, because a single section is drawn without the chip row: the
+  // chips check cannot see whether a source's declaration reached the interface
+  // unless there is more than one.
+  explore = [
+    {
+      title: "Recent",
+      type: "multiPageComicList",
+      load: async () => ({ comics: [{ id: "one", title: "Loopback Comic", cover: "" }], maxPage: 1 }),
+    },
+    {
+      title: "All",
+      type: "multiPageComicList",
+      load: async () => ({ comics: [{ id: "one", title: "Loopback Comic", cover: "" }], maxPage: 1 }),
+    },
+  ]
+
   favorites = {
     multiFolder: false,
     addOrDelFavorite: async () => true,

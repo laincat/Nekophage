@@ -140,6 +140,12 @@ report "$rc" "a search opens a comic whose detail lists its chapters" "$out/sear
 
 # A thread the source answers, in a window, with no network: the comment screen
 # is the one part of the source contract a capture tool can drive on its own.
+
+# The chip row follows the number of sections a source declares; both clients
+# have to agree on that, so it is a check rather than a screenshot. The fixture
+# declares two, because one section is drawn without chips.
+run "the browse chips follow the sections" \
+	"$out/browse-probe.log" sh scripts/browse-probe.sh
 run "a comment thread the source answers" \
 	"$out/comments.log" sh scripts/comment-probe.sh
 
@@ -149,12 +155,11 @@ run "a comment thread the source answers" \
 if [ -n "${NK_PROBE_SRC:-}" ]; then
 	# The chip row follows the number of sections a source declares; both clients
 	# have to agree on that, so it is a check rather than a screenshot.
-	run "the browse chips follow the sections" 		"$out/browse-probe.log" sh scripts/browse-probe.sh "$NK_PROBE_SRC"
 	# The category contract has two halves, and a page that draws its choosers
 	# without loading anything is the failure this one exists to name.
 	run "the category page draws and loads" 		"$out/category-probe.log" sh scripts/category-probe.sh "$NK_PROBE_SRC"
 else
-	printf 'SKIP  browse and category (set NK_PROBE_SRC to a source script)\n'
+	printf 'SKIP  category page (set NK_PROBE_SRC to a source script)\n'
 fi
 
 if [ -n "${NK_OFFICIAL_SRC:-}" ]; then

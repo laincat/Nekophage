@@ -2,7 +2,7 @@
 
 [English](STATUS.en.md) | 简体中文
 
-更新:2026-11-03。以下按章节区分 Windows 真实站点、loopback 媒体夹具、原生窗口、单测与 macOS 的证据。最新进展:macOS 阅读主线与 ad-hoc 打包启动已验;桌面窗口套件现在是**无外部变量 15 项 / 给齐脚本 19 项**(新增本地视频播放、字幕跨重开、原生搜索与详情、进度上报与阅读位置),全部并入 `scripts/desktop-probes.sh`;不以本地夹具代替真实账号或站点验证。
+更新:2026-11-03。以下按章节区分 Windows 真实站点、loopback 媒体夹具、原生窗口、单测与 macOS 的证据。最新进展:macOS 阅读主线与 ad-hoc 打包启动已验;桌面窗口套件现在是**无外部变量 16 项 / 给齐脚本 19 项**(新增本地视频播放、字幕跨重开、原生搜索与详情、进度上报与阅读位置),全部并入 `scripts/desktop-probes.sh`;不以本地夹具代替真实账号或站点验证。
 
 ## 媒体会话关闭后的迟到写入(2026-11-03)
 
@@ -141,9 +141,11 @@ Mac 侧把 3207 这件事查清了:不是“恢复坏了”,是**存档值本身
 - `comment-probe`:`comments: count=1 author="Fixture Reader" body="a comment from the fixture"`
 - `favorites-probe`:`favorites: count=1 first="Loopback Comic"`
 
-两个脚本都改成默认用仓内夹具,套件里也从「有 `NK_PROBE_SRC`/`NK_FAV_SRC` 才跑」移到默认执行。剩下真正需要外部脚本的只有两项:分区与分类页(需要声明多个 section 的源)和官方脚本的回调与标签。
+两个脚本都改成默认用仓内夹具,套件里也从「有 `NK_PROBE_SRC`/`NK_FAV_SRC` 才跑」移到默认执行。
 
-实测:无外部变量 **15 PASS / 2 SKIP**(两项跳过都写明了原因),给齐外部脚本 **19 PASS / 0 FAIL / 0 SKIP**,`check.sh` 通过。日志 `E:/Temp/nk-probes-favcom5.log`、`E:/Temp/nk-probes-favcom-full.log`。
+同一轮还把**分区**也接了进来:夹具声明两个 `explore` 段(`multiPageComicList`),因为只有一个 section 时界面不画 chip 行——`browse: sections=2 chips=2 comics=1`。剩下真正需要外部脚本的只有两项:**分类页**(要先声明 `category` 与 `categoryComics`,夹具暂未提供)与**官方脚本的回调与标签**。
+
+实测:无外部变量 **16 PASS / 2 SKIP**(两项跳过都写明了原因),给齐外部脚本 **19 PASS / 0 FAIL / 0 SKIP**,`check.sh` 通过。日志 `E:/Temp/nk-probes-favcom5.log`、`E:/Temp/nk-probes-favcom-full.log`。
 
 ## 书架也能离线验了(2026-11-03)
 

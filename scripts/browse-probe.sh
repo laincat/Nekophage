@@ -14,9 +14,9 @@
 set -eu
 
 cd "$(dirname "$0")/.."
-src=${1:-${NK_BROWSE_SRC:-}}
+src=${1:-internal/reader/testdata/loopback_source.js}
 if [ -z "$src" ] || [ ! -f "$src" ]; then
-	printf 'browse-probe: pass a source script (or set NK_BROWSE_SRC)\n' >&2
+	printf 'browse-probe: no source script at %s\n' "$src" >&2
 	exit 2
 fi
 
