@@ -4,6 +4,14 @@ English | [简体中文](STATUS.md)
 
 Updated 2026-11-03. Sections distinguish Windows live sites, loopback media fixtures, native windows, unit tests and macOS.
 
+## Latest Windows packages and packaged HLS (2026-11-03, `87e2ffc`)
+
+The latest local test packages still report 0.2.7, built at `87e2ffc` with Core `4f213ff`, including the playlist Range fix. The portable ZIP is **21,565,682 bytes**, SHA-256 `c39857ee67c2186854488ae49d5237e706d1d077f5b367f6d49ea48b5c7df3f8`; setup is **18,722,739 bytes**, SHA-256 `04416d2895222bac3d40084e279b1eda79e92cdf1a5f03abe20f2a9da41702c0`. `package-windows.py --nsis` passed CRC, file hashes and unpacked executable version checks; log `E:/Temp/nk-package-87e2ffc-build.log`.
+
+Installation explicitly used `/S /NOREGISTER /D=E:/Temp/nk-package-87e2ffc-accept/install`, with an isolated APPDATA profile. The installed executable matches the ZIP payload hash. The actual installed native app completed video → search clip → details → Episode 1 → playback, showing decoded video and the Chinese captions 第0段字幕 / 字幕渲染检查; screenshot `E:/Temp/nk-package-87e2ffc-accept/chinese-paused.png`. The source derives from the repository HLS subtitle fixture with added `Range: bytes=0-` and a matching If-Range. Server logs show all three playlists returning 200 without Range/If-Range, MP4 byte requests returning 206, and valid Referer/cookie authentication throughout. The page persisted progress itself: position `0.95312` seconds of `10.066666`, with no report injected by the test tool.
+
+The desktop tool refused a targeted subtitle key with `foreground_unavailable`, sending no input for that call. UI input stopped, leaving English selection and resume after reopening unverified; these results are not combined with the earlier development `subcheck` run. Cleanup terminated only this run's test processes. Sandbox uninstall returned 0 and removed the install directory while preserving the actual saved profile content. Receipt `E:/Temp/nk-package-87e2ffc-accept/receipt.json`, HTTP log `fixture.log`, installation log `setup.log` and uninstall log `cleanup.log` share that directory. The packages are unsigned and unpublished.
+
 ## HLS playlists do not inherit the source Range (2026-11-03)
 
 Default `Range`/`If-Range` headers from a source declaration also reached HLS playlist requests. Extending the existing nested HLS regression reproduced it over real HTTP: before the fix the server received `Range: bytes=0-7` and returned 206 with a truncated playlist, preventing URL rewriting; log `E:/Temp/nk-hls-declared-range-before.log`. The proxy now removes those two headers for identified playlists while retaining source headers such as Referer. Media segments still inherit source defaults and accept player ranges without mutating the original declaration.

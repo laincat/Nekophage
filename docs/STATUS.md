@@ -4,6 +4,14 @@
 
 更新:2026-11-03。以下按章节区分 Windows 真实站点、loopback 媒体夹具、原生窗口、单测与 macOS 的证据。
 
+## 最新 Windows 包与包内 HLS(2026-11-03,`87e2ffc`)
+
+最新本地测试包仍为版本 0.2.7,构建提交 `87e2ffc`,Core `4f213ff`,包含清单 Range 修复。便携 ZIP 为 **21,565,682 字节**,SHA-256 `c39857ee67c2186854488ae49d5237e706d1d077f5b367f6d49ea48b5c7df3f8`;setup 为 **18,722,739 字节**,SHA-256 `04416d2895222bac3d40084e279b1eda79e92cdf1a5f03abe20f2a9da41702c0`。`package-windows.py --nsis` 的 CRC、逐文件哈希、解压程序版本核对通过,日志 `E:/Temp/nk-package-87e2ffc-build.log`。
+
+这次用 `/S /NOREGISTER /D=E:/Temp/nk-package-87e2ffc-accept/install` 明确指定临时安装目录,安装后的 exe 与 ZIP 中的文件哈希一致,资料使用隔离 APPDATA。通过安装包真实原生窗口完成视频→搜索 clip→详情→Episode 1→播放,实际看到视频与「第0段字幕 / 字幕渲染检查」,截图 `E:/Temp/nk-package-87e2ffc-accept/chinese-paused.png`。测试源派生自仓内 HLS 字幕夹具,额外声明 `Range: bytes=0-` 与匹配的 If-Range;服务器日志确认三份清单均为 200、没有 Range/If-Range,媒体 MP4 字节请求均为 206,Referer/Cookie 鉴权均为 true。页面进度自行落盘,实际位置 `0.95312` 秒、总时长 `10.066666` 秒;没有从测试工具注入进度。
+
+字幕选择的定向按键被桌面工具以 `foreground_unavailable` 拒绝,该次没有发送输入,随后停止界面操作。因此英文切换与关闭重开续播仍未验证,不与上轮开发工具 `subcheck` 的通过结果合并。清理时只终止本轮测试进程;临时卸载返回 0,安装目录移除,真实落盘的资料内容保留。完整回执 `E:/Temp/nk-package-87e2ffc-accept/receipt.json`,HTTP 日志 `fixture.log`,安装记录 `setup.log`,卸载记录 `cleanup.log` 均在同一目录。包未签名,未公开发布。
+
 ## HLS 清单不继承源的 Range(2026-11-03)
 
 源声明的默认 `Range`/`If-Range` 原先也会用于 HLS 清单。扩展现有嵌套 HLS 回归后,真实 HTTP 服务在修复前收到 `Range: bytes=0-7`,返回 206 与截断的清单,清单未能完成 URL 重写,日志 `E:/Temp/nk-hls-declared-range-before.log`。现在代理对已识别的清单移除这两个头,保留 Referer 等源请求头;媒体分片仍沿用源声明并接受播放器提供的范围,不会改写原始声明。
