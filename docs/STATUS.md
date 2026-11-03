@@ -52,6 +52,18 @@ Nekophage 的 pin 从 `214e7782` 升到 `8e14aad`,也就是包含 `b2610a5`(异�
 
 一个操作坑:在 bash 里直接 `./setup.exe /S` 会静默退出而不安装(参数被 shell 拧了),必须走 PowerShell 的 `Start-Process -ArgumentList '/S'`。日志 `E:/Temp/nk-package-head-build.log`。
 
+## macOS 阅读主线在当前 pin 上通过(2026-11-03,`56c9f0c` / Core `8e14aad`)
+
+仓库没有 remote,代码经私有 gist 传:`base64` 3,255,720 字节、SHA-256 `c6bd87de…1181fa`,解码后 bundle 2,441,789 字节,`git bundle verify` 报 `contains this ref` 与 `records a complete history`,HEAD `56c9f0c`,`scripts/core-version` 与 `fetch-core.sh` 拉到的 Core 都是 `8e14aade75f563a95f50d4ec80be27bae0d02c63`。`go build ./...` 退出 0;`-version` 自报 Core 就是这个 pin(客户端 commit 显示 `unknown`,因为只有 Core 打了 stamp,客户端 commit 由打包时注入)。
+
+三条阅读检查都在仓内夹具上跑,退出码均为 0:
+
+- **进度上报**:`pctKeys` 含本章节的 `nkreader.at:loopback_pages/one/1:pct`,`pct=55`;
+- **双页布局**:两列各 `440.5px`,第 1 页 `x=443` 在右、第 2 页 `x=0` 在左,`dirLabel` 为 `右→左`;
+- **阅读位置**:滚到 1200 后重开,`scrollY=3207`。
+
+第三项要打个问号:macOS 回到 **3207**,而 Windows 上同样操作用本篇上面的严格判据是**精确回到 1200**。我随后把判据从「≥80%」改成「落在保存值的 ±20% 内」(下限 80px),Windows 连跑两次仍是 `scrollY=1200 saved=1200`;macOS 那次是在旧判据下跑的,所以 3207 究竟是不是缺陷还没有定论——已请 Mac 侧用新判据复跑。截图 20,756 字节只含原生层,不含 WebView 像素,渲染证据是 `decoded=2 / images=2`。
+
 ## 窗口探针的偶发失败查到了根上(2026-11-03)
 
 连续跑套件时偶发「某一条 FAIL、日志里却全是 PASS」或「a dialog window was never opened」。分了三种情况处理,不是简单加重试:

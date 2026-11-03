@@ -57,6 +57,18 @@ Install: `Start-Process setup.exe -ArgumentList '/S' -Wait` exits 0, `LOCALAPPDA
 
 One operational trap: `./setup.exe /S` from bash exits silently without installing because the shell mangles the arguments; it has to go through PowerShell's `Start-Process -ArgumentList '/S'`. Logs in `E:/Temp/nk-package-head-build.log`.
 
+## The macOS reading mainline passes at the current pin (2026-11-03, `56c9f0c` / Core `8e14aad`)
+
+The repository has no remote, so the code travelled as a private gist: `base64` 3,255,720 bytes, SHA-256 `c6bd87de…1181fa`, a 2,441,789-byte bundle that `git bundle verify` accepted (`contains this ref`, `records a complete history`), HEAD `56c9f0c`, and `scripts/core-version` matching the Core `fetch-core.sh` fetched, `8e14aade75f563a95f50d4ec80be27bae0d02c63`. `go build ./...` exits 0 and `-version` reports that pin (the client commit reads `unknown` because only Core is stamped; the client commit is injected when packaging).
+
+All three reading checks ran on the repository fixture and exited 0:
+
+- **progress**: `pctKeys` contains this chapter's `nkreader.at:loopback_pages/one/1:pct` with `pct=55`;
+- **double-page layout**: two columns of `440.5px`, page 1 at `x=443` on the right and page 2 at `x=0` on the left, `dirLabel` `右→左`;
+- **the reading place**: scrolled to 1200, reopened, `scrollY=3207`.
+
+The third one deserves a question mark: macOS landed on **3207**, while the same operation on Windows returns exactly 1200 under the stricter rule described above. I tightened that rule from "at least 80%" to "within 20% of the saved value" (floor 80 px); Windows still reports `scrollY=1200 saved=1200` twice, but the macOS run predates the change, so whether 3207 is a defect is not settled — the Mac side has been asked to re-run with the new rule. The 20,756-byte captures hold only the native layer, not WebView pixels; the rendering evidence is `decoded=2 / images=2`.
+
 ## The intermittent window failures, traced to their causes (2026-11-03)
 
 Running the suite back to back occasionally produced "one entry FAILs while its log is full of PASSes" or "a dialog window was never opened". Three separate things, not one blanket retry:
