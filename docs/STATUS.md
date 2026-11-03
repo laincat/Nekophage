@@ -10,7 +10,9 @@
 
 这次用 `/S /NOREGISTER /D=E:/Temp/nk-package-87e2ffc-accept/install` 明确指定临时安装目录,安装后的 exe 与 ZIP 中的文件哈希一致,资料使用隔离 APPDATA。通过安装包真实原生窗口完成视频→搜索 clip→详情→Episode 1→播放,实际看到视频与「第0段字幕 / 字幕渲染检查」,截图 `E:/Temp/nk-package-87e2ffc-accept/chinese-paused.png`。测试源派生自仓内 HLS 字幕夹具,额外声明 `Range: bytes=0-` 与匹配的 If-Range;服务器日志确认三份清单均为 200、没有 Range/If-Range,媒体 MP4 字节请求均为 206,Referer/Cookie 鉴权均为 true。页面进度自行落盘,实际位置 `0.95312` 秒、总时长 `10.066666` 秒;没有从测试工具注入进度。
 
-字幕选择的定向按键被桌面工具以 `foreground_unavailable` 拒绝,该次没有发送输入,随后停止界面操作。因此英文切换与关闭重开续播仍未验证,不与上轮开发工具 `subcheck` 的通过结果合并。清理时只终止本轮测试进程;临时卸载返回 0,安装目录移除,真实落盘的资料内容保留。完整回执 `E:/Temp/nk-package-87e2ffc-accept/receipt.json`,HTTP 日志 `fixture.log`,安装记录 `setup.log`,卸载记录 `cleanup.log` 均在同一目录。包未签名,未公开发布。
+字幕选择的定向按键被桌面工具以 `foreground_unavailable` 拒绝,该次没有发送输入,随后停止界面操作。该轮英文切换与关闭重开续播未验证,不与上轮开发工具 `subcheck` 的通过结果合并。清理时只终止本轮测试进程;临时卸载返回 0,安装目录移除,真实落盘的资料内容保留。完整回执 `E:/Temp/nk-package-87e2ffc-accept/receipt.json`,HTTP 日志 `fixture.log`,安装记录 `setup.log`,卸载记录 `cleanup.log` 均在同一目录。包未签名,未公开发布。
+
+随后用同一 ZIP 的便携二进制(哈希与安装版一致)和原样保留的实际资料,补验了**进程重启后的继续观看**。视频列表读回同一集的 9% 进度,播放器 URL 带 `start=0.95312`。首次请求清单返回 403:夹具登录 Cookie 是会话 Cookie,按既有策略不跨进程保存;在原生搜索界面执行夹具登录后再次点「继续观看」,HLS 和中文字幕恢复。恢复画面的 900×350 视频裁剪与保存位置的旧截图逐像素一致,且与片尾截图不同;没有注入播放位置、Cookie 或进度上报。回执 `E:/Temp/nk-package-87e2ffc-accept/resume-receipt.json`,画面对照 `resume-frame-check.json`,截图 `resumed-authenticated.png`,HTTP 日志 `resume-fixture.log`。该结论以重新建立夹具会话为前提,不声称已自动跨进程登录。后台可访问性写入 English 未改变实际中文选择,英文/关闭操作仍未验收。测试进程已清理,资料未变。
 
 ## HLS 清单不继承源的 Range(2026-11-03)
 
