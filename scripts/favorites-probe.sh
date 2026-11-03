@@ -16,9 +16,9 @@
 set -eu
 
 cd "$(dirname "$0")/.."
-src=${1:-${NK_FAV_SRC:-}}
+src=${1:-${NK_FAV_SRC:-internal/reader/testdata/loopback_source.js}}
 if [ -z "$src" ] || [ ! -f "$src" ]; then
-	printf 'favorites-probe: pass a source script (or set NK_FAV_SRC)\n' >&2
+	printf 'favorites-probe: no source script at %s\n' "$src" >&2
 	exit 2
 fi
 

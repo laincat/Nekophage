@@ -73,12 +73,8 @@ run "a closed window still takes updates and page reads" \
 
 # The list a source keeps on its own side. It is asked for its contents rather
 # than judged by a capture, for the same reason as the comment thread.
-if [ -n "${NK_FAV_SRC:-}" ]; then
-	run "the favourites the source keeps are listed" 		"$out/favorites-probe.log" sh scripts/favorites-probe.sh
-else
-	printf 'SKIP  source favourites (set NK_FAV_SRC to a source script)
-'
-fi
+run "the favourites the source keeps are listed" \
+	"$out/favorites-probe.log" sh scripts/favorites-probe.sh
 
 # Pages that actually decode, which is the one thing about images that cannot be
 # answered without a decoder: a source can return plausible byte counts that are
@@ -142,21 +138,23 @@ go run ./cmd/uicheck -script internal/reader/testdata/loopback_source.js \
 	-out "$out/search.png" >"$out/search.log" 2>&1 || rc=$?
 report "$rc" "a search opens a comic whose detail lists its chapters" "$out/search.log"
 
-# A thread the source answers, in a window, with no network: the comment screen is
-# the one part of the source contract a capture tool can drive on its own.
+# A thread the source answers, in a window, with no network: the comment screen
+# is the one part of the source contract a capture tool can drive on its own.
+run "a comment thread the source answers" \
+	"$out/comments.log" sh scripts/comment-probe.sh
+
+# The chip row follows the number of sections a source declares, and the
+# category page has two halves that must agree; both need a source that
+# declares them, which the repository fixture does not.
 if [ -n "${NK_PROBE_SRC:-}" ]; then
-	run "a comment thread the source answers" 		"$out/comments.log" sh scripts/comment-probe.sh "$NK_PROBE_SRC"
 	# The chip row follows the number of sections a source declares; both clients
 	# have to agree on that, so it is a check rather than a screenshot.
 	run "the browse chips follow the sections" 		"$out/browse-probe.log" sh scripts/browse-probe.sh "$NK_PROBE_SRC"
-	# Reading writes the shelf and the shelf reads it back; the file says which comic,
-	# chapter and page, so this is not a picture comparison.
 	# The category contract has two halves, and a page that draws its choosers
 	# without loading anything is the failure this one exists to name.
 	run "the category page draws and loads" 		"$out/category-probe.log" sh scripts/category-probe.sh "$NK_PROBE_SRC"
 else
-	printf 'SKIP  comment thread (set NK_PROBE_SRC to a source script)
-'
+	printf 'SKIP  browse and category (set NK_PROBE_SRC to a source script)\n'
 fi
 
 if [ -n "${NK_OFFICIAL_SRC:-}" ]; then

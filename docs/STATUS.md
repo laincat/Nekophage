@@ -2,7 +2,7 @@
 
 [English](STATUS.en.md) | 简体中文
 
-更新:2026-11-03。以下按章节区分 Windows 真实站点、loopback 媒体夹具、原生窗口、单测与 macOS 的证据。最新进展:macOS 阅读主线与 ad-hoc 打包启动已验;桌面窗口套件现在是**无外部变量 13 项 / 给齐脚本 19 项**(新增本地视频播放、字幕跨重开、原生搜索与详情、进度上报与阅读位置),全部并入 `scripts/desktop-probes.sh`;不以本地夹具代替真实账号或站点验证。
+更新:2026-11-03。以下按章节区分 Windows 真实站点、loopback 媒体夹具、原生窗口、单测与 macOS 的证据。最新进展:macOS 阅读主线与 ad-hoc 打包启动已验;桌面窗口套件现在是**无外部变量 15 项 / 给齐脚本 19 项**(新增本地视频播放、字幕跨重开、原生搜索与详情、进度上报与阅读位置),全部并入 `scripts/desktop-probes.sh`;不以本地夹具代替真实账号或站点验证。
 
 ## 媒体会话关闭后的迟到写入(2026-11-03)
 
@@ -133,6 +133,17 @@ Mac 侧把 3207 这件事查清了:不是“恢复坏了”,是**存档值本身
 - **套件本身**:一个接一个起十几个窗口进程,偶尔仍会丢窗口。`run()` 现在允许**一次重试**,但会打印 `RETRY <条目>` 并把首次日志留成 `.first`——失败可见,套件不变成噪声;`NK_NO_RETRY=1` 可关掉重试,用来测量真实的偶发率。
 
 实测:修好后连续 **3 轮 12 PASS / 0 FAIL / 0 RETRY**;关掉重试时仍偶尔出现一次环境级失败(登录/对话框各见过一次),说明重试是兜底而不是根因。日志 `E:/Temp/nk-probes-final-{1,2,3}.log`、`E:/Temp/nk-dialog-{1..8}.log`。
+
+## 评论与源收藏也走仓内夹具了(2026-11-03)
+
+`loopback_source.js` 原来只回答搜索、详情与章节页;现在补了 `comic.loadComments` 与 `favorites`(`addOrDelFavorite` / `loadFolders` / `loadComics`),于是这两条探针不再需要借 Nekularity 的 `callback_probe.js`:
+
+- `comment-probe`:`comments: count=1 author="Fixture Reader" body="a comment from the fixture"`
+- `favorites-probe`:`favorites: count=1 first="Loopback Comic"`
+
+两个脚本都改成默认用仓内夹具,套件里也从「有 `NK_PROBE_SRC`/`NK_FAV_SRC` 才跑」移到默认执行。剩下真正需要外部脚本的只有两项:分区与分类页(需要声明多个 section 的源)和官方脚本的回调与标签。
+
+实测:无外部变量 **15 PASS / 2 SKIP**(两项跳过都写明了原因),给齐外部脚本 **19 PASS / 0 FAIL / 0 SKIP**,`check.sh` 通过。日志 `E:/Temp/nk-probes-favcom5.log`、`E:/Temp/nk-probes-favcom-full.log`。
 
 ## 书架也能离线验了(2026-11-03)
 

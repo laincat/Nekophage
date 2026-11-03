@@ -14,9 +14,9 @@
 set -eu
 
 cd "$(dirname "$0")/.."
-src=${1:-}
+src=${1:-internal/reader/testdata/loopback_source.js}
 if [ -z "$src" ] || [ ! -f "$src" ]; then
-	printf 'comment-probe: pass a source script that answers loadComments\n' >&2
+	printf 'comment-probe: no source script at %s\n' "$src" >&2
 	exit 2
 fi
 

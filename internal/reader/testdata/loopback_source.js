@@ -27,5 +27,27 @@ class LoopbackPages extends ComicSource {
     loadEp: async () => ({
       images: ["http://127.0.0.1:18731/1.png", "http://127.0.0.1:18731/2.png"],
     }),
+    // A thread and a favourites list, so the probes that need one are not
+    // forced to borrow a script from another repository. Both answer from the
+    // fixture itself: no site, no login.
+    loadComments: async () => ({
+      comments: [{
+        id: "c1",
+        userName: "Fixture Reader",
+        content: "a comment from the fixture",
+        time: "2026-01-01",
+      }],
+      maxPage: 1,
+    }),
+  }
+
+  favorites = {
+    multiFolder: false,
+    addOrDelFavorite: async () => true,
+    loadFolders: async () => ({ folders: { f1: "收藏" }, favorited: [] }),
+    loadComics: async () => ({
+      comics: [{ id: "one", title: "Loopback Comic", cover: "" }],
+      maxPage: 1,
+    }),
   }
 }
