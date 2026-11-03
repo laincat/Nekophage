@@ -78,7 +78,9 @@ Both are fixed:
 - after scrolling, instead of sleeping a fixed second, the probe **polls up to five seconds** for `localStorage.getItem(place key)`; when it never appears it reports `the page stored no place for … after …` and stops there, so the later check cannot bury the more important message;
 - "a key was written but holds a different value" and "no key at all" are now two different sentences — the first is drift, the second is a save that never happened, and they point at different repairs.
 
-Measured: three consecutive local `-scroll` runs pass (`1200 saved=1200`, `1240 saved=1240`), the window suite with retries disabled is **12 PASS / 0 FAIL**, and `check.sh` passes. Logs `E:/Temp/nk-poll-{1,2,3}.log` and `E:/Temp/nk-probes-poll.log`.
+One step further: the macOS runs held only three storage keys, which says the page had not finished booting when the probe acted. The probe now waits for the reader to write a position key of its own (it does at 900 ms), up to ten seconds; when that never happens it fails with `the reader never reported its own progress; storage never showed a position key`, because in that state a scroll measures the probe rather than the reader.
+
+Measured: five consecutive local `-scroll` runs pass (`1200 saved=1200`, `1240 saved=1240`), the window suite with retries disabled is **12 PASS / 0 FAIL**, and `check.sh` passes. Logs `E:/Temp/nk-poll-{1,2,3}.log`, `E:/Temp/nk-boot{2}-*.log` and `E:/Temp/nk-probes-boot.log`.
 
 ## The reading place drifted because the restore ran before the images sized the page (2026-11-03)
 

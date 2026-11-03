@@ -73,7 +73,9 @@ Mac 侧跑 `44410bf` 时两次都失败,失败行是 `settled at [1200,3,null]` 
 - 滚动后不再固定睡 1 秒,而是**轮询最多 5 秒**等 `localStorage.getItem(位置键)` 出现;拿不到就明确报 `the page stored no place for … after …`,并在此时直接结束,不再让后续检查覆盖这条更重要的错误;
 - 顺带把「键写上了、值不对」与「键根本没写」区分成两句不同的话——前者是漂移,后者是保存没发生,维修方向完全不同。
 
-实测:本机 `-scroll` 连跑 3 次全过(`1200 saved=1200` / `1240 saved=1240`),窗口套件关掉重试 **12 PASS / 0 FAIL**,`check.sh` 通过。日志 `E:/Temp/nk-poll-{1,2,3}.log`、`E:/Temp/nk-probes-poll.log`。
+再往前一步:Mac 侧那几次 `localStorage.length` 只有 3 条,说明**页面 boot 还没走完**探针就动手了。现在开滚之前先等阅读器自己写出一条位置键(它在 900ms 必写),最多等 10 秒;等不到就直接报 `the reader never reported its own progress; storage never showed a position key`——因为这种状态下滚一下量的是探针,不是阅读器。
+
+实测:本机 `-scroll` 连跑 5 次全过(`1200 saved=1200` / `1240 saved=1240`),窗口套件关掉重试 **12 PASS / 0 FAIL**,`check.sh` 通过。日志 `E:/Temp/nk-poll-{1,2,3}.log`、`E:/Temp/nk-boot{2}-*.log`、`E:/Temp/nk-probes-boot.log`。
 
 ## 阅读位置的漂移:恢复跑在图片定尺寸之前(2026-11-03)
 

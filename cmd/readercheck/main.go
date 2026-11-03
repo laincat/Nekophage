@@ -305,6 +305,27 @@ func main() {
 				// distance comes from the page, not from a fixed number: a fixture
 				// page shorter than the target would fail here for being short, and a
 				// page that cannot scroll at all would pass on a threshold of zero.
+				// Wait until the reader has booted before touching it: its own
+				// report at 900 ms proves the setup got that far, and a scroll
+				// delivered before that has nothing to deliver to. On macOS the
+				// probe scrolled into a page whose storage held three layout keys
+				// and nothing else, and no save ever happened.
+				booted := false
+				for i := 0; i < 100 && !booted; i++ {
+					v, err := view.Page().Eval("localStorage.getItem('nkreader.at:loopback_pages/one/1:pct') !== null || Object.keys(localStorage).some(k => k.endsWith(':pct'))")
+					if err == nil {
+						if ready, ok := v.(bool); ok && ready {
+							booted = true
+							break
+						}
+					}
+					time.Sleep(100 * time.Millisecond)
+				}
+				if !booted && checkErr == nil {
+					// Without its own boot the page has nothing to save to, and a
+					// scroll here measures the probe rather than the reader.
+					checkErr = fmt.Errorf("the reader never reported its own progress; storage never showed a position key")
+				}
 				// Clear the stored place before moving: the profile survives between
 				// runs, and a key left by an earlier one would be what the reader
 				// restores, so the check would measure the store instead of the
