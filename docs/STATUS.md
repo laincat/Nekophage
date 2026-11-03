@@ -4,6 +4,12 @@
 
 更新:2026-11-03。以下按章节区分 Windows 真实站点、loopback 媒体夹具、原生窗口、单测与 macOS 的证据。
 
+## HLS 清单不继承源的 Range(2026-11-03)
+
+源声明的默认 `Range`/`If-Range` 原先也会用于 HLS 清单。扩展现有嵌套 HLS 回归后,真实 HTTP 服务在修复前收到 `Range: bytes=0-7`,返回 206 与截断的清单,清单未能完成 URL 重写,日志 `E:/Temp/nk-hls-declared-range-before.log`。现在代理对已识别的清单移除这两个头,保留 Referer 等源请求头;媒体分片仍沿用源声明并接受播放器提供的范围,不会改写原始声明。
+
+`go test -race -count=1 ./internal/player` 通过,原有用例同时核对根清单重定向、嵌套清单重写、密钥/初始化文件读取、分片 `206`/`Content-Range`/实际字节以及请求头,日志 `E:/Temp/nk-hls-declared-range-after.log`。Windows WebView 的 `go run ./cmd/subcheck -dir internal/player/testdata/hls-subs` 也通过:重开后 English 仍选中,活动 cue 为 `Subtitle rendering proof`,日志 `E:/Temp/nk-hls-declared-range-subtitle.log`。前者是 HTTP 回归,后者是本地 HLS 字幕窗口验证;尚未验证真实站点。先前 `e578d29` Windows 包不含此修复。
+
 ## Core pin 升到 `4f213ff`,并用真实源脚本验 `URL`(2026-11-03)
 
 此前 pin 是 `8e14aad`,源作用域还没有 `URL`/`URLSearchParams`。Core 补上这两个类后,桌面端仍然链的是旧 pin,所以「Core 有修复」并不等于「客户端用上了」。现在 `scripts/core-version` 与 `build/core` 都是 **`4f213ff`**,并在客户端仓内新增 `TestSourceURLClassIsUsableThroughAComicSource`:装一条真源脚本,让它用 `new URL` 取 `host`/`href`、用 `URLSearchParams` 改查询,再走 `Core.Search` 拿结果。这个探针先暴露了 Core 未按标准把特殊 scheme 主机名转小写(`Images.Example.Test` 原样返回),Core `4f213ff` 修掉后通过。

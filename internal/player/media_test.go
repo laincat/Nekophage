@@ -42,7 +42,11 @@ func declaredMedia(t *testing.T, target string, format video.Format) (*core.Core
 }
 
 func TestMediaProxyRewritesNestedHLSAndPreservesRangeAndHeaders(t *testing.T) {
+	const etag = `"fixture-version"`
 	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasSuffix(r.URL.Path, ".m3u8") && (r.Header.Get("Range") != "" || r.Header.Get("If-Range") != "") {
+			t.Errorf("playlist inherited Range=%q If-Range=%q", r.Header.Get("Range"), r.Header.Get("If-Range"))
+		}
 		if r.Header.Get("Referer") != "https://media.example.test/" {
 			http.Error(w, "missing source referer", http.StatusForbidden)
 			return
@@ -52,16 +56,22 @@ func TestMediaProxyRewritesNestedHLSAndPreservesRangeAndHeaders(t *testing.T) {
 			http.Redirect(w, r, "/vod/master.m3u8", http.StatusFound)
 		case "/vod/master.m3u8":
 			w.Header().Set("Content-Type", "application/vnd.apple.mpegurl")
-			fmt.Fprint(w, "#EXTM3U\n#EXT-X-STREAM-INF:BANDWIDTH=1000\nlow/media.m3u8\n")
+			w.Header().Set("ETag", etag)
+			http.ServeContent(w, r, "master.m3u8", time.Time{}, strings.NewReader("#EXTM3U\n#EXT-X-STREAM-INF:BANDWIDTH=1000\nlow/media.m3u8\n"))
 		case "/vod/low/media.m3u8":
 			w.Header().Set("Content-Type", "application/vnd.apple.mpegurl")
-			fmt.Fprint(w, "#EXTM3U\n#EXT-X-TARGETDURATION:6\n#EXT-X-KEY:METHOD=AES-128,URI=\"../key\"\n#EXT-X-MAP:URI=\"init.mp4\"\n#EXTINF:6,\nseg.ts\n#EXT-X-ENDLIST\n")
+			w.Header().Set("ETag", etag)
+			http.ServeContent(w, r, "media.m3u8", time.Time{}, strings.NewReader("#EXTM3U\n#EXT-X-TARGETDURATION:6\n#EXT-X-KEY:METHOD=AES-128,URI=\"../key\"\n#EXT-X-MAP:URI=\"init.mp4\"\n#EXTINF:6,\nseg.ts\n#EXT-X-ENDLIST\n"))
 		case "/vod/key":
 			fmt.Fprint(w, "0123456789abcdef")
 		case "/vod/low/init.mp4":
 			fmt.Fprint(w, "init")
 		case "/vod/low/seg.ts":
+			if r.Header.Get("Range") != "bytes=1-3" || r.Header.Get("If-Range") != etag {
+				t.Errorf("segment lost browser range: Range=%q If-Range=%q", r.Header.Get("Range"), r.Header.Get("If-Range"))
+			}
 			w.Header().Set("Content-Type", "video/mp2t")
+			w.Header().Set("ETag", etag)
 			http.ServeContent(w, r, "seg.ts", time.Time{}, bytes.NewReader([]byte("abcdef")))
 		default:
 			http.NotFound(w, r)
@@ -69,6 +79,10 @@ func TestMediaProxyRewritesNestedHLSAndPreservesRangeAndHeaders(t *testing.T) {
 	}))
 	defer upstream.Close()
 	c, play := declaredMedia(t, upstream.URL+"/entry.m3u8", video.FormatHLS)
+	// Source headers can carry a default range for media, but playlists must
+	// always be fetched whole so the proxy can rewrite every referenced URL.
+	play.Header.Set("Range", "bytes=0-7")
+	play.Header.Set("If-Range", etag)
 	proxy, err := NewMediaProxy(c, "media_probe", play)
 	if err != nil {
 		t.Fatal(err)
@@ -115,6 +129,7 @@ func TestMediaProxyRewritesNestedHLSAndPreservesRangeAndHeaders(t *testing.T) {
 	}
 	req, _ := http.NewRequest(http.MethodGet, local.URL+segment.URI, nil)
 	req.Header.Set("Range", "bytes=1-3")
+	req.Header.Set("If-Range", etag)
 	response, err := client.Do(req)
 	if err != nil {
 		t.Fatal(err)
@@ -124,8 +139,8 @@ func TestMediaProxyRewritesNestedHLSAndPreservesRangeAndHeaders(t *testing.T) {
 	if err != nil || response.StatusCode != http.StatusPartialContent || string(body) != "bcd" || response.Header.Get("Content-Range") != "bytes 1-3/6" {
 		t.Fatalf("segment range = %d %q %q, %v", response.StatusCode, body, response.Header.Get("Content-Range"), err)
 	}
-	if play.Header.Get("Range") != "" {
-		t.Fatal("a range request changed the source declaration")
+	if play.Header.Get("Range") != "bytes=0-7" || play.Header.Get("If-Range") != etag {
+		t.Fatal("proxy requests changed the source declaration")
 	}
 	proxy.Close()
 	response, err = client.Get(local.URL + proxy.RootPath())

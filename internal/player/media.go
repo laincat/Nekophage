@@ -155,7 +155,12 @@ func (p *MediaProxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if headers == nil {
 		headers = make(http.Header)
 	}
-	if !item.playlist {
+	if item.playlist {
+		// A playlist must be complete before rewriting its URLs. Source-level
+		// range defaults apply to media bytes, not the manifest document.
+		headers.Del("Range")
+		headers.Del("If-Range")
+	} else {
 		for _, key := range []string{"Range", "If-Range"} {
 			if value := r.Header.Get(key); value != "" {
 				headers.Set(key, value)

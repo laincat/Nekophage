@@ -4,6 +4,12 @@ English | [简体中文](STATUS.md)
 
 Updated 2026-11-03. Sections distinguish Windows live sites, loopback media fixtures, native windows, unit tests and macOS.
 
+## HLS playlists do not inherit the source Range (2026-11-03)
+
+Default `Range`/`If-Range` headers from a source declaration also reached HLS playlist requests. Extending the existing nested HLS regression reproduced it over real HTTP: before the fix the server received `Range: bytes=0-7` and returned 206 with a truncated playlist, preventing URL rewriting; log `E:/Temp/nk-hls-declared-range-before.log`. The proxy now removes those two headers for identified playlists while retaining source headers such as Referer. Media segments still inherit source defaults and accept player ranges without mutating the original declaration.
+
+`go test -race -count=1 ./internal/player` passes. The existing test checks the root playlist redirect, nested rewriting, key/init fetches, segment `206`/`Content-Range`/actual bytes and headers; log `E:/Temp/nk-hls-declared-range-after.log`. The Windows WebView check `go run ./cmd/subcheck -dir internal/player/testdata/hls-subs` also passes: English remains selected after reopening and the active cue is `Subtitle rendering proof`; log `E:/Temp/nk-hls-declared-range-subtitle.log`. The former is an HTTP regression and the latter a local HLS subtitle window check; neither establishes live-site behavior. The earlier `e578d29` Windows packages do not contain this fix.
+
 ## Core pin moved to `4f213ff` and the `URL` class proved through a source (2026-11-03)
 
 The pin used to be `8e14aad`, from before the source realm had `URL`/`URLSearchParams`. Core gaining them did not mean the desktop used them while it still linked the old pin. `scripts/core-version` and `build/core` are now **`4f213ff`**, and the client repository gained `TestSourceURLClassIsUsableThroughAComicSource`: it installs a real source script that reads `host`/`href` through `new URL`, edits a query through `URLSearchParams`, and returns the result through `Core.Search`. That probe first exposed Core leaving a special-scheme host in its original case (`Images.Example.Test`); Core `4f213ff` fixes it and the probe passes.
