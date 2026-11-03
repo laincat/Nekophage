@@ -8,7 +8,7 @@
 
 此前 pin 是 `8e14aad`,源作用域还没有 `URL`/`URLSearchParams`。Core 补上这两个类后,桌面端仍然链的是旧 pin,所以「Core 有修复」并不等于「客户端用上了」。现在 `scripts/core-version` 与 `build/core` 都是 **`4f213ff`**,并在客户端仓内新增 `TestSourceURLClassIsUsableThroughAComicSource`:装一条真源脚本,让它用 `new URL` 取 `host`/`href`、用 `URLSearchParams` 改查询,再走 `Core.Search` 拿结果。这个探针先暴露了 Core 未按标准把特殊 scheme 主机名转小写(`Images.Example.Test` 原样返回),Core `4f213ff` 修掉后通过。
 
-`sh scripts/check.sh` 全项通过(gofmt、pin、vet、race 测试、docs、partitions、capabilities),日志 `E:/Temp/nk-pin-4f213ff-check.log`;探针日志 `E:/Temp/nk-pin-4f213ff-urlprobe2.log`。这只证明单测与 Core 模块路径,不等于窗口套件已在新 pin 上重跑。
+`sh scripts/check.sh` 全项通过(gofmt、pin、vet、race 测试、docs、partitions、capabilities),日志 `E:/Temp/nk-pin-4f213ff-check.log`;URL 源探针日志 `E:/Temp/nk-pin-4f213ff-urlprobe2.log`。随后在桌面提交 `c36875d`、Core `4f213ff` 上设置 `NK_OFFICIAL_SRC=E:/Temp/nkprobe/official-srcs`,运行 `bash scripts/desktop-probes.sh`,结果 **19 PASS / 0 FAIL / 0 SKIP**,日志 `E:/Temp/nk-desktop-pin-4f213ff-probes.log`。其中视频、阅读与字幕使用本地夹具;官方源目录用于回调与标签测试,不代表真实站点或账号已验证。
 
 ## 升 pin 后的 Windows 包(2026-11-03,`e578d29`)
 
