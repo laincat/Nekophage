@@ -175,6 +175,25 @@ func main() {
 				}
 			}
 			checked.Store(true)
+			// The checks below move and reload the page, which only means anything
+			// once the reader itself is there. The window opens before the source
+			// answers, so a scroll at a fixed wait can land on the empty document
+			// that is about to be replaced — the reader then never sees it and the
+			// place is never stored.
+			ready := false
+			for i := 0; i < 120 && !ready; i++ {
+				v, err := view.Page().Eval("document.readyState === 'complete' && document.querySelectorAll('#pages figure').length")
+				if err == nil {
+					if n, ok := v.(float64); ok && n > 0 {
+						ready = true
+						break
+					}
+				}
+				time.Sleep(250 * time.Millisecond)
+			}
+			if !ready {
+				checkErr = fmt.Errorf("the reader page never reached a loaded state")
+			}
 			checkErr = nil
 			if *retryCheck {
 				// The decode assertion below reads the page before the retry, which is
@@ -286,11 +305,22 @@ func main() {
 				// distance comes from the page, not from a fixed number: a fixture
 				// page shorter than the target would fail here for being short, and a
 				// page that cannot scroll at all would pass on a threshold of zero.
+				// Clear the stored place before moving: the profile survives between
+				// runs, and a key left by an earlier one would be what the reader
+				// restores, so the check would measure the store instead of the
+				// restore. Clearing first also means the value written below is this
+				// run's.
 				raw, err := view.Page().Eval(`(() => {
+					localStorage.removeItem('nkreader.at:loopback_pages/one/1');
+					localStorage.removeItem('nkreader.at:loopback_pages/one/1:pct');
 					const maxY = Math.max(0, document.body.scrollHeight - innerHeight);
-					const t = Math.min(1200, Math.max(0, maxY - 40));
+					let t = Math.min(1200, Math.max(0, maxY - 40));
+					// A page restored from a stale key can already sit exactly here,
+					// and a scroll to where it already is fires no event — so nothing
+					// is written and the reopen has nothing to restore. Move anyway.
+					if (Math.abs(scrollY - t) < 2) t = Math.max(0, Math.min(maxY, t + 40));
 					scrollTo(0, t);
-					return Math.round(t);
+					return Math.round(scrollY);
 				})()`)
 				moved, _ := raw.(float64)
 				if err != nil || moved < 100 {
@@ -298,7 +328,7 @@ func main() {
 				}
 				if checkErr == nil {
 					time.Sleep(1 * time.Second)
-					if saved, serr := view.Page().Eval("JSON.stringify([scrollY, localStorage.length])"); serr == nil {
+					if saved, serr := view.Page().Eval("JSON.stringify([scrollY, localStorage.length, localStorage.getItem('nkreader.at:loopback_pages/one/1')])"); serr == nil {
 						log.Printf("settled at %v after moving to %v", saved, moved)
 					}
 					if err := view.Page().LoadURL(target); err != nil {
@@ -313,11 +343,14 @@ func main() {
 						// it scrolled somewhere. Allow a fifth of the distance for a
 						// page whose height changed between visits, and floor it so a
 						// small move is not compared proportionally.
+						// The target is the place this probe moved to, not whatever the
+						// store says: trusting the store would let a stale value agree
+						// with itself.
 						want, _ := saved.(string)
-						target := moved
-						if n, convErr := strconv.ParseFloat(want, 64); convErr == nil && n > 0 {
-							target = n
+						if stored, convErr := strconv.ParseFloat(want, 64); convErr != nil || stored != moved {
+							checkErr = fmt.Errorf("the store says %v, but the probe scrolled to %v", saved, moved)
 						}
+						target := moved
 						slack := target * 0.2
 						if slack < 80 {
 							slack = 80

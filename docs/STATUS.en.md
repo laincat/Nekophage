@@ -69,6 +69,18 @@ All three reading checks ran on the repository fixture and exited 0:
 
 The third one deserves a question mark: macOS landed on **3207**, while the same operation on Windows returns exactly 1200 under the stricter rule described above. I tightened that rule from "at least 80%" to "within 20% of the saved value" (floor 80 px); Windows still reports `scrollY=1200 saved=1200` twice, but the macOS run predates the change, so whether 3207 is a defect is not settled — the Mac side has been asked to re-run with the new rule. The 20,756-byte captures hold only the native layer, not WebView pixels; the rendering evidence is `decoded=2 / images=2`.
 
+## The intermittent reading-place failure was "nothing moved", not "nothing remembered" (2026-11-03)
+
+With the stricter rule (within 20% of the saved value), `-scroll` started failing about half the time: after reopening, `scrollY=0` and no place key in storage, even though `scrollY` was 1200 at the moment of the scroll.
+
+The cause was the probe, not the app: **it cleared the store and then scrolled to 1200, while the page had already been restored to 1200 from the old key**. Scrolling to where the page already is fires no scroll event, the reader writes nothing, and the reopen has nothing to restore. That is also why failing runs had two fewer keys — neither the place nor the percentage was written.
+
+The fix is not a sampling patch but making the step **never a no-op**: if the target is within 2 px of the current position, offset by 40 px first, and return the **actual** `scrollY` as the baseline. The check then also requires the stored value to equal that baseline, failing with "the store says X but the probe scrolled to Y" otherwise. Before moving, it waits for the page to be really loaded (`readyState === 'complete'` and `#pages figure` populated) so it never scrolls the empty document that is about to be replaced.
+
+Measured: four consecutive runs pass (`scrollY=1240 saved=1240` or `scrollY=1200 saved=1200`, depending on whether the 40 px offset was needed), and the window suite with retries disabled passes **12 PASS / 0 FAIL** three times. Logs `E:/Temp/nk-nudge-{1..4}.log` and `E:/Temp/nk-probes-nudge-{1,2,3}.log`.
+
+This also explains the macOS `scrollY=3207`: the old rule compared against "where the probe meant to go", while the reopened position may have come from a stale stored value. The new probe fails when the store disagrees with the baseline, so one macOS run settles it.
+
 ## The intermittent window failures, traced to their causes (2026-11-03)
 
 Running the suite back to back occasionally produced "one entry FAILs while its log is full of PASSes" or "a dialog window was never opened". Three separate things, not one blanket retry:
