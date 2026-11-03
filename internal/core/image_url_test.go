@@ -85,6 +85,44 @@ func TestImageWithAnUnsafeSchemeIsRefused(t *testing.T) {
 	}
 }
 
+// Official sources build addresses with the standard URL class: manhuaren
+// reads `new URL(imageUrl).host`. The engine's own realm must provide it, and
+// link URLs back to their search parameters, or a source that works elsewhere
+// fails here for a reason that looks like a source bug.
+func TestSourceURLClassIsUsableThroughAComicSource(t *testing.T) {
+	c, err := Open(Options{DataDir: t.TempDir(), AppVersion: "1.6.3", Locale: "zh_CN"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer c.Close()
+
+	if _, err := c.Install(context.Background(), `class UrlProbe extends ComicSource {
+  name = "UrlProbe"; key = "urlprobe"; version = "1.0.0"
+  search = {load: async (keyword) => {
+    const u = new URL("https://Images.Example.Test:8443/a/b.jpg?x=1&y=2")
+    const p = new URLSearchParams("x=1&y=2")
+    p.set("z", "3")
+    return {comics: [{id: keyword, title: u.host + "|" + p.toString(), cover: u.href}], maxPage: 1}
+  }}
+}`, "test", ""); err != nil {
+		t.Fatalf("install: %v", err)
+	}
+
+	page, err := c.Search(context.Background(), "urlprobe", "probe", nil, 1)
+	if err != nil {
+		t.Fatalf("search: %v", err)
+	}
+	if len(page.Comics) != 1 {
+		t.Fatalf("search returned %d comics", len(page.Comics))
+	}
+	if got, want := page.Comics[0].Title, "images.example.test:8443|x=1&y=2&z=3"; got != want {
+		t.Fatalf("URL results = %q, want %q", got, want)
+	}
+	if got, want := page.Comics[0].Cover, "https://images.example.test:8443/a/b.jpg?x=1&y=2"; got != want {
+		t.Fatalf("URL href = %q, want %q", got, want)
+	}
+}
+
 // A source that returns no image address leaves the reader saying only "not
 // http(s)"; the log names the address it got, which is what makes that
 // actionable.
