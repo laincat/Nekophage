@@ -2,7 +2,13 @@
 
 [English](STATUS.en.md) | 简体中文
 
-更新:2026-11-03。以下按章节区分 Windows 真实站点、loopback 媒体夹具、原生窗口、单测与 macOS 的证据。最新进展:macOS 阅读主线与 ad-hoc 打包启动已验;桌面窗口套件现在是**无外部变量 17 项 / 给齐脚本 19 项**(新增本地视频播放、字幕跨重开、原生搜索与详情、进度上报与阅读位置),全部并入 `scripts/desktop-probes.sh`;不以本地夹具代替真实账号或站点验证。
+更新:2026-11-03。以下按章节区分 Windows 真实站点、loopback 媒体夹具、原生窗口、单测与 macOS 的证据。
+
+## Core pin 升到 `4f213ff`,并用真实源脚本验 `URL`(2026-11-03)
+
+此前 pin 是 `8e14aad`,源作用域还没有 `URL`/`URLSearchParams`。Core 补上这两个类后,桌面端仍然链的是旧 pin,所以「Core 有修复」并不等于「客户端用上了」。现在 `scripts/core-version` 与 `build/core` 都是 **`4f213ff`**,并在客户端仓内新增 `TestSourceURLClassIsUsableThroughAComicSource`:装一条真源脚本,让它用 `new URL` 取 `host`/`href`、用 `URLSearchParams` 改查询,再走 `Core.Search` 拿结果。这个探针先暴露了 Core 未按标准把特殊 scheme 主机名转小写(`Images.Example.Test` 原样返回),Core `4f213ff` 修掉后通过。
+
+`sh scripts/check.sh` 全项通过(gofmt、pin、vet、race 测试、docs、partitions、capabilities),日志 `E:/Temp/nk-pin-4f213ff-check.log`;探针日志 `E:/Temp/nk-pin-4f213ff-urlprobe2.log`。这只证明单测与 Core 模块路径,不等于窗口套件已在新 pin 上重跑。
 
 ## 媒体断流保留传输错误(2026-11-03)
 

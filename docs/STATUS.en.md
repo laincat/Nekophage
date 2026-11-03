@@ -2,7 +2,13 @@
 
 English | [简体中文](STATUS.md)
 
-Updated 2026-11-03. Sections distinguish Windows live sites, loopback media fixtures, native windows, unit tests and macOS. Recent progress: the macOS reading mainline and an ad-hoc bundle launch are verified, and the desktop window suite is now **17 with no external variables and 19 with every script** (local video playback, subtitles across a reopen, the native search and detail pages, progress reporting and the reading place), all folded into `scripts/desktop-probes.sh`. Local fixtures do not establish real-account or live-site behaviour.
+Updated 2026-11-03. Sections distinguish Windows live sites, loopback media fixtures, native windows, unit tests and macOS.
+
+## Core pin moved to `4f213ff` and the `URL` class proved through a source (2026-11-03)
+
+The pin used to be `8e14aad`, from before the source realm had `URL`/`URLSearchParams`. Core gaining them did not mean the desktop used them while it still linked the old pin. `scripts/core-version` and `build/core` are now **`4f213ff`**, and the client repository gained `TestSourceURLClassIsUsableThroughAComicSource`: it installs a real source script that reads `host`/`href` through `new URL`, edits a query through `URLSearchParams`, and returns the result through `Core.Search`. That probe first exposed Core leaving a special-scheme host in its original case (`Images.Example.Test`); Core `4f213ff` fixes it and the probe passes.
+
+`sh scripts/check.sh` passes every step (gofmt, pin, vet, race tests, docs, partitions, capabilities); log `E:/Temp/nk-pin-4f213ff-check.log`, probe log `E:/Temp/nk-pin-4f213ff-urlprobe2.log`. This covers unit tests and the Core module path only; it is not a re-run of the window suite on the new pin.
 
 
 The four CI jobs of Core's `6e07429` are green (three Go platforms plus Apple's xcframework with two Swift smoke tests), checked on 2026-11-01.
