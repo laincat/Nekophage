@@ -2,6 +2,12 @@
 
 [English](STATUS.en.md) | 简体中文
 
+## 主线字幕修复安装包验收(2026-11-03)
+
+Lead 已构建并实际安装 0.2.7/`bf9cbd9`(Core `4f213ff`)。ZIP 21,566,978 bytes,安装器 18,720,774 bytes;CRC、逐文件摘要、实际版本与安装后 exe 一致性通过,产物和构建日志位于 `E:/Temp/nk-subtitle-package/`。使用此前测试实际保存的英文字幕/3.030709 秒资料的副本,仅调整本地夹具地址,经原生搜索建立夹具会话后继续观看:英文 Subtitle rendering proof 实际可见。通过字幕控件选择关闭后文字消失且 off=true 落盘;正常逐窗退出并启动新进程后,关闭选择仍保留,恢复位置仍为 3.030709,视频区域逐像素一致。
+
+回执、校验和截图见 `E:/Temp/nk-subtitle-package/accept-8acc7abc/receipt.json`、`verify.log`、`restored-english.png`、`off.png`、`reopened-off.png`。两轮应用均正常关闭,本任务夹具停止、临时安装卸载,实际资料文件哈希不变。此结果属于 bf9cbd9/Core 4f213ff 的 Windows 安装版,不代替 Core 3be57b5 候选安装包或 macOS 验收;夹具无音轨,不证明扬声器或真实账号自动登录。
+
 ## 修复已保存字幕被 HLS 默认选择覆盖(2026-11-03)
 
 安装版 f7b99d1 曾出现 English 已选但未请求字幕清单。Lead 用既有 subcheck 加预置英文资料在 Core 3be57b5 上复现:视频已解码 320 像素宽,时间为 1 秒,下拉框 English,却无 showing 字幕轨或活动文本。HLS.js 1.7.4 的 switchLevel 先计算默认轨,发出 SUBTITLE_TRACKS_UPDATED 后才应用它;页面在该通知里同步恢复设置,会被覆盖。现将该回调里的恢复动作放到 microtask,待 HLS 完成本次内部选择后应用用户选择。

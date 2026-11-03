@@ -2,6 +2,12 @@
 
 English | [简体中文](STATUS.md)
 
+## Installed acceptance of the mainline subtitle fix (2026-11-03)
+
+The Lead built and installed 0.2.7/`bf9cbd9` (Core `4f213ff`). The ZIP is 21,566,978 bytes and setup is 18,720,774 bytes; CRC, individual hashes, actual version and installed-exe identity pass. Artifacts and build log: `E:/Temp/nk-subtitle-package/`. A copy of previously observed English-subtitle/3.030709-second data was used, changing only the local fixture address. Native search established the fixture session, then Continue Watching visibly restored Subtitle rendering proof. Selecting off through the caption control removed the text and persisted off=true. After normal closure of all windows and a new process, off remained selected, the restored position was still 3.030709, and video pixels matched exactly.
+
+Receipt, verification and screenshots: `E:/Temp/nk-subtitle-package/accept-8acc7abc/receipt.json`, `verify.log`, `restored-english.png`, `off.png`, `reopened-off.png`. Both app processes closed normally, the owned fixture stopped, the temporary installation was uninstalled, and profile-file hashes remained unchanged. This accepts the Windows bf9cbd9/Core 4f213ff installed build, not the Core 3be57b5 installed candidate or macOS. The fixture has no audio and does not establish speaker output or real-account automatic login.
+
 ## Fix saved subtitles overwritten by the HLS default (2026-11-03)
 
 Installed f7b99d1 once displayed English without requesting a subtitle playlist. The Lead reproduced it with the existing subcheck and a saved English profile at Core 3be57b5: decoded width 320, position one second, English selected, but no showing track or active text. HLS.js 1.7.4 switchLevel computes a default, emits SUBTITLE_TRACKS_UPDATED and then applies that default, overwriting a choice restored synchronously by the page listener. The listener now schedules restoration in a microtask after HLS completes its internal selection.
