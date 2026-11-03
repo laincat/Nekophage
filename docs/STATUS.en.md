@@ -2,6 +2,12 @@
 
 English | [简体中文](STATUS.md)
 
+## Core 3be57b5 Windows reader follow-up (2026-11-03)
+
+The Lead ran the existing readercheck at candidate `7c0dac0` (functional code `f7b99d1`), Core `3be57b5`, with fresh business/WebView data and one intentional local image-server failure. Initially one of two pages decoded and one retry notice appeared. Invoking the reader retry button cleared the failure and decoded both pages. The page itself stored 55% progress with only this chapter’s storage key; the first page appeared on the right in two-page RTL layout; scrolling to 1200 saved and reopened at 1200. `go run ./cmd/readercheck -script internal/reader/testdata/loopback_source.js -query probe -serve 18731 -fail 1 -retry -progress -layout -scroll` passed; exact arguments and log: `E:/Temp/nk-3be-candidates/reader-f06c59ad/reader.log`. This covers the Windows native development reader, page-driven controls and same-process reopen, not installed-reader UI or macOS. The native screenshot excludes the web layer.
+
+Mac source transfer remains unresolved: no active physical en interface had a 192.168.31.* address, so no further curl ran. Cindy currently has no configured SSH hosts to reuse. The existing Mac Worker is validating iOS response heads over real HTTP; no duplicate desktop or full-UI assignment was made.
+
 ## Core 3be57b5 installed-media follow-up (2026-11-03)
 
 The Lead installed functional commit `f7b99d1`/Core `3be57b5` on Windows with fresh business/WebView directories, seeding only the local source definition, without cookies or progress. Native search→details→episode selection opened HLS playback with visible Chinese and English captions. The first playback reached the end and cleared progress by the existing completion rule. Seeking with the native progress bar then saved `3.030709` seconds. After normal closure of all windows and exit of the old process, the new process established the fixture session through search and used Continue Watching. Its page start was `3.030709`, English remained selected, and resumed video pixels exactly matched the saved frame. All manifests returned 200 without Range; authenticated media ranges returned 206 with exact lengths.

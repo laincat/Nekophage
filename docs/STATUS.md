@@ -2,6 +2,12 @@
 
 [English](STATUS.en.md) | 简体中文
 
+## Core 3be57b5 Windows 阅读补验(2026-11-03)
+
+Lead 在候选 `7c0dac0`(功能代码 `f7b99d1`)、Core `3be57b5` 的全新业务/WebView 资料下运行既有 readercheck,并令本地图片服务首次返回错误。初次两页中解码一页、出现一条重试提示;调用阅读器重试按钮后失败数归零且两页均解码。页面自身写出 55% 进度,仅有本次章节存储键;双页右起时第一页面位于右侧;移动到 1200 后保存并重开恢复 1200。命令 `go run ./cmd/readercheck -script internal/reader/testdata/loopback_source.js -query probe -serve 18731 -fail 1 -retry -progress -layout -scroll` 通过,日志与精确参数见 `E:/Temp/nk-3be-candidates/reader-f06c59ad/reader.log`。这是 Windows 原生开发阅读器、页面内控制操作和同进程重开;不是安装版阅读器 UI 或 macOS 结果,原生截图不包含 Web 图层。
+
+Mac 源码传输仍待解决:物理网段检查未发现 192.168.31.* 活动 en 接口,因此未继续 curl;Cindy 当前 SSH 主机列表为空,没有可直接复用的 SSH 连接。既有 Mac Worker 正在做 iOS 响应头的真实 HTTP 定向验证,未重复派发桌面或完整 UI。
+
 ## Core 3be57b5 安装版媒体追加验收(2026-11-03)
 
 Lead 在 Windows 实际安装功能提交 `f7b99d1`/Core `3be57b5`,使用全新业务与 WebView 目录,只预置本地源定义,不注入 Cookie 或进度。原生搜索→详情→选集进入 HLS 播放,中文与英文字幕实际可见。首次播放到片尾后按既定规则清除进度;通过原生进度条定位后,页面保存 `3.030709` 秒。旧进程经正常逐窗关闭退出,新进程经搜索建立夹具会话后点「继续观看」,页面 start 值为 `3.030709`,英文选择保留,恢复视频区域与保存帧逐像素相同。所有清单均为无 Range 的 200,媒体均为鉴权通过、长度准确的 206 Range。
