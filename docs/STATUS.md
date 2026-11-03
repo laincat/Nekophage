@@ -6,7 +6,7 @@
 
 安装版 f7b99d1 曾出现 English 已选但未请求字幕清单。Lead 用既有 subcheck 加预置英文资料在 Core 3be57b5 上复现:视频已解码 320 像素宽,时间为 1 秒,下拉框 English,却无 showing 字幕轨或活动文本。HLS.js 1.7.4 的 switchLevel 先计算默认轨,发出 SUBTITLE_TRACKS_UPDATED 后才应用它;页面在该通知里同步恢复设置,会被覆盖。现将该回调里的恢复动作放到 microtask,待 HLS 完成本次内部选择后应用用户选择。
 
-同条件修复前失败、修复后真实 Windows WebView 显示 Subtitle rendering proof 并重开保留;默认中文切英文、预置英文切关闭并重开也通过。已有 desktop-probes 字幕流程增加 saved-english.json 回归资料,复用 subcheck,并在选择关闭前断言英文活动 cue。证据 `E:/Temp/nk-subtitle-restore-order/`。这些是开发窗口回归,不是旧 f7b99d1 安装包已修复,也不代表 macOS 已验证;安装版需基于新提交重建复测。
+同条件修复前失败、修复后真实 Windows WebView 显示 Subtitle rendering proof 并重开保留;默认中文切英文、预置英文切关闭并重开也通过。已有 desktop-probes 字幕流程增加 saved-english.json 回归资料,复用 subcheck,并在选择关闭前断言英文活动 cue。证据 `E:/Temp/nk-subtitle-restore-order/`。候选功能提交为 `ca8f370`/Core 3be57b5;相同修复已回移到真正 main 的 `bf9cbd9`/Core 4f213ff,主线七项检查与英文活动 cue→关闭→重开回归也通过,证据 `E:/Temp/nk-subtitle-restore-order/main-runtime/`。这些是开发窗口回归,不是旧 f7b99d1 安装包已修复,也不代表 macOS 已验证;安装版需基于新提交重建复测。
 
 ## Core 3be57b5 Windows 阅读补验(2026-11-03)
 
