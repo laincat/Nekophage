@@ -75,7 +75,9 @@ Nekophage 的 pin 从 `214e7782` 升到 `8e14aad`,也就是包含 `b2610a5`(异�
 
 `cmd/videocheck` 早就有,但只在手动跑。现在它进了 `scripts/desktop-probes.sh`:仓内夹具 `internal/player/testdata/hls/stream.mp4` 经媒体代理播放,判据是三条——位置**自己**前进(`currentTime` 两次读取递增)、页面没有错误文本、播放器在暂停时上报了进度。窗口截图只拍到原生层,所以证据是页面自己报的数字。
 
-实测:`readyState=4 videoWidth=320 duration=10.066667 time=2.0684 -> 4.0696 hls.js=1.7.4 err=""`,退出 0。窗口套件因此变成无外部变量 **10 PASS / 3 SKIP**,给齐变量 **16 PASS / 0 FAIL / 0 SKIP**。日志 `E:/Temp/nk-video-head.log`、`E:/Temp/nk-probes-with-video.log`。
+实测:`readyState=4 videoWidth=320 duration=10.066667 time=2.0674 -> 4.0688 hls.js=1.7.4 err=""`,退出 0。
+
+同一条检查还验证**字节范围**:从页面真实请求过的 `/media/…` 地址再发一次 `Range: bytes=0-1023`,要求 `206`、有 `Content-Range`、且只回 1024 字节。实测 `status=206 content-range="bytes 0-1023/178570" bytes=1024`——拖进度条要用到它,而整包返回的播放器在拖动前看起来一切正常。窗口套件因此变成无外部变量 **10 PASS / 3 SKIP**,给齐变量 **16 PASS / 0 FAIL / 0 SKIP**。日志 `E:/Temp/nk-video-head.log`、`E:/Temp/nk-probes-with-video.log`。
 
 ## 进度上报与阅读位置进入默认窗口套件(2026-11-03)
 

@@ -12,6 +12,7 @@ package main
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"log"
@@ -19,6 +20,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/egoist/mygo"
@@ -34,6 +36,7 @@ func main() {
 	mediaPath := flag.String("media", "", "local mp4 to play")
 	out := flag.String("out", "video.png", "where to write the window capture")
 	wait := flag.Duration("wait", 25*time.Second, "how long the clip may take to start")
+	rangeCheck := flag.Bool("range", false, "check that a byte range through the proxy answers 206")
 	flag.Parse()
 	if *mediaPath == "" {
 		flag.Usage()
@@ -170,6 +173,55 @@ func main() {
 			}
 			if text, ok := errText.(string); ok && text != "" {
 				checkErr = fmt.Errorf("the page reported: %s", text)
+			}
+			if *rangeCheck {
+				// Seeking is the reason the proxy has to pass Range through, and a
+				// player that only ever gets whole files looks fine until someone
+				// drags the scrubber. The request goes to an address the page really
+				// fetched, not to a URL this tool made up.
+				raw, err := view.Page().Eval(`JSON.stringify(performance.getEntriesByType('resource').map(e => e.name).filter(n => n.indexOf('/media/') !== -1))`)
+				var urls []string
+				if err == nil {
+					_ = json.Unmarshal([]byte(fmt.Sprint(raw)), &urls)
+				}
+				switch {
+				case len(urls) == 0:
+					checkErr = fmt.Errorf("the page recorded no proxied media request: %v (err %v)", raw, err)
+				default:
+					req, reqErr := http.NewRequest(http.MethodGet, strings.Replace(urls[0], "https://", "http://", 1), nil)
+					if reqErr != nil {
+						checkErr = reqErr
+						break
+					}
+					req.Header.Set("Range", "bytes=0-1023")
+					resp, doErr := http.DefaultClient.Do(req)
+					if doErr != nil {
+						checkErr = fmt.Errorf("range request: %w", doErr)
+						break
+					}
+					body := make([]byte, 0, 2048)
+					buf := make([]byte, 512)
+					for {
+						n, readErr := resp.Body.Read(buf)
+						body = append(body, buf[:n]...)
+						if readErr != nil {
+							break
+						}
+						if len(body) > 4096 {
+							break
+						}
+					}
+					resp.Body.Close()
+					log.Printf("range: url=%s status=%d content-range=%q bytes=%d",
+						urls[0], resp.StatusCode, resp.Header.Get("Content-Range"), len(body))
+					if resp.StatusCode != http.StatusPartialContent {
+						checkErr = fmt.Errorf("a byte range answered %d, not 206", resp.StatusCode)
+					} else if resp.Header.Get("Content-Range") == "" {
+						checkErr = fmt.Errorf("206 without Content-Range")
+					} else if len(body) > 1024 {
+						checkErr = fmt.Errorf("asked for 1024 bytes, got %d", len(body))
+					}
+				}
 			}
 			// The page reports progress on pause; ask for one explicitly.
 			_, _ = view.Page().Eval("document.getElementById('v').pause(); 0")

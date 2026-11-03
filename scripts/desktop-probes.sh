@@ -101,9 +101,9 @@ report "$rc" "reopening a chapter returns to its place" "$out/reader-scroll.log"
 # to keep decoding, the position has to advance on its own, and the player has
 # to report progress. A local clip through the media proxy needs no site.
 rc=0
-go run ./cmd/videocheck -media internal/player/testdata/hls/stream.mp4 \
+go run ./cmd/videocheck -media internal/player/testdata/hls/stream.mp4 -range \
 	-out "$out/video.png" >"$out/video.log" 2>&1 || rc=$?
-report "$rc" "a local clip plays and reports progress" "$out/video.log"
+report "$rc" "a local clip plays, reports progress and honours byte ranges" "$out/video.log"
 
 # A subtitle choice has to outlive the page: choosing English, closing and
 # reopening used to fall back to the manifest default. The cue itself must be

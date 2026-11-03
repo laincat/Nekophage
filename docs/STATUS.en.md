@@ -80,7 +80,9 @@ The window suite is therefore **11 PASS / 3 SKIP** with no external variables an
 
 `cmd/videocheck` existed but only ran by hand. It is now part of `scripts/desktop-probes.sh`: the repository clip `internal/player/testdata/hls/stream.mp4` plays through the media proxy, and three things have to hold — the position advances **by itself** (two reads of `currentTime` increase), the page shows no error text, and the player reports progress when paused. The window capture only holds the native layer, so the numbers the page reports are the evidence.
 
-Measured: `readyState=4 videoWidth=320 duration=10.066667 time=2.0684 -> 4.0696 hls.js=1.7.4 err=""`, exit 0. The window suite is therefore **10 PASS / 3 SKIP** with no external variables and **16 PASS / 0 FAIL / 0 SKIP** with all of them. Logs `E:/Temp/nk-video-head.log` and `E:/Temp/nk-probes-with-video.log`.
+Measured: `readyState=4 videoWidth=320 duration=10.066667 time=2.0674 -> 4.0688 hls.js=1.7.4 err=""`, exit 0.
+
+The same check covers **byte ranges**: it takes an address the page actually fetched under `/media/…` and asks again with `Range: bytes=0-1023`, requiring `206`, a `Content-Range` and 1024 bytes back. Measured `status=206 content-range="bytes 0-1023/178570" bytes=1024` — seeking depends on it, and a player that only ever returns whole files looks fine until someone drags the scrubber. The window suite is therefore **10 PASS / 3 SKIP** with no external variables and **16 PASS / 0 FAIL / 0 SKIP** with all of them. Logs `E:/Temp/nk-video-head.log` and `E:/Temp/nk-probes-with-video.log`.
 
 ## Progress reporting and the reading place join the default window suite (2026-11-03)
 
