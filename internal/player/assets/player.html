@@ -209,7 +209,11 @@
       }
     });
     hls.on(Hls.Events.MANIFEST_PARSED, function () { noteAudio(true); });
-    hls.on(Hls.Events.SUBTITLE_TRACKS_UPDATED, updateHLSSubtitles);
+    hls.on(Hls.Events.SUBTITLE_TRACKS_UPDATED, function () {
+      // HLS.js applies its precomputed default after notifying listeners.
+      // Restore our choice after that call stack, or it can be overwritten.
+      queueMicrotask(updateHLSSubtitles);
+    });
     hls.on(Hls.Events.SUBTITLE_TRACK_SWITCH, function () {
       // data.id is a track id; the select's values are positions in the list
       // built from subtitleTracks. Recompute instead of assuming they match.

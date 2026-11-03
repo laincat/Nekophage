@@ -94,6 +94,7 @@ func main() {
 	work := flag.String("work", "", "where the shelf keeps the choice (a temporary directory by default)")
 	choose := flag.String("choose", "English", "the subtitle option to pick before reopening, including 关闭")
 	text := flag.String("text", "Subtitle rendering proof", "expected active cue text (ignored for 关闭)")
+	baselineText := flag.String("baseline-text", "", "optional active cue text required before changing the selection")
 	out := flag.String("out", "", "where to write the final window capture")
 	wait := flag.Duration("wait", 25*time.Second, "how long the page may take to load")
 	flag.Parse()
@@ -233,6 +234,9 @@ func main() {
 		}
 		// Wait until the manifest's subtitle groups have arrived: before that
 		// the select has only "关闭" and there is nothing to pick.
+		baselineMatches := func(s pageState) bool {
+			return s.ShowingText != "" && (*baselineText == "" || strings.Contains(s.ShowingText, *baselineText))
+		}
 		deadline := time.Now().Add(*wait)
 		var before pageState
 		for time.Now().Before(deadline) {
@@ -241,13 +245,13 @@ func main() {
 				return
 			}
 			before = state()
-			if len(before.Options) > 1 && !before.Hidden && before.VideoWidth > 0 && !before.Seeking && before.Time > 0.9 && before.ShowingText != "" {
+			if len(before.Options) > 1 && !before.Hidden && before.VideoWidth > 0 && !before.Seeking && before.Time > 0.9 && baselineMatches(before) {
 				break
 			}
 			time.Sleep(500 * time.Millisecond)
 		}
-		log.Printf("before: options=%v selected=%q hidden=%v hls=%s", before.Options, before.Selected, before.Hidden, before.HLS)
-		if len(before.Options) < 2 || before.VideoWidth == 0 || before.Seeking || before.Time < 0.9 || before.ShowingText == "" {
+		log.Printf("before: options=%v selected=%q hidden=%v hls=%s active=%q", before.Options, before.Selected, before.Hidden, before.HLS, before.ShowingText)
+		if len(before.Options) < 2 || before.VideoWidth == 0 || before.Seeking || before.Time < 0.9 || !baselineMatches(before) {
 			checkErr = fmt.Errorf("the fixture never displayed a decoded frame with an active baseline subtitle: %+v", before)
 			mygo.App.Quit()
 			return

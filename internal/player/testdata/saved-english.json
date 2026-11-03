@@ -1,0 +1,12 @@
+{
+  "videoSubtitles": [
+    {
+      "source": "sub_check",
+      "itemId": "clip",
+      "episodeId": "ep1",
+      "choice": { "name": "English", "language": "en" }
+    }
+  ],
+  "history": [],
+  "folders": []
+}

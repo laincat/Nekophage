@@ -124,6 +124,16 @@ go run ./cmd/subcheck -dir internal/player/testdata/hls-subs \
 	-out "$out/subtitle.png" >"$out/subtitle.log" 2>&1 || rc=$?
 report "$rc" "a subtitle choice survives reopening" "$out/subtitle.log"
 
+# A saved choice can arrive before HLS.js finishes selecting its default.
+# Restore English first, then choose off and reopen to check a real store update.
+restore_work=$(mktemp -d "$out/subtitle-restore.XXXXXX")
+cp internal/player/testdata/saved-english.json "$restore_work/shelf.json"
+rc=0
+go run ./cmd/subcheck -dir internal/player/testdata/hls-subs -work "$restore_work" \
+	-baseline-text 'Subtitle rendering proof' -choose '关闭' \
+	-out "$out/subtitle-restore.png" >"$out/subtitle-restore.log" 2>&1 || rc=$?
+report "$rc" "saved English renders before switching off and reopening" "$out/subtitle-restore.log"
+
 # Reading writes the shelf and the shelf reads it back; the file says which comic,
 # chapter and page, so this is not a picture comparison.
 run "reading lands on the shelf" \

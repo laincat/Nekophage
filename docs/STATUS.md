@@ -2,6 +2,12 @@
 
 [English](STATUS.en.md) | 简体中文
 
+## 修复已保存字幕被 HLS 默认选择覆盖(2026-11-03)
+
+安装版 f7b99d1 曾出现 English 已选但未请求字幕清单。Lead 用既有 subcheck 加预置英文资料在 Core 3be57b5 上复现:视频已解码 320 像素宽,时间为 1 秒,下拉框 English,却无 showing 字幕轨或活动文本。HLS.js 1.7.4 的 switchLevel 先计算默认轨,发出 SUBTITLE_TRACKS_UPDATED 后才应用它;页面在该通知里同步恢复设置,会被覆盖。现将该回调里的恢复动作放到 microtask,待 HLS 完成本次内部选择后应用用户选择。
+
+同条件修复前失败、修复后真实 Windows WebView 显示 Subtitle rendering proof 并重开保留;默认中文切英文、预置英文切关闭并重开也通过。已有 desktop-probes 字幕流程增加 saved-english.json 回归资料,复用 subcheck,并在选择关闭前断言英文活动 cue。证据 `E:/Temp/nk-subtitle-restore-order/`。这些是开发窗口回归,不是旧 f7b99d1 安装包已修复,也不代表 macOS 已验证;安装版需基于新提交重建复测。
+
 ## Core 3be57b5 Windows 阅读补验(2026-11-03)
 
 Lead 在候选 `7c0dac0`(功能代码 `f7b99d1`)、Core `3be57b5` 的全新业务/WebView 资料下运行既有 readercheck,并令本地图片服务首次返回错误。初次两页中解码一页、出现一条重试提示;调用阅读器重试按钮后失败数归零且两页均解码。页面自身写出 55% 进度,仅有本次章节存储键;双页右起时第一页面位于右侧;移动到 1200 后保存并重开恢复 1200。命令 `go run ./cmd/readercheck -script internal/reader/testdata/loopback_source.js -query probe -serve 18731 -fail 1 -retry -progress -layout -scroll` 通过,日志与精确参数见 `E:/Temp/nk-3be-candidates/reader-f06c59ad/reader.log`。这是 Windows 原生开发阅读器、页面内控制操作和同进程重开;不是安装版阅读器 UI 或 macOS 结果,原生截图不包含 Web 图层。

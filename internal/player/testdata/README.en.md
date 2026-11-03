@@ -2,6 +2,8 @@
 
 [简体中文](README.md) | English
 
+`saved-english.json` seeds subcheck with a saved English subtitle. Copy it as `shelf.json` into a fresh `-work` directory, then run `go run ./cmd/subcheck -work <directory> -baseline-text "Subtitle rendering proof" -choose 关闭`. The probe first requires an active English cue, then uses the page change handler to persist off and verifies it after reopening. This covers an internal HLS default overriding an early restored user choice and is included in existing desktop-probes; it is not installed-GUI interaction evidence.
+
 `hls/` contains ten seconds of 320×180 H.264 fMP4 HLS without an audio track. A master playlist points to a media playlist sharing one `stream.mp4`; its initialization fragment and five media fragments use `BYTERANGE`, exercising Range propagation during real decoding. These files belong to the development probe and are not embedded in the production application.
 
 The picture is **Big Buck Bunny**, © 2008 Blender Foundation, [peach.blender.org](https://peach.blender.org/), [CC BY 3.0](https://creativecommons.org/licenses/by/3.0/). The input is the ten-second sample used by Nekularity's `UITests/Fixtures/media/clip.mp4`, originally downloaded from `test-videos.co.uk`. This derivative scales, compresses and packages that clip as HLS without audio.

@@ -2,6 +2,12 @@
 
 English | [简体中文](STATUS.md)
 
+## Fix saved subtitles overwritten by the HLS default (2026-11-03)
+
+Installed f7b99d1 once displayed English without requesting a subtitle playlist. The Lead reproduced it with the existing subcheck and a saved English profile at Core 3be57b5: decoded width 320, position one second, English selected, but no showing track or active text. HLS.js 1.7.4 switchLevel computes a default, emits SUBTITLE_TRACKS_UPDATED and then applies that default, overwriting a choice restored synchronously by the page listener. The listener now schedules restoration in a microtask after HLS completes its internal selection.
+
+The same setup failed before the fix and passed afterward in a real Windows WebView, showing Subtitle rendering proof and retaining it on reopen. Default Chinese→English and saved English→off→reopen also pass. The existing desktop-probes subtitle flow adds saved-english.json data, reuses subcheck and asserts active English text before choosing off. Evidence: `E:/Temp/nk-subtitle-restore-order/`. These are development-window regressions, not a fix to the old f7b99d1 installed package or macOS acceptance; installed validation needs a rebuilt package.
+
 ## Core 3be57b5 Windows reader follow-up (2026-11-03)
 
 The Lead ran the existing readercheck at candidate `7c0dac0` (functional code `f7b99d1`), Core `3be57b5`, with fresh business/WebView data and one intentional local image-server failure. Initially one of two pages decoded and one retry notice appeared. Invoking the reader retry button cleared the failure and decoded both pages. The page itself stored 55% progress with only this chapter’s storage key; the first page appeared on the right in two-page RTL layout; scrolling to 1200 saved and reopened at 1200. `go run ./cmd/readercheck -script internal/reader/testdata/loopback_source.js -query probe -serve 18731 -fail 1 -retry -progress -layout -scroll` passed; exact arguments and log: `E:/Temp/nk-3be-candidates/reader-f06c59ad/reader.log`. This covers the Windows native development reader, page-driven controls and same-process reopen, not installed-reader UI or macOS. The native screenshot excludes the web layer.
