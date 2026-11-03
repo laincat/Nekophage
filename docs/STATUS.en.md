@@ -6,7 +6,9 @@ Updated 2026-11-03. Sections distinguish Windows live sites, loopback media fixt
 
 ## Choosing a data directory
 
-The `-data-dir <directory>` launch option points application data at the specified directory and creates it before use. Without the option, the existing user data directory is used. This supports separate profiles and packaged-app validation; a macOS packaged window still needs to be verified with it.
+The `-data-dir <directory>` launch option points application business data at the specified directory and creates it before use. Without the option, the existing user data directory is used. It covers sources, shelves, settings and cookies, without promising to redirect every system-framework cache or preference path.
+
+The Orca Worker rebuilt the macOS App at `c387e3f`; `-version` reports commit `c387e3f` and Core `4f213ff`, the ad-hoc signature verifies, and the binary SHA-256 is `1f61424525835456dbf586e733119f6eed07285811ae9ed125d135689ae52271`. Isolation review log: `/tmp/nk-neko-949/isolation-check.log`. The window was not launched under the overly broad user-domain write boundary then in force, so it is not a pass. Subsequent source review confirms that main-window startup creates no WebView and MyGo's `registerDefaults` registers in-memory defaults; these calls alone do not establish persistent preference writes. Window acceptance will protect existing real business data and record new framework-directory changes.
 
 ## macOS reading acceptance at the current Core pin (2026-11-03)
 
