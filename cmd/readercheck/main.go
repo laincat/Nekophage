@@ -142,7 +142,9 @@ func main() {
 					}
 				})
 			})})
-		view, err := win.NewWebView(mygo.WebViewOptions{URL: target})
+		view, err := win.NewWebView(mygo.WebViewOptions{
+			URL: target, Page: mygo.PageOptions{Session: mygo.NewEphemeralSession()},
+		})
 		if err != nil {
 			checkErr = err
 			mygo.App.Quit()
@@ -236,9 +238,8 @@ func main() {
 				// Only read what the page itself wrote. Posting here would prove that
 				// the endpoint answers, which is not the question: the page has to
 				// notice the scroll and report it on its own.
-				// The chapter's own key, not whichever one comes first: the store is
-				// shared with other fixtures and chapters, and reading keys[0] once
-				// reported another chapter's percentage while looking like this one's.
+				// Read this chapter's key in the probe's private session. The default
+				// session used to expose earlier probes' chapter positions here.
 				own := fmt.Sprintf("nkreader.at:%s/%s/%s", rec.Key, pick.ID, chapterID)
 				raw, err := view.Page().Eval(fmt.Sprintf(`(() => {
 					const place = %q;

@@ -236,6 +236,9 @@ type DevOptions struct {
 	// result, plays its first episode and reports what the player decoded, so
 	// the tools check the whole desktop video path rather than a compile.
 	Video string
+	// WebSession isolates reader/player storage during development probes.
+	// nil keeps the application's normal default session.
+	WebSession *mygo.Session
 	// VideoOut is where the probe writes the reconstructed frame it read from
 	// the player page.
 	VideoOut string
@@ -1053,7 +1056,9 @@ func (a *App) openReader(index int) {
 		a.readerWin = mygo.NewWindow(mygo.WindowOptions{
 			Title: "阅读", Width: 820, Height: 900, Content: ui.View(a.readerView_),
 		})
-		view, err := a.readerWin.NewWebView(mygo.WebViewOptions{URL: "about:blank"})
+		view, err := a.readerWin.NewWebView(mygo.WebViewOptions{
+			URL: "about:blank", Page: mygo.PageOptions{Session: a.dev.WebSession},
+		})
 		if err != nil {
 			a.readerWin.SetTitle("阅读(无法打开阅读视图)")
 			return

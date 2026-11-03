@@ -311,7 +311,9 @@ func (a *App) openPlayer(play *video.Play, meta player.Meta, title string, start
 		win := mygo.NewWindow(mygo.WindowOptions{
 			Title: "播放", Width: 1000, Height: 640, Content: ui.View(a.playerView_),
 		})
-		view, err := win.NewWebView(mygo.WebViewOptions{URL: "about:blank"})
+		view, err := win.NewWebView(mygo.WebViewOptions{
+			URL: "about:blank", Page: mygo.PageOptions{Session: a.dev.WebSession},
+		})
 		if err != nil {
 			session.Close()
 			win.Destroy()

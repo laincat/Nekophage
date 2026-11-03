@@ -153,7 +153,7 @@ func main() {
 	}
 	app := ui.New(c, lib, srv)
 	jsui.Attach(app)
-	app.SetDevOptions(ui.DevOptions{Query: *query, OpenFirst: *openFirst, Browse: *browse,
+	app.SetDevOptions(ui.DevOptions{WebSession: mygo.NewEphemeralSession(), Query: *query, OpenFirst: *openFirst, Browse: *browse,
 		ExploreIndex: *exploreIndex, ExplorePage: *explorePage, Shelf: *shelfMode, OpenChapter: *chapter, ShelfDemo: *shelfDemo, ScrollPercent: *scrollPercent,
 		AdvanceChapter: *advance, AutoNext: *autoNext, Filters: *filters, Filter: *filterPick,
 		SearchAll: *searchAll, OpenLast: *openLast, Category: *categoryShot, Rank: *rank, Favorites: *favorites, Callback: *callback,

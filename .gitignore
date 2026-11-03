@@ -6,3 +6,5 @@
 /dist/
 *.exe
 corestamp.go
+__pycache__/
+*.py[cod]
