@@ -102,7 +102,7 @@ Orca Worker 在 macOS arm64 对 Nekophage `90e784f`、Core `4f213ff` 完成隔�
 
 ## 打包前核对实际 Core(2026-11-04)
 
-切换分支后残留的 go.work/corestamp.go 曾让 pin 为 `3be57b5` 的 `97e24b6` 打出 `4f213ff` 安装包,脚本因只核对自身提交而错误报告通过。错误产物已被正确pin版本替换,原日志 `E:/Temp/nk-ca8-package/build-fixed.log` 保留。现在 Windows 与 macOS 打包入口复用 check-core-pin.sh,在创建/替换产物前核对实际模块、干净检出与生成戳记。错误模块和旧戳记两种 Windows 实验均在输出变更前拒绝,已有产物保留,日志 `E:/Temp/nk-package-pin-evidence/negative.log`。macOS 脚本当前只做语法检查,真实执行待 Mac 验证;Windows 开发 WebView 的引擎是 WebView2,不是 WebKit。
+切换分支后残留的 go.work/corestamp.go 曾让 pin 为 `3be57b5` 的 `97e24b6` 打出 `4f213ff` 安装包,脚本因只核对自身提交而错误报告通过。错误产物已被正确pin版本替换,原日志 `E:/Temp/nk-ca8-package/build-fixed.log` 保留。现在 Windows 与 macOS 打包入口复用 check-core-pin.sh,在创建/替换产物前核对实际模块、干净检出与生成戳记。错误模块和旧戳记两种 Windows 实验均在输出变更前拒绝,已有产物保留,日志 `E:/Temp/nk-package-pin-evidence/negative.log`。Orca Worker 已在 Mac 的 ca8f370/Core3be57b5 工作区加入同一检查并实际验证:旧戳记以 generated stamp differs/exit1 拒绝,原.app的4个文件内容均不变;finally精确恢复戳记后正确pin打包通过,实际Core3be57b5、0.2.7及ad-hoc校验成功。证据 `/tmp/nk-ca8-acceptance/pin-gate-evidence/`,Lead回执 `E:/Temp/nk-package-pin-evidence/mac-receipt.json`。此轮未操作窗口。Windows 开发 WebView 的引擎是 WebView2,不是 WebKit。
 
 ## 媒体服务器关闭后拒绝新会话(2026-11-04)
 
