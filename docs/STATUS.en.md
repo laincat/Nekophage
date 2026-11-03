@@ -69,6 +69,17 @@ All three reading checks ran on the repository fixture and exited 0:
 
 The third one deserves a question mark: macOS landed on **3207**, while the same operation on Windows returns exactly 1200 under the stricter rule described above. I tightened that rule from "at least 80%" to "within 20% of the saved value" (floor 80 px); Windows still reports `scrollY=1200 saved=1200` twice, but the macOS run predates the change, so whether 3207 is a defect is not settled — the Mac side has been asked to re-run with the new rule. The 20,756-byte captures hold only the native layer, not WebView pixels; the rendering evidence is `decoded=2 / images=2`.
 
+## The probe no longer bets that the key is written one second later (2026-11-03)
+
+Both macOS runs of `44410bf` failed on `settled at [1200,3,null]` — the place key was **never written**, so the reopen had nothing to restore. Their second point also held: the hard check that the store must equal the baseline did fire (`saved` was nil), but the restore comparison right after **overwrote** it, leaving only "not restored" in the log.
+
+Both are fixed:
+
+- after scrolling, instead of sleeping a fixed second, the probe **polls up to five seconds** for `localStorage.getItem(place key)`; when it never appears it reports `the page stored no place for … after …` and stops there, so the later check cannot bury the more important message;
+- "a key was written but holds a different value" and "no key at all" are now two different sentences — the first is drift, the second is a save that never happened, and they point at different repairs.
+
+Measured: three consecutive local `-scroll` runs pass (`1200 saved=1200`, `1240 saved=1240`), the window suite with retries disabled is **12 PASS / 0 FAIL**, and `check.sh` passes. Logs `E:/Temp/nk-poll-{1,2,3}.log` and `E:/Temp/nk-probes-poll.log`.
+
 ## The reading place drifted because the restore ran before the images sized the page (2026-11-03)
 
 The Mac side settled what the 3207 was: not a broken restore but **a stored value that had drifted from 1200 to 3207** — the restore happened before the images took their height, the layout grew, the browser carried the scroll position along, and the debounced save wrote the drifted position down, so the reopen read 3207 and comparing 3207 with 3207 of course agreed. Their estimate fits too: `1200 × 6752/2522 ≈ 3212`.

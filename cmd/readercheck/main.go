@@ -327,9 +327,39 @@ func main() {
 					checkErr = fmt.Errorf("the page cannot be scrolled enough to check: %v (%v)", raw, err)
 				}
 				if checkErr == nil {
-					time.Sleep(1 * time.Second)
-					if saved, serr := view.Page().Eval("JSON.stringify([scrollY, localStorage.length, localStorage.getItem('nkreader.at:loopback_pages/one/1')])"); serr == nil {
+					// The page writes its place 400 ms after the scroll stops, and
+					// that debounce is only armed once the reader has booted. Waiting a
+					// fixed second therefore raced the boot: one macOS run scrolled
+					// before the listener existed, nothing was written, and the reopen
+					// had nothing to restore. Poll for the key and say plainly when it
+					// never appears, rather than reporting the later symptom.
+					const placeKey = "nkreader.at:loopback_pages/one/1"
+					var stored any
+					var seen time.Duration
+					for i := 0; i < 50; i++ {
+						v, serr := view.Page().Eval("localStorage.getItem('" + placeKey + "')")
+						if serr == nil {
+							stored = v
+							if v != nil {
+								break
+							}
+						}
+						seen += 100 * time.Millisecond
+						time.Sleep(100 * time.Millisecond)
+					}
+					if stored == nil && checkErr == nil {
+						checkErr = fmt.Errorf("the page stored no place for %s after %v", placeKey, seen)
+						log.Printf("no place key after %v; scrollY=%v", seen, func() any {
+							y, _ := view.Page().Eval("scrollY")
+							return y
+						}())
+					}
+					if saved, serr := view.Page().Eval("JSON.stringify([scrollY, localStorage.length, localStorage.getItem('" + placeKey + "')])"); serr == nil {
 						log.Printf("settled at %v after moving to %v", saved, moved)
+					}
+					if checkErr != nil {
+						mygo.App.Quit()
+						return
 					}
 					if err := view.Page().LoadURL(target); err != nil {
 						checkErr = fmt.Errorf("reload: %w", err)
