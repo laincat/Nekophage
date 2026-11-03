@@ -8,6 +8,8 @@
 
 当前主线功能提交c545212/Core3be57b5的Windows安装包已实际用/S /NOREGISTER /D隔离安装:安装后exe与ZIP摘要一致,版本/pin正确,原生主窗实际出现搜索/书架/源管理/AI/视频入口。点击窗口关闭后确认原进程消失;卸载退出0、安装目录删除,独立资料逐文件摘要不变。回执/截图/日志 `E:/Temp/nk-desktop-core-integration-evidence/install-b42482cb/`。本轮只补安装与启动退出,不把较早97e24b6的完整媒体流程移用为本包全流程通过。
 
+当前pin的本地音轨解码补验(2026-11-04):Lead在精确c545212/Core3be57b5、独立资料的Windows开发WebView2复用uicheck -video-audio。HLS.js实际解码音频18537字节,原生MP4为17976字节,两条命令成功;无音轨MP4与清单虚报AAC的无音轨HLS均为0,命令按预期非零退出。日志/回执 `E:/Temp/nk-c545-audio/`。这是音频解码管线证据,不代表扬声器发声、安装版手工播放或Mac音轨通过。
+
 消费端依据分别保留:Windows97e24b6/Core3be安装版已验英文活动cue→关闭→正常退出→新进程关闭、3.030709秒与画面恢复、鉴权/Range206,回执 `E:/Temp/nk-ca8-package/media97-fe96ad14/receipt.json`。Orca Worker在Mac ca8f370/Core3be通过搜索/详情、两页解码与失败重试、右起双页、页面进度和章节重开1200、视频时钟与Range206;原字幕呈现失败经同一WebKit补丁修复,英文和关闭/页面重开通过,日志 `/tmp/nk-ca8-acceptance/evidence/`。Mac错误stamp拒绝且旧.app不变、正确pin ad-hoc打包也通过。
 
 Mac包装窗口已出现,正常关窗仍被screen_locked拒绝;未借SIGTERM或Windows结果计通过。Mac旧探针因强制活动字幕而失败的缺口现已补验:Orca Worker在精确c545212/Core3be干净检出上通过播放器包race回归(2.018秒),并将此前页面实际保存的off资料按摘要核对复制,未手写选择。独立进程13544、13564的before均恢复关闭、stable=2、width=320、time=1.000、无showing轨/cue,且各自页面重开也通过,两次退出0。日志 `/tmp/nk-c545-acceptance/evidence/`,Lead回执 `E:/Temp/nk-c545-mac-transfer/mac-acceptance.json`。两份窗口截图全白且不含Web层,不算视觉证据;跨进程事实来自两个PID的初始状态,不来自同进程LoadURL。临时源码gist已在确认接收后删除并核对404。阅读重开不等于跨App进程恢复,夹具无音轨。Nekularity main仍为4f213ff,其独立候选/签名模拟器结果不混用。下列旧版本记录保留原提交与pin。
