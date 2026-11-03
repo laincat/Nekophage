@@ -2,7 +2,7 @@
 
 English | [简体中文](STATUS.md)
 
-Updated 2026-11-03. Sections distinguish Windows live sites, loopback media fixtures, native windows, unit tests and macOS. Recent progress: the macOS reading mainline and an ad-hoc bundle launch are verified, and the desktop window suite grew from twelve to **12 with no external variables and 16 with every script** (local video playback, subtitles across a reopen, the native search and detail pages, progress reporting and the reading place), all folded into `scripts/desktop-probes.sh`. Local fixtures do not establish real-account or live-site behaviour.
+Updated 2026-11-03. Sections distinguish Windows live sites, loopback media fixtures, native windows, unit tests and macOS. Recent progress: the macOS reading mainline and an ad-hoc bundle launch are verified, and the desktop window suite is now **13 with no external variables and 19 with every script** (local video playback, subtitles across a reopen, the native search and detail pages, progress reporting and the reading place), all folded into `scripts/desktop-probes.sh`. Local fixtures do not establish real-account or live-site behaviour.
 
 
 The four CI jobs of Core's `6e07429` are green (three Go platforms plus Apple's xcframework with two Swift smoke tests), checked on 2026-11-01.
@@ -138,6 +138,18 @@ Running the suite back to back occasionally produced "one entry FAILs while its 
 - **The suite** starts a dozen window processes in a row and can still lose one. `run()` allows **one retry**, prints `RETRY <entry>` and keeps the first log as `.first`, so the failure stays visible instead of turning the suite into noise; `NK_NO_RETRY=1` disables it when measuring the real rate.
 
 Measured after the fixes: **three consecutive runs of 12 PASS / 0 FAIL / 0 RETRY**, and with retries off an environment-level failure still appeared once (login and dialog each seen once), which is why the retry is a backstop rather than the explanation. Logs `E:/Temp/nk-probes-final-{1,2,3}.log` and `E:/Temp/nk-dialog-{1..8}.log`.
+
+## The shelf can be checked offline too (2026-11-03)
+
+`scripts/shelf-probe.sh` used to demand a source script, and the suite only ran it when `NK_PROBE_SRC` was set. It serves the pages itself on loopback and the repository fixture's chapter points there, so the fixture is now the default and the entry moved out of the conditional.
+
+The check still reads the file rather than the picture: after reading a chapter, `shelf.json` has to name the comic, the chapter and the page —
+
+```
+shelf-probe: shelf row: Loopback Comic / Chapter 1 / page 1
+```
+
+Measured: **13 PASS / 3 SKIP** with no external variables and **19 PASS / 0 FAIL / 0 SKIP** with every script (all nineteen entries checked, none duplicated). Logs `E:/Temp/nk-shelf-offline.log`, `E:/Temp/nk-probes-shelf.log` and `E:/Temp/nk-probes-shelf-full.log`.
 
 ## The native search joins the default suite too (2026-11-03)
 

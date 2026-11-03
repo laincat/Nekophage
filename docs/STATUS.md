@@ -2,7 +2,7 @@
 
 [English](STATUS.en.md) | 简体中文
 
-更新:2026-11-03。以下按章节区分 Windows 真实站点、loopback 媒体夹具、原生窗口、单测与 macOS 的证据。最新进展:macOS 阅读主线与 ad-hoc 打包启动已验;桌面窗口套件从 12 项扩到**无外部变量 12 项 / 给齐脚本 16 项**(新增本地视频播放、字幕跨重开、原生搜索与详情、进度上报与阅读位置),全部并入 `scripts/desktop-probes.sh`;不以本地夹具代替真实账号或站点验证。
+更新:2026-11-03。以下按章节区分 Windows 真实站点、loopback 媒体夹具、原生窗口、单测与 macOS 的证据。最新进展:macOS 阅读主线与 ad-hoc 打包启动已验;桌面窗口套件现在是**无外部变量 13 项 / 给齐脚本 19 项**(新增本地视频播放、字幕跨重开、原生搜索与详情、进度上报与阅读位置),全部并入 `scripts/desktop-probes.sh`;不以本地夹具代替真实账号或站点验证。
 
 ## 媒体会话关闭后的迟到写入(2026-11-03)
 
@@ -133,6 +133,18 @@ Mac 侧把 3207 这件事查清了:不是“恢复坏了”,是**存档值本身
 - **套件本身**:一个接一个起十几个窗口进程,偶尔仍会丢窗口。`run()` 现在允许**一次重试**,但会打印 `RETRY <条目>` 并把首次日志留成 `.first`——失败可见,套件不变成噪声;`NK_NO_RETRY=1` 可关掉重试,用来测量真实的偶发率。
 
 实测:修好后连续 **3 轮 12 PASS / 0 FAIL / 0 RETRY**;关掉重试时仍偶尔出现一次环境级失败(登录/对话框各见过一次),说明重试是兜底而不是根因。日志 `E:/Temp/nk-probes-final-{1,2,3}.log`、`E:/Temp/nk-dialog-{1..8}.log`。
+
+## 书架也能离线验了(2026-11-03)
+
+`scripts/shelf-probe.sh` 原来必须传一个源脚本,套件里也只在 `NK_PROBE_SRC` 存在时才跑。它自带 loopback 伺服,而仓内夹具的章节正好指向 loopback,所以现在默认就用仓内夹具,并移出条件分支。
+
+判据仍是文件而不是画面:读一章后看 `shelf.json` 里记的是哪部漫画、哪一章、第几页——
+
+```
+shelf-probe: shelf row: Loopback Comic / Chapter 1 / page 1
+```
+
+实测:无外部变量 **13 PASS / 3 SKIP**,给齐外部脚本 **19 PASS / 0 FAIL / 0 SKIP**(19 条逐条核对过,没有重复条目)。日志 `E:/Temp/nk-shelf-offline.log`、`E:/Temp/nk-probes-shelf.log`、`E:/Temp/nk-probes-shelf-full.log`。
 
 ## 原生界面的搜索也进了默认套件(2026-11-03)
 

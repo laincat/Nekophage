@@ -14,10 +14,12 @@
 set -eu
 
 cd "$(dirname "$0")/.."
-src=${1:-}
+# The repository fixture by default: its chapter points at loopback, which this
+# script serves, so the check needs no site.
+src=${1:-internal/reader/testdata/loopback_source.js}
 query=${2:-probe}
-if [ -z "$src" ] || [ ! -f "$src" ]; then
-	printf 'shelf-probe: pass a source script whose chapter has pages\n' >&2
+if [ ! -f "$src" ]; then
+	printf 'shelf-probe: no source script at %s\n' "$src" >&2
 	exit 2
 fi
 

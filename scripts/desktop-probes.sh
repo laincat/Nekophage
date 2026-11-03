@@ -128,6 +128,11 @@ go run ./cmd/subcheck -dir internal/player/testdata/hls-subs \
 	-out "$out/subtitle.png" >"$out/subtitle.log" 2>&1 || rc=$?
 report "$rc" "a subtitle choice survives reopening" "$out/subtitle.log"
 
+# Reading writes the shelf and the shelf reads it back; the file says which comic,
+# chapter and page, so this is not a picture comparison.
+run "reading lands on the shelf" \
+	"$out/shelf-probe.log" sh scripts/shelf-probe.sh
+
 # The native interface, not the reader page: a grid that found nothing and a
 # grid that rendered capture to almost the same size, so the check reads how
 # many results the window holds and what the first one is called.
@@ -146,7 +151,6 @@ if [ -n "${NK_PROBE_SRC:-}" ]; then
 	run "the browse chips follow the sections" 		"$out/browse-probe.log" sh scripts/browse-probe.sh "$NK_PROBE_SRC"
 	# Reading writes the shelf and the shelf reads it back; the file says which comic,
 	# chapter and page, so this is not a picture comparison.
-	run "reading lands on the shelf" 		"$out/shelf-probe.log" sh scripts/shelf-probe.sh "$NK_PROBE_SRC"
 	# The category contract has two halves, and a page that draws its choosers
 	# without loading anything is the failure this one exists to name.
 	run "the category page draws and loads" 		"$out/category-probe.log" sh scripts/category-probe.sh "$NK_PROBE_SRC"
