@@ -70,6 +70,7 @@ type Server struct {
 	OnSubtitle func(Meta, Subtitle)
 
 	mu       sync.Mutex
+	closed   bool
 	sessions map[string]*Session
 }
 
@@ -102,7 +103,7 @@ type Session struct {
 }
 
 // Open starts a session for one play declaration. The returned page URL is
-// what the WebView loads.
+// what the WebView loads. Once Close begins, Open returns http.ErrServerClosed.
 func (s *Server) Open(source MediaSource, key string, play *video.Play, meta Meta) (*Session, error) {
 	var tokenBytes [16]byte
 	if _, err := rand.Read(tokenBytes[:]); err != nil {
@@ -121,6 +122,11 @@ func (s *Server) Open(source MediaSource, key string, play *video.Play, meta Met
 	}
 	session := &Session{server: s, token: token, proxy: proxy, meta: meta, format: format}
 	s.mu.Lock()
+	if s.closed {
+		s.mu.Unlock()
+		proxy.Close()
+		return nil, http.ErrServerClosed
+	}
 	s.sessions[token] = session
 	s.mu.Unlock()
 	return session, nil
@@ -158,6 +164,7 @@ func (s *Session) Close() {
 // Close shuts the server and every session down.
 func (s *Server) Close() error {
 	s.mu.Lock()
+	s.closed = true
 	sessions := s.sessions
 	s.sessions = map[string]*Session{}
 	s.mu.Unlock()

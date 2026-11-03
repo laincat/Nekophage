@@ -105,6 +105,12 @@ The proxy ignored `io.Copy` errors: an upstream chunked response could disconnec
 
 `go test -race -count=1 ./internal/player` and `go vet ./internal/player` pass. Negative-control and fixed logs are `E:/Temp/nk-media-truncated-before.log` and `E:/Temp/nk-media-truncated-after.log`. This is a regression for HTTP transfer errors; it does not establish player retries against live sites.
 
+## Reject new sessions after media-server closure (2026-11-04)
+
+Server.Open still returned a session and an unreachable page URL after shutdown. An Open racing with Close could also register an uncancelled media proxy after the session table was cleared. Two lifecycle cases reproduced failures before the fix. Closure state and session registration now share the server lock: a late Open cancels its newly allocated proxy and returns http.ErrServerClosed, while Close still cancels previously registered sessions.
+
+Windows go test -race -count=1 ./internal/player passes; before/after logs: `E:/Temp/nk-player-close-evidence/before.log`, `after.log`. This verifies Go API lifecycle behavior, not a new installed package or Mac window.
+
 ## Late writes after media-session closure (2026-11-03)
 
 A synchronization barrier reproduced a lifecycle defect: an HTTP request resolved its token to a session but was still receiving its body; closing the session or server did not stop the handler returning 204 and invoking the progress/subtitle persistence callback. Old state could overwrite later saved state. `TestClosedSessionDiscardsPendingReports` uses `io.Pipe` to control the sequence of body consumption, closure and body EOF. All four combinations failed before the fix (`status=204 callbacks=1`; `E:/Temp/nk-session-late-reports-before.log`).

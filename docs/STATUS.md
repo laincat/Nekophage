@@ -100,6 +100,12 @@ Orca Worker 在 macOS arm64 对 Nekophage `90e784f`、Core `4f213ff` 完成隔�
 
 `go test -race -count=1 ./internal/player` 与 `go vet ./internal/player` 通过。负向对照与修复日志分别为 `E:/Temp/nk-media-truncated-before.log`、`E:/Temp/nk-media-truncated-after.log`。这是 HTTP 传输错误回归;不声称播放器已在真实站点完成自动重试。
 
+## 媒体服务器关闭后拒绝新会话(2026-11-04)
+
+关闭后调用 Server.Open 仍返回会话和已无法访问的页面地址;新建与 Close 并发时也可在清空会话表后登记一个未取消的媒体代理。两个生命周期用例在修复前复现失败。现在关闭标记与会话登记共用服务器锁:关闭后的新建取消刚分配的代理并返回 http.ErrServerClosed;已登记的会话仍由 Close 取消。
+
+Windows 的 go test -race -count=1 ./internal/player 已通过,修复前后日志 `E:/Temp/nk-player-close-evidence/before.log`、`after.log`。这是 Go 接口生命周期回归,不等于新安装包或 Mac 窗口验收。
+
 ## 媒体会话关闭后的迟到写入(2026-11-03)
 
 同步屏障复现了一个底层生命周期缺陷:HTTP 请求已通过 token 查到会话,但还在接收请求体;此时关闭会话或整个服务,旧处理器仍返回 204 并调用进度/字幕保存回调。旧状态可能覆盖后来保存的状态。`TestClosedSessionDiscardsPendingReports` 用 `io.Pipe` 明确控制「读到正文→关闭→正文 EOF」的顺序,四种组合在修复前均失败(`status=204 callbacks=1`),日志 `E:/Temp/nk-session-late-reports-before.log`。
