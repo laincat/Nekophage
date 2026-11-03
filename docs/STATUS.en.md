@@ -2,6 +2,8 @@
 
 English | [简体中文](STATUS.md)
 
+**Branch terminology correction (2026-11-03)**: earlier references loosely calling the current Nekophage working branch main were inaccurate. `E:/Code/Nekophage` is on `fix/subtitle-record-cap`/`c7c0d90`, pinned to `4f213ff`; actual main is `28be4bd`, pinned to `214e778`. Latest Windows acceptance belongs to functional source `a079ce7`/Core `b55c1a4` on the separate `update/core-b55c1a4` candidate. Nekularity main is indeed pinned to `4f213ff`. Remaining client-main integration therefore includes the desktop working branch; its acceptance is not evidence of a main-branch update. Inspection log: `E:/Temp/core-magpie-first-chunk-evidence/desktop-main-ref.log`.
+
 Updated 2026-11-03. Sections distinguish Windows live sites, loopback media fixtures, native windows, unit tests and macOS.
 
 ## Desktop candidate for published Core b55c1a4 (2026-11-03)

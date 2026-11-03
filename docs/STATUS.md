@@ -2,6 +2,8 @@
 
 [English](STATUS.en.md) | 简体中文
 
+**分支口径更正(2026-11-03)**:此前将 Nekophage 当前工作分支笼统写成 main 并不准确。实际 `E:/Code/Nekophage` 在 `fix/subtitle-record-cap`/`c7c0d90`,pin 为 `4f213ff`;真正 main 是 `28be4bd`,pin 为 `214e778`。最新 Windows 验收属于独立 `update/core-b55c1a4` 候选的功能源码 `a079ce7`/Core `b55c1a4`。Nekularity main 的 pin 则确为 `4f213ff`。因此“客户端 main pin 未升级”还包含桌面工作分支整合,不能把工作分支验收当成已经进入 main。核对日志 `E:/Temp/core-magpie-first-chunk-evidence/desktop-main-ref.log`。
+
 更新:2026-11-03。以下按章节区分 Windows 真实站点、loopback 媒体夹具、原生窗口、单测与 macOS 的证据。
 
 ## 已发布 Core b55c1a4 的桌面候选(2026-11-03)
