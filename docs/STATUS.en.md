@@ -4,6 +4,12 @@ English | [简体中文](STATUS.md)
 
 Updated 2026-11-03. Sections distinguish Windows live sites, loopback media fixtures, native windows, unit tests and macOS.
 
+## Refused-media messages in the HLS player (2026-11-03, `efc1a97`)
+
+When the packaged resume check hit HTTP 403 from an unauthenticated fixture, the page showed only `manifestLoadError`, giving no way to tell a login/permission problem from a format problem. A fatal HLS.js error with `response.code` 401/403 now reads “媒体访问被拒绝 (HTTP 403)，请检查视频源的登录状态或访问权限。” Other 4xx/5xx include their status; errors without an HTTP response keep the existing details/“播放中断” text.
+
+Starting local build `efc1a97` with the same actual profile and no persisted session cookie produced the expected 403 for the HLS manifest; the player window displays that message, screenshot `E:/Temp/nk-media-http-error/403-player.png` and HTTP log `fixture.log` in the same directory. Normal HLS and subtitles are unaffected: `go run ./cmd/subcheck -dir internal/player/testdata/hls-subs` passes, with English selected after reopening and `Subtitle rendering proof` as the active cue; log `E:/Temp/nk-media-http-error/hls-ok.log`. `bash scripts/check.sh` passes before the commit; log `E:/Temp/nk-media-http-error/check.log`. This is local window/fixture evidence; Core is unchanged and a live-site 403 path is not established.
+
 ## Latest Windows packages and packaged HLS (2026-11-03, `87e2ffc`)
 
 The latest local test packages still report 0.2.7, built at `87e2ffc` with Core `4f213ff`, including the playlist Range fix. The portable ZIP is **21,565,682 bytes**, SHA-256 `c39857ee67c2186854488ae49d5237e706d1d077f5b367f6d49ea48b5c7df3f8`; setup is **18,722,739 bytes**, SHA-256 `04416d2895222bac3d40084e279b1eda79e92cdf1a5f03abe20f2a9da41702c0`. `package-windows.py --nsis` passed CRC, file hashes and unpacked executable version checks; log `E:/Temp/nk-package-87e2ffc-build.log`.

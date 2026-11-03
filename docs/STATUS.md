@@ -4,6 +4,12 @@
 
 更新:2026-11-03。以下按章节区分 Windows 真实站点、loopback 媒体夹具、原生窗口、单测与 macOS 的证据。
 
+## HLS 播放器的拒绝提示(2026-11-03,`efc1a97`)
+
+上轮 Windows 续播在未登录夹具上收到 HTTP 403 时,页面只显示 `manifestLoadError`,用户无法判断是登录/权限还是格式问题。现在 HLS.js 致命错误的 `response.code` 为 401/403 时显示「媒体访问被拒绝 (HTTP 403),请检查视频源的登录状态或访问权限。」;其他 4xx/5xx 带状态码;没有 HTTP 响应的错误仍保留原有 details/「播放中断」文案。
+
+用 `efc1a97` 的本地构建启动同一实际资料(无持久化会话 Cookie),HLS 清单请求确实返回 403,播放器窗口显示上述提示,截图 `E:/Temp/nk-media-http-error/403-player.png`,HTTP 日志同目录 `fixture.log`。常规 HLS 与字幕未受影响:`go run ./cmd/subcheck -dir internal/player/testdata/hls-subs` 通过,重开后 English 选中且活动 cue 为 `Subtitle rendering proof`,日志 `E:/Temp/nk-media-http-error/hls-ok.log`。`bash scripts/check.sh` 全项通过,日志 `E:/Temp/nk-media-http-error/check.log`(提交前)。这是本地窗口与夹具验证,未改 Core,也未证明真实站点返回 403 时的提示路径。
+
 ## 最新 Windows 包与包内 HLS(2026-11-03,`87e2ffc`)
 
 最新本地测试包仍为版本 0.2.7,构建提交 `87e2ffc`,Core `4f213ff`,包含清单 Range 修复。便携 ZIP 为 **21,565,682 字节**,SHA-256 `c39857ee67c2186854488ae49d5237e706d1d077f5b367f6d49ea48b5c7df3f8`;setup 为 **18,722,739 字节**,SHA-256 `04416d2895222bac3d40084e279b1eda79e92cdf1a5f03abe20f2a9da41702c0`。`package-windows.py --nsis` 的 CRC、逐文件哈希、解压程序版本核对通过,日志 `E:/Temp/nk-package-87e2ffc-build.log`。
