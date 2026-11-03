@@ -9,6 +9,12 @@ The four CI jobs of Core's `6e07429` are green (three Go platforms plus Apple's 
 
 **Pin moved to `6e07429` (2026-11-01)**: Core gained the three standard AI entry points and the optional chunked transport (`HostStream`), and it fixed a deadlock in the package bridge — the package pushed to `__magpieChatPush` from inside its own hook while the reader stopped at the end marker, so the writer waited for a reader that had gone. The desktop client **does not implement `HostStream` yet**, so replies still arrive whole; `scripts/fetch-core.sh` has aligned `build/core` to that commit and `scripts/check-core-pin.sh` passes.
 
+## Preserve transfer errors when media is truncated (2026-11-03)
+
+The proxy ignored `io.Copy` errors: an upstream chunked response could disconnect after partial video bytes, while the local response ended successfully, giving the player a truncated body and a clean EOF. A real `httptest` HTTP connection reproduced it: before the fix the unknown-length subcase read `body="first" err=<nil>`, while the `Content-Length` control already detected the short body. After headers are sent, a copy failure now aborts the downstream response with `http.ErrAbortHandler`. Clients receive the partial bytes and `io.ErrUnexpectedEOF` in both cases instead of treating interruption as completion. The test also confirms the source Referer still reaches upstream.
+
+`go test -race -count=1 ./internal/player` and `go vet ./internal/player` pass. Negative-control and fixed logs are `E:/Temp/nk-media-truncated-before.log` and `E:/Temp/nk-media-truncated-after.log`. This is a regression for HTTP transfer errors; it does not establish player retries against live sites.
+
 ## Late writes after media-session closure (2026-11-03)
 
 A synchronization barrier reproduced a lifecycle defect: an HTTP request resolved its token to a session but was still receiving its body; closing the session or server did not stop the handler returning 204 and invoking the progress/subtitle persistence callback. Old state could overwrite later saved state. `TestClosedSessionDiscardsPendingReports` uses `io.Pipe` to control the sequence of body consumption, closure and body EOF. All four combinations failed before the fix (`status=204 callbacks=1`; `E:/Temp/nk-session-late-reports-before.log`).

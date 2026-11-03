@@ -212,7 +212,13 @@ func (p *MediaProxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if r.Method == http.MethodHead {
 		return
 	}
-	_, _ = io.Copy(flushWriter{w}, upstream.Body)
+	if _, err := io.Copy(flushWriter{w}, upstream.Body); err != nil {
+		// Headers and some bytes have already reached the player. A normal
+		// return would terminate a chunked response successfully and hide the
+		// upstream failure. Abort this response so the player sees a truncated
+		// transfer, as it would when fetching the broken stream directly.
+		panic(http.ErrAbortHandler)
+	}
 }
 
 type flushWriter struct{ http.ResponseWriter }

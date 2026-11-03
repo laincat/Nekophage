@@ -4,6 +4,12 @@
 
 更新:2026-11-03。以下按章节区分 Windows 真实站点、loopback 媒体夹具、原生窗口、单测与 macOS 的证据。最新进展:macOS 阅读主线与 ad-hoc 打包启动已验;桌面窗口套件现在是**无外部变量 17 项 / 给齐脚本 19 项**(新增本地视频播放、字幕跨重开、原生搜索与详情、进度上报与阅读位置),全部并入 `scripts/desktop-probes.sh`;不以本地夹具代替真实账号或站点验证。
 
+## 媒体断流保留传输错误(2026-11-03)
+
+代理原先忽略 `io.Copy` 的错误:上游以 chunked 方式给出部分视频后断开,本地代理仍正常结束响应,播放器收到的是残缺正文加干净 EOF。真实 `httptest` HTTP 连接复现了该问题:修复前无长度声明的子例得到 `body="first" err=<nil>`;带 `Content-Length` 的对照则已能识别短正文。现在已发出响应头后若复制失败,处理器用 `http.ErrAbortHandler` 中止下游响应,两种情况下客户端都收到部分字节及 `io.ErrUnexpectedEOF`,不把断流当作播放完成。测试同时确认源 Referer 仍到达上游。
+
+`go test -race -count=1 ./internal/player` 与 `go vet ./internal/player` 通过。负向对照与修复日志分别为 `E:/Temp/nk-media-truncated-before.log`、`E:/Temp/nk-media-truncated-after.log`。这是 HTTP 传输错误回归;不声称播放器已在真实站点完成自动重试。
+
 ## 媒体会话关闭后的迟到写入(2026-11-03)
 
 同步屏障复现了一个底层生命周期缺陷:HTTP 请求已通过 token 查到会话,但还在接收请求体;此时关闭会话或整个服务,旧处理器仍返回 204 并调用进度/字幕保存回调。旧状态可能覆盖后来保存的状态。`TestClosedSessionDiscardsPendingReports` 用 `io.Pipe` 明确控制「读到正文→关闭→正文 EOF」的顺序,四种组合在修复前均失败(`status=204 callbacks=1`),日志 `E:/Temp/nk-session-late-reports-before.log`。

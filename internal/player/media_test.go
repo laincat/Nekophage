@@ -3,6 +3,7 @@ package player
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -134,6 +135,49 @@ func TestMediaProxyRewritesNestedHLSAndPreservesRangeAndHeaders(t *testing.T) {
 	response.Body.Close()
 	if response.StatusCode != http.StatusGone {
 		t.Fatal("a closed player continued serving media")
+	}
+}
+
+// A CDN can drop a chunked response without a Content-Length. Completing the
+// downstream chunk stream would turn that broken response into a clean EOF, so
+// the player must see the interrupted transfer as an error too.
+func TestMediaProxyPreservesTruncatedStreamErrors(t *testing.T) {
+	for _, length := range []string{"", "10"} {
+		t.Run("content-length="+length, func(t *testing.T) {
+			upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if r.Header.Get("Referer") != "https://media.example.test/" {
+					t.Error("the source Referer did not reach the media server")
+				}
+				w.Header().Set("Content-Type", "video/mp4")
+				if length != "" {
+					w.Header().Set("Content-Length", length)
+				}
+				fmt.Fprint(w, "first")
+				w.(http.Flusher).Flush()
+				// No final chunk (or the rest of the declared body): the upstream
+				// connection ends abnormally after delivering real media bytes.
+				panic(http.ErrAbortHandler)
+			}))
+			defer upstream.Close()
+			c, play := declaredMedia(t, upstream.URL+"/clip.mp4", video.FormatMP4)
+			proxy, err := NewMediaProxy(c, "media_probe", play)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer proxy.Close()
+			local := httptest.NewServer(proxy)
+			defer local.Close()
+			client := &http.Client{Timeout: 3 * time.Second}
+			response, err := client.Get(local.URL + proxy.RootPath())
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer response.Body.Close()
+			body, err := io.ReadAll(response.Body)
+			if string(body) != "first" || !errors.Is(err, io.ErrUnexpectedEOF) {
+				t.Fatalf("truncated upstream became body=%q err=%v; want first and unexpected EOF", body, err)
+			}
+		})
 	}
 }
 
