@@ -37,12 +37,18 @@ func main() {
 			mygo.App.Quit()
 		}()
 		go func() {
-			// The window is up by now; closing it stands in for the person who
-			// decided the dialog was not worth reading.
-			time.Sleep(2 * time.Second)
-			win := handler.LastWindow()
+			// Closing the window stands in for the person who decided the dialog
+			// was not worth reading. One fixed sleep was not enough: on a machine
+			// already running other windows the dialog sometimes took longer to
+			// appear, and the probe reported "a dialog window was never opened"
+			// for a dialog that was simply still coming up.
+			var win = handler.LastWindow()
+			for i := 0; i < 100 && win == nil; i++ {
+				time.Sleep(100 * time.Millisecond)
+				win = handler.LastWindow()
+			}
 			if win == nil {
-				result <- fmt.Errorf("no dialog window was opened")
+				result <- fmt.Errorf("no dialog window was opened within 10s")
 				mygo.App.Quit()
 				return
 			}

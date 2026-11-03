@@ -57,6 +57,16 @@ Install: `Start-Process setup.exe -ArgumentList '/S' -Wait` exits 0, `LOCALAPPDA
 
 One operational trap: `./setup.exe /S` from bash exits silently without installing because the shell mangles the arguments; it has to go through PowerShell's `Start-Process -ArgumentList '/S'`. Logs in `E:/Temp/nk-package-head-build.log`.
 
+## The intermittent window failures, traced to their causes (2026-11-03)
+
+Running the suite back to back occasionally produced "one entry FAILs while its log is full of PASSes" or "a dialog window was never opened". Three separate things, not one blanket retry:
+
+- **The dialog probe** slept two seconds and then looked for the window; with other windows already running the dialog sometimes took longer. It now polls for up to ten seconds, and eight consecutive solo runs passed. The cause is fixed rather than hidden.
+- **`readercheck`** read the page state in a goroutine after a wait, so a window that ended first still printed `done` and exited 0 — one suite run "passed" that way with no page state at all. A `checked` flag now makes that case fail with `the window ended before the page could be checked`.
+- **The suite** starts a dozen window processes in a row and can still lose one. `run()` allows **one retry**, prints `RETRY <entry>` and keeps the first log as `.first`, so the failure stays visible instead of turning the suite into noise; `NK_NO_RETRY=1` disables it when measuring the real rate.
+
+Measured after the fixes: **three consecutive runs of 12 PASS / 0 FAIL / 0 RETRY**, and with retries off an environment-level failure still appeared once (login and dialog each seen once), which is why the retry is a backstop rather than the explanation. Logs `E:/Temp/nk-probes-final-{1,2,3}.log` and `E:/Temp/nk-dialog-{1..8}.log`.
+
 ## The native search joins the default suite too (2026-11-03)
 
 Last round I set `uicheck` aside as a check that could only ever be green: it captured a picture and asserted nothing, and a grid that found something captures to nearly the same size as one that found nothing. This round it got an assertion, which is what made it worth including:

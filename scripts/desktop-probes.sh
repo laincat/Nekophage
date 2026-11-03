@@ -38,6 +38,21 @@ run() {
 	shift 2
 	rc=0
 	"$@" >"$log" 2>&1 || rc=$?
+	# One retry, reported rather than hidden. Running a dozen probe processes
+	# back to back on one desktop occasionally loses a window before the work
+	# starts — the probe then says so and exits non-zero, which is correct but
+	# says nothing about the product. A second attempt that passes is printed as
+	# RETRY with both logs kept, so the flake stays visible and the suite does
+	# not become noise. NK_NO_RETRY=1 turns it off when measuring flakiness.
+	if [ "$rc" -ne 0 ] && [ "${NK_NO_RETRY:-0}" != "1" ]; then
+		mv "$log" "$log.first"
+		rc=0
+		"$@" >"$log" 2>&1 || rc=$?
+		if [ "$rc" -eq 0 ]; then
+			printf 'RETRY %s (first attempt failed, see %s.first)
+' "$label" "$log"
+		fi
+	fi
 	report "$rc" "$label" "$log"
 }
 

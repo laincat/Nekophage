@@ -16,7 +16,9 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/egoist/mygo"
@@ -121,6 +123,12 @@ func main() {
 	var (
 		checkErr error
 		web      *mygo.WebView
+		// The page is read from a goroutine after a wait. If the app loop ends
+		// first — a window that never opened, a startup that quit early — the
+		// goroutine never runs and the tool used to print "done" anyway, which
+		// reads as a pass. That is how one run of the suite reported nothing and
+		// exited 0.
+		checked atomic.Bool
 	)
 	mygo.App.WhenReady(func() {
 		// A web view shows inside native UI: the window's content places it.
@@ -166,6 +174,7 @@ func main() {
 					log.Printf("window capture: %s (%d bytes; the web layer is not in it)", *out, len(data))
 				}
 			}
+			checked.Store(true)
 			checkErr = nil
 			if *retryCheck {
 				// The decode assertion below reads the page before the retry, which is
@@ -297,9 +306,24 @@ func main() {
 					} else {
 						time.Sleep(*wait)
 						y, err := view.Page().Eval("scrollY")
-						log.Printf("after reopening the chapter, scrollY=%v (%v)", y, err)
-						if v, ok := y.(float64); !ok || v < moved*0.8 {
-							checkErr = fmt.Errorf("the place was not restored: scrollY=%v, expected about %v", y, moved)
+						saved, _ := view.Page().Eval("localStorage.getItem('nkreader.at:loopback_pages/one/1')")
+						log.Printf("after reopening the chapter, scrollY=%v saved=%v (%v)", y, saved, err)
+						// Landing anywhere below the old place is not restoring it: the
+						// point is that the reader comes back to where it was, not that
+						// it scrolled somewhere. Allow a fifth of the distance for a
+						// page whose height changed between visits, and floor it so a
+						// small move is not compared proportionally.
+						want, _ := saved.(string)
+						target := moved
+						if n, convErr := strconv.ParseFloat(want, 64); convErr == nil && n > 0 {
+							target = n
+						}
+						slack := target * 0.2
+						if slack < 80 {
+							slack = 80
+						}
+						if v, ok := y.(float64); !ok || v < target-slack || v > target+slack {
+							checkErr = fmt.Errorf("the place was not restored: scrollY=%v, saved %v", y, saved)
 						}
 					}
 				}
@@ -312,6 +336,9 @@ func main() {
 	}
 	if checkErr != nil {
 		log.Fatal(checkErr)
+	}
+	if !checked.Load() {
+		log.Fatal("the window ended before the page could be checked")
 	}
 	fmt.Println("done")
 }
