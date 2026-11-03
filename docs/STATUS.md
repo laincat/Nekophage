@@ -2,6 +2,10 @@
 
 [English](STATUS.en.md) | 简体中文
 
+## Core测试与兼容说明已整合(2026-11-04)
+
+经用户确认,Core main按单初始提交约定更新为c0f0dfa00c8a4daf7ce58fea5b615bc24eab88b7,文件树与通过完整CI41722875239的8922993完全一致,PR #3已关闭。只有测试与文档差异,生产转换实现未变;Nekularity/Nekophage仍使用功能pin3be57b5。保树/远端/两端pin回执 `E:/Temp/core-gbk-differential/main-published.json`。新主线SHA与已有CI受测SHA分别记录,不把旧CI改记为新SHA执行。
+
 ## 主线整合 Core 3be57b5(2026-11-04)
 
 **当前主线 macOS arm64 包已构建并核验(2026-11-04)**:Orca Worker 在精确 c545212/3be57b5、工作树干净的检出上运行 `sh scripts/package-macos.sh`,生成 0.2.7/`com.laincat.nekophage`、最低 macOS12.0 的 `.app`,并以 ad-hoc 签名完成归档往返。ZIP 10,425,020 字节,SHA-256 `bb39921af5e62891944584b5ac56bb734cf24d10d1b9456eb9f195972e4b614c`;包内二进制与原始 `.app` 的 SHA-256 均为 `d955c9ab422e1628389a0a5b5db72cabae24a6b16662bd2e186cbf177548fd9a`,权限 0755,plist 一致。原始包与解包后 `codesign --verify --deep --strict` 退出码均为0,签名显示 `Signature=adhoc`、`TeamIdentifier=not set`;包内二进制 `-version` 的提交与 Core 均匹配。回执/日志 `/tmp/nk-c545-acceptance/packages/`。初次预检误用不存在的 `build/core` 路径已按 `go list` 修正,失败日志保留。

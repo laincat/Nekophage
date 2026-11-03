@@ -2,6 +2,10 @@
 
 English | [简体中文](STATUS.md)
 
+## Core tests and compatibility documentation integrated (2026-11-04)
+
+With user approval, Core main is now the single root commit c0f0dfa00c8a4daf7ce58fea5b615bc24eab88b7, with the exact tree of 8922993 accepted by complete CI 41722875239. PR #3 is closed. Only tests/documentation differ; production conversion is unchanged and both clients retain functional pin 3be57b5. Tree/remote/pin receipt: `E:/Temp/core-gbk-differential/main-published.json`. The new main SHA and prior CI-tested SHA remain distinct; the prior run is not relabeled as execution of the new commit.
+
 ## Mainline integration of Core 3be57b5 (2026-11-04)
 
 **Current-main macOS arm64 package built and verified (2026-11-04)**: on an exact clean c545212/Core 3be57b5 checkout, Orca Worker ran `sh scripts/package-macos.sh` and produced a 0.2.7/`com.laincat.nekophage` `.app` with minimum macOS 12.0, then completed an archive round trip under ad-hoc signing. The ZIP is 10,425,020 bytes, SHA-256 `bb39921af5e62891944584b5ac56bb734cf24d10d1b9456eb9f195972e4b614c`; the packaged executable and original `.app` binary both hash to `d955c9ab422e1628389a0a5b5db72cabae24a6b16662bd2e186cbf177548fd9a`, mode 0755, with identical plists. `codesign --verify --deep --strict` returned 0 both before archiving and after extraction; signature reports `Signature=adhoc` and `TeamIdentifier=not set`. The packaged binary's `-version` matches the expected commit and Core. Receipt/logs: `/tmp/nk-c545-acceptance/packages/`. The first preflight used a nonexistent `build/core` path; it was corrected from `go list`, and the failure log is retained.
