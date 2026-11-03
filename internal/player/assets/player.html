@@ -199,7 +199,14 @@
     hls = new Hls({ enableWorker: true, lowLatencyMode: false, startPosition: restoring ? start : -1 });
     hls.on(Hls.Events.ERROR, function (_event, data) {
       if (!data || !data.fatal) return;
-      fail(data.details ? String(data.details) : '播放中断');
+      const status = Number(data.response && data.response.code);
+      if (status === 401 || status === 403) {
+        fail('媒体访问被拒绝 (HTTP ' + status + ')，请检查视频源的登录状态或访问权限。');
+      } else if (status >= 400 && status < 600) {
+        fail('媒体请求失败 (HTTP ' + status + ')，请稍后重试。');
+      } else {
+        fail(data.details ? String(data.details) : '播放中断');
+      }
     });
     hls.on(Hls.Events.MANIFEST_PARSED, function () { noteAudio(true); });
     hls.on(Hls.Events.SUBTITLE_TRACKS_UPDATED, updateHLSSubtitles);
