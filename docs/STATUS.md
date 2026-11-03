@@ -4,6 +4,12 @@
 
 更新:2026-11-03。以下按章节区分 Windows 真实站点、loopback 媒体夹具、原生窗口、单测与 macOS 的证据。
 
+## 当前 Core pin 的 macOS 阅读验收(2026-11-03)
+
+Orca Worker 在 macOS arm64 对 Nekophage `90e784f`、Core `4f213ff` 完成隔离资料验收:源码 bundle 两层 SHA-256、全新克隆 HEAD/tree 和 Core pin/stamp 一致;`sh scripts/check.sh` 7 项通过。`uicheck` 的本地源搜索与详情通过;`readercheck` 实际解码两页并由页面上报进度,滚动位置移动/保存/重开恢复均为 1200,双页布局两列通过。日志和截图在 Mac `/tmp/nk-neko-949/`。这些均是本地夹具,不是在线站点验证。
+
+`sh scripts/package-macos.sh` 生成 0.2.7 `.app`,其 `-version` 实际报告 Core `4f213ff` 和提交 `90e784f`,二进制 SHA-256 `c70a6567ae85292b2535b2d7f08818e0e44b8e2f7276e84d9c09ce4ca11cde9d`;ad-hoc 签名验证通过,不等于 Developer ID 签名或公证。由于应用无隔离资料目录参数,Worker 未启动打包后的 `.app` 窗口以免读写用户资料,该项仍未验收。传输所用临时 secret gist 在下载和哈希核验后已删除。
+
 ## HLS 播放器的拒绝提示(2026-11-03,`efc1a97`)
 
 上轮 Windows 续播在未登录夹具上收到 HTTP 403 时,页面只显示 `manifestLoadError`,用户无法判断是登录/权限还是格式问题。现在 HLS.js 致命错误的 `response.code` 为 401/403 时显示「媒体访问被拒绝 (HTTP 403),请检查视频源的登录状态或访问权限。」;其他 4xx/5xx 带状态码;没有 HTTP 响应的错误仍保留原有 details/「播放中断」文案。

@@ -4,6 +4,12 @@ English | [简体中文](STATUS.md)
 
 Updated 2026-11-03. Sections distinguish Windows live sites, loopback media fixtures, native windows, unit tests and macOS.
 
+## macOS reading acceptance at the current Core pin (2026-11-03)
+
+An Orca Worker validated Nekophage `90e784f` with Core `4f213ff` on macOS arm64 using isolated profiles. Both bundle transfer hashes, the fresh clone's HEAD/tree and Core pin/stamp matched; all seven checks in `sh scripts/check.sh` passed. `uicheck` passed local-fixture search and detail. `readercheck` decoded both images and received page progress; the moved, saved and restored scroll positions were all 1200, and the two-column spread passed. Logs and screenshots are on the Mac under `/tmp/nk-neko-949/`. These are local-fixture results, not live-site validation.
+
+`sh scripts/package-macos.sh` produced a 0.2.7 `.app`; its actual `-version` output reports Core `4f213ff` and commit `90e784f`. The binary SHA-256 is `c70a6567ae85292b2535b2d7f08818e0e44b8e2f7276e84d9c09ce4ca11cde9d`. Its ad-hoc signature verifies; this is not Developer ID signing or notarization. The Worker did not launch the packaged app window because it has no isolated profile argument and could access the user's data; that window remains unverified. The temporary secret gist was deleted after download and hash verification.
+
 ## Refused-media messages in the HLS player (2026-11-03, `efc1a97`)
 
 When the packaged resume check hit HTTP 403 from an unauthenticated fixture, the page showed only `manifestLoadError`, giving no way to tell a login/permission problem from a format problem. A fatal HLS.js error with `response.code` 401/403 now reads “媒体访问被拒绝 (HTTP 403)，请检查视频源的登录状态或访问权限。” Other 4xx/5xx include their status; errors without an HTTP response keep the existing details/“播放中断” text.
