@@ -4,19 +4,19 @@
 
 ## 主线整合 Core 3be57b5(2026-11-04)
 
-**当前主线 macOS arm64 包已构建并核验(2026-11-04)**:Orca Worker 在精确 c545212/Core3be57b5、工作树干净的检出上运行 `sh scripts/package-macos.sh`,生成 0.2.7/`com.laincat.nekophage`、最低 macOS12.0 的 `.app`,并以 ad-hoc 签名完成归档往返。ZIP 10,425,020 字节,SHA-256 `bb39921af5e62891944584b5ac56bb734cf24d10d1b9456eb9f195972e4b614c`;包内二进制与原始 `.app` 的 SHA-256 均为 `d955c9ab422e1628389a0a5b5db72cabae24a6b16662bd2e186cbf177548fd9a`,权限 0755,plist 一致。原始包与解包后 `codesign --verify --deep --strict` 退出码均为0,签名显示 `Signature=adhoc`、`TeamIdentifier=not set`;包内二进制 `-version` 的提交与 Core 均匹配。回执/日志 `/tmp/nk-c545-acceptance/packages/`。初次预检误用不存在的 `build/core` 路径已按 `go list` 修正,失败日志保留。
+**当前主线 macOS arm64 包已构建并核验(2026-11-04)**:Orca Worker 在精确 c545212/3be57b5、工作树干净的检出上运行 `sh scripts/package-macos.sh`,生成 0.2.7/`com.laincat.nekophage`、最低 macOS12.0 的 `.app`,并以 ad-hoc 签名完成归档往返。ZIP 10,425,020 字节,SHA-256 `bb39921af5e62891944584b5ac56bb734cf24d10d1b9456eb9f195972e4b614c`;包内二进制与原始 `.app` 的 SHA-256 均为 `d955c9ab422e1628389a0a5b5db72cabae24a6b16662bd2e186cbf177548fd9a`,权限 0755,plist 一致。原始包与解包后 `codesign --verify --deep --strict` 退出码均为0,签名显示 `Signature=adhoc`、`TeamIdentifier=not set`;包内二进制 `-version` 的提交与 Core 均匹配。回执/日志 `/tmp/nk-c545-acceptance/packages/`。初次预检误用不存在的 `build/core` 路径已按 `go list` 修正,失败日志保留。
 
 该项范围是构建、包内版本、归档与 ad-hoc 签名验证,不是 Gatekeeper、公证或新一次窗口启动;Mac 正常关窗仍受 `screen_locked` 限制。本次 macOS 包未重复打包 pin 的负向对照;此前反例保留各自提交与日志归属。
 
 本次主线整合把 Core pin 更新为3be57b5,保留服务器关闭竞态修复1a83ef2、WebKit原生轨加入后的字幕修复079ef6b、打包pin检查047de37,并带回候选已验证的播放器探针等待页面加载和4a4caed的已保存关闭跨进程探针。整合树的Windows七项检查通过;新进程实际WebView2在1秒解码画面恢复关闭,保持value=-1、无活动轨/cue,页面重开也通过。播放器HTML与已验收97e24b6逐字节相同,证据 `E:/Temp/nk-desktop-core-integration-evidence/`。
 
-当前主线功能提交c545212/Core3be57b5的Windows安装包已实际用/S /NOREGISTER /D隔离安装:安装后exe与ZIP摘要一致,版本/pin正确,原生主窗实际出现搜索/书架/源管理/AI/视频入口。点击窗口关闭后确认原进程消失;卸载退出0、安装目录删除,独立资料逐文件摘要不变。回执/截图/日志 `E:/Temp/nk-desktop-core-integration-evidence/install-b42482cb/`。本轮只补安装与启动退出,不把较早97e24b6的完整媒体流程移用为本包全流程通过。
+当前主线功能提交c545212/3be57b5的Windows安装包已实际用/S /NOREGISTER /D隔离安装:安装后exe与ZIP摘要一致,版本/pin正确,原生主窗实际出现搜索/书架/源管理/AI/视频入口。点击窗口关闭后确认原进程消失;卸载退出0、安装目录删除,独立资料逐文件摘要不变。回执/截图/日志 `E:/Temp/nk-desktop-core-integration-evidence/install-b42482cb/`。本轮只补安装与启动退出,不把较早97e24b6的完整媒体流程移用为本包全流程通过。
 
-当前pin的本地音轨解码补验(2026-11-04):Lead在精确c545212/Core3be57b5、独立资料的Windows开发WebView2复用uicheck -video-audio。HLS.js实际解码音频18537字节,原生MP4为17976字节,两条命令成功;无音轨MP4与清单虚报AAC的无音轨HLS均为0,命令按预期非零退出。日志/回执 `E:/Temp/nk-c545-audio/`。这是音频解码管线证据,不代表扬声器发声、安装版手工播放或Mac音轨通过。
+当前pin的本地音轨解码补验(2026-11-04):Lead在精确c545212/3be57b5、独立资料的Windows开发WebView2复用uicheck -video-audio。HLS.js实际解码音频18537字节,原生MP4为17976字节,两条命令成功;无音轨MP4与清单虚报AAC的无音轨HLS均为0,命令按预期非零退出。日志/回执 `E:/Temp/nk-c545-audio/`。这是音频解码管线证据,不代表扬声器发声、安装版手工播放或Mac音轨通过。
 
 消费端依据分别保留:Windows97e24b6/Core3be安装版已验英文活动cue→关闭→正常退出→新进程关闭、3.030709秒与画面恢复、鉴权/Range206,回执 `E:/Temp/nk-ca8-package/media97-fe96ad14/receipt.json`。Orca Worker在Mac ca8f370/Core3be通过搜索/详情、两页解码与失败重试、右起双页、页面进度和章节重开1200、视频时钟与Range206;原字幕呈现失败经同一WebKit补丁修复,英文和关闭/页面重开通过,日志 `/tmp/nk-ca8-acceptance/evidence/`。Mac错误stamp拒绝且旧.app不变、正确pin ad-hoc打包也通过。
 
-Mac包装窗口已出现,正常关窗仍被screen_locked拒绝;未借SIGTERM或Windows结果计通过。Mac旧探针因强制活动字幕而失败的缺口现已补验:Orca Worker在精确c545212/Core3be干净检出上通过播放器包race回归(2.018秒),并将此前页面实际保存的off资料按摘要核对复制,未手写选择。独立进程13544、13564的before均恢复关闭、stable=2、width=320、time=1.000、无showing轨/cue,且各自页面重开也通过,两次退出0。日志 `/tmp/nk-c545-acceptance/evidence/`,Lead回执 `E:/Temp/nk-c545-mac-transfer/mac-acceptance.json`。两份窗口截图全白且不含Web层,不算视觉证据;跨进程事实来自两个PID的初始状态,不来自同进程LoadURL。临时源码gist已在确认接收后删除并核对404。阅读重开不等于跨App进程恢复,夹具无音轨。Nekularity main现已整合6eab317/Core3be57b5,受测组合3574346的CI/IPA及两条签名模拟器AI闭环已分范围核验;公开0.3.2仍为旧pin包。整合回执 `E:/Temp/nk-ios-final-integration/receipt.json`。下列旧版本记录保留原提交与pin。
+Mac包装窗口已出现,正常关窗仍被screen_locked拒绝;未借SIGTERM或Windows结果计通过。Mac旧探针因强制活动字幕而失败的缺口现已补验:Orca Worker在精确c545212/Core3be干净检出上通过播放器包race回归(2.018秒),并将此前页面实际保存的off资料按摘要核对复制,未手写选择。独立进程13544、13564的before均恢复关闭、stable=2、width=320、time=1.000、无showing轨/cue,且各自页面重开也通过,两次退出0。日志 `/tmp/nk-c545-acceptance/evidence/`,Lead回执 `E:/Temp/nk-c545-mac-transfer/mac-acceptance.json`。两份窗口截图全白且不含Web层,不算视觉证据;跨进程事实来自两个PID的初始状态,不来自同进程LoadURL。临时源码gist已在确认接收后删除并核对404。阅读重开不等于跨App进程恢复,夹具无音轨。Nekularity main现已整合6eab317/3be57b5,受测组合3574346的CI/IPA及两条签名模拟器AI闭环已分范围核验;公开0.3.2仍为旧pin包。整合回执 `E:/Temp/nk-ios-final-integration/receipt.json`。下列旧版本记录保留原提交与pin。
 
 ## 主线字幕修复安装包验收(2026-11-03)
 
@@ -118,7 +118,7 @@ Orca Worker 在 macOS arm64 对 Nekophage `90e784f`、Core `4f213ff` 完成隔�
 
 ## 打包前核对实际 Core(2026-11-04)
 
-切换分支后残留的 go.work/corestamp.go 曾让 pin 为 `3be57b5` 的 `97e24b6` 打出 `4f213ff` 安装包,脚本因只核对自身提交而错误报告通过。错误产物已被正确pin版本替换,原日志 `E:/Temp/nk-ca8-package/build-fixed.log` 保留。现在 Windows 与 macOS 打包入口复用 check-core-pin.sh,在创建/替换产物前核对实际模块、干净检出与生成戳记。错误模块和旧戳记两种 Windows 实验均在输出变更前拒绝,已有产物保留,日志 `E:/Temp/nk-package-pin-evidence/negative.log`。Orca Worker 已在 Mac 的 ca8f370/Core3be57b5 工作区加入同一检查并实际验证:旧戳记以 generated stamp differs/exit1 拒绝,原.app的4个文件内容均不变;finally精确恢复戳记后正确pin打包通过,实际Core3be57b5、0.2.7及ad-hoc校验成功。证据 `/tmp/nk-ca8-acceptance/pin-gate-evidence/`,Lead回执 `E:/Temp/nk-package-pin-evidence/mac-receipt.json`。此轮未操作窗口。Windows 开发 WebView 的引擎是 WebView2,不是 WebKit。
+切换分支后残留的 go.work/corestamp.go 曾让 pin 为 `3be57b5` 的 `97e24b6` 打出 `4f213ff` 安装包,脚本因只核对自身提交而错误报告通过。错误产物已被正确pin版本替换,原日志 `E:/Temp/nk-ca8-package/build-fixed.log` 保留。现在 Windows 与 macOS 打包入口复用 check-core-pin.sh,在创建/替换产物前核对实际模块、干净检出与生成戳记。错误模块和旧戳记两种 Windows 实验均在输出变更前拒绝,已有产物保留,日志 `E:/Temp/nk-package-pin-evidence/negative.log`。Orca Worker 已在 Mac 的 ca8f370/3be57b5 工作区加入同一检查并实际验证:旧戳记以 generated stamp differs/exit1 拒绝,原.app的4个文件内容均不变;finally精确恢复戳记后正确pin打包通过,实际3be57b5、0.2.7及ad-hoc校验成功。证据 `/tmp/nk-ca8-acceptance/pin-gate-evidence/`,Lead回执 `E:/Temp/nk-package-pin-evidence/mac-receipt.json`。此轮未操作窗口。Windows 开发 WebView 的引擎是 WebView2,不是 WebKit。
 
 ## 媒体服务器关闭后拒绝新会话(2026-11-04)
 
