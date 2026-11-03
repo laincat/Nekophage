@@ -4,6 +4,14 @@ English | [简体中文](STATUS.md)
 
 Updated 2026-11-03. Sections distinguish Windows live sites, loopback media fixtures, native windows, unit tests and macOS.
 
+## Media acceptance inside the new Core candidate package (2026-11-03)
+
+The Lead actually installed 0.2.7/`db024bd` (Core `2c9c83b`) on Windows and used native video search → detail → episode selection to open its packaged WebView. A fresh `-data-dir` contained only a source definition for the repository local-video fixture, without seeded cookies or progress; source-installation UI was not tested. Chinese captions appeared first; on the same paused frame, selecting English displayed `Subtitle rendering proof`, then Off removed the captions and wrote `videoSubtitles.choice.off=true` to disk. The native play control advanced both picture and clock from 0:00 to 0:10. Fixture logs confirm all Referer/Cookie checks true, manifests returning 200 without Range/If-Range, exact-length media byte ranges returning 206, and requests for the English playlist/VTT.
+
+After saving 2.977162 seconds with the page timeline, all four windows were closed normally and old PID `38364` was confirmed absent. The same installed exe was restarted as PID `20864` with the same actual profile. Closing only the main window leaves the process alive while child windows remain; that initial failed exit check is retained. Native search established the fixture session again, then Continue watching opened a page whose URL included `start=2.977162`. The restored video region is pixel-identical to the saved frame and differs from both initial and ended frames; subtitles remain Off. Progress was not injected into the player and automatic cross-process authentication is not claimed.
+
+Receipt, window captures, HTTP and comparison logs are under `E:/Temp/nk-core-2c9-runtime/media-installed-0c334515/`: `receipt.json`, `chinese.png`, `english.png`, `off.png`, `resume-before.png`, `resumed.png`, `fixture.log` and `verify-media.log`. Cleanup closed all owned windows normally, stopped the owned fixture and confirmed its listener closed, then silently uninstalled the temporary app while preserving actual profile hashes (`cleanup.log`, `uninstall.log`). This adds installed-media and cross-process resume evidence at the new pin. The fixture has no audio track and does not establish audio/speaker output, PiP, live sites or macOS; neither consumer main pin is upgraded.
+
 ## Choosing a data directory
 
 The `-data-dir <directory>` launch option points application business data at the specified directory and creates it before use. A local Windows build was exercised: `-version` reports Core `4f213ff`, and pointing `-data-dir` at a fresh directory actually created `sources`; log `E:/Temp/nk-data-dir-win/verify.log`. Without the option, the existing user data directory is used. It covers sources, shelves, settings and cookies, without promising to redirect every system-framework cache or preference path.

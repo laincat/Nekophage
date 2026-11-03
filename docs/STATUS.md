@@ -4,6 +4,14 @@
 
 更新:2026-11-03。以下按章节区分 Windows 真实站点、loopback 媒体夹具、原生窗口、单测与 macOS 的证据。
 
+## 新 Core 候选的安装包内媒体补验(2026-11-03)
+
+Lead 在 Windows 实际安装 0.2.7/`db024bd`(Core `2c9c83b`)后,通过原生视频搜索→详情→选集进入包内 WebView。`-data-dir` 使用全新资料,只预置仓库本地视频夹具的源定义,未注入 Cookie 或进度;本轮不验证源安装 UI。播放器先显示中文字幕,同一暂停画面通过字幕选择框切到 English 后显示 `Subtitle rendering proof`,再关闭后字幕消失,`videoSubtitles.choice.off=true` 写入磁盘。原生播放控件让画面与时钟从 0:00 前进到 0:10。夹具日志确认所有 Referer/Cookie 校验为 true,清单 200 且无 Range/If-Range,媒体为精确长度的 206 字节范围,英文清单与 VTT 被请求。
+
+通过页面进度条保存 2.977162 秒后,正常关闭全部四个窗口,确认旧 PID `38364` 已退出,再启动同一已安装 exe(PID `20864`)与同一实际资料。主窗单独关闭不会结束仍有子窗的进程,该初次检查未通过的日志保留。新进程通过原生搜索重新建立夹具会话,点击「继续观看」,页面 URL 带 `start=2.977162`;恢复视频区域与保存画面逐像素一致,与起始帧和片尾均不同,字幕保持关闭。没有向播放器补写进度,也不声称自动跨进程登录。
+
+回执、窗口截图、HTTP 与比对日志在 `E:/Temp/nk-core-2c9-runtime/media-installed-0c334515/`: `receipt.json`、`chinese.png`、`english.png`、`off.png`、`resume-before.png`、`resumed.png`、`fixture.log`、`verify-media.log`。最后正常关闭本轮全部窗口,停止本轮夹具并确认端口关闭,静默卸载临时安装且实际资料逐文件哈希保持不变(`cleanup.log`、`uninstall.log`)。这次补上新 pin 安装包内媒体和跨进程续播证据,不覆盖无音轨夹具无法证明的音频/扬声器、PiP、真实站点或 macOS;两个客户端 main 的 pin 仍未升级。
+
 ## 可指定资料目录
 
 启动参数 `-data-dir <目录>` 将应用业务资料指向指定目录,并在使用前创建该目录;不传参数时沿用原有用户资料目录。Windows 本机构建实测:`-version` 报告 Core `4f213ff`,`-data-dir` 指向全新目录后该目录内实际出现 `sources`,日志 `E:/Temp/nk-data-dir-win/verify.log`。它覆盖源、书架、设置和 Cookie 等应用数据,不承诺把系统框架的缓存与偏好路径全部重定向。
