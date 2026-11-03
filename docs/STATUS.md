@@ -8,7 +8,9 @@
 
 启动参数 `-data-dir <目录>` 将应用业务资料指向指定目录,并在使用前创建该目录;不传参数时沿用原有用户资料目录。它覆盖源、书架、设置和 Cookie 等应用数据,不承诺把系统框架的缓存与偏好路径全部重定向。
 
-Orca Worker 已在 `c387e3f` 上重新打包 macOS App,`-version` 报告提交 `c387e3f`、Core `4f213ff`,ad-hoc 签名通过,二进制 SHA-256 `1f61424525835456dbf586e733119f6eed07285811ae9ed125d135689ae52271`;隔离审查日志 `/tmp/nk-neko-949/isolation-check.log`。按当时过宽的用户域写入边界,窗口未启动,不计通过。后续源码复核确认主窗启动不创建 WebView,MyGo 的 `registerDefaults` 注册内存默认值;这两项调用本身不证明会写入持久偏好。窗口验收将保护既有真实业务资料,同时记录新建框架目录的变化。
+Orca Worker 已在 `c387e3f` 上重新打包 macOS App,`-version` 报告提交 `c387e3f`、Core `4f213ff`,ad-hoc 签名通过,二进制 SHA-256 `1f61424525835456dbf586e733119f6eed07285811ae9ed125d135689ae52271`;隔离审查日志 `/tmp/nk-neko-949/isolation-check.log`。按当时过宽的用户域写入边界,窗口未启动,不计通过。后续源码复核确认主窗启动不创建 WebView,MyGo 的 `registerDefaults` 注册内存默认值;这两项调用本身不证明会写入持久偏好。随后按修正后的边界实际启动了打包应用:`-data-dir` 指向全新临时目录(其中实际创建了 `sources`),窗口可见并截图,显示搜索、浏览、书架与源管理控件及空源提示,截图与日志在 Mac `/tmp/nk-neko-949/evidence/packaged-c387/`。原业务资料目录的文件元数据未观察到变化,所查 WebKit、HTTPStorages、Preferences、Caches、Saved State 路径均未新增;元数据对比不能单独证明未发生读取。
+
+**正常关闭仍未验收**:桌面工具报告 `screen_locked` 并拒绝输入,清理时只对本轮 PID 发送 `SIGTERM`,包装进程记录的退出码 0 不能当作正常窗口退出。启动日志另有 `sandbox_extension_issue_file_to_process … Operation not permitted` 一行,窗口随后仍正常显示,原因未查。该项需解锁桌面后重测。
 
 ## 当前 Core pin 的 macOS 阅读验收(2026-11-03)
 
