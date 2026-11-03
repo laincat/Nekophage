@@ -4,6 +4,10 @@
 
 ## 主线整合 Core 3be57b5(2026-11-04)
 
+**当前主线 macOS arm64 包已构建并核验(2026-11-04)**:Orca Worker 在精确 c545212/Core3be57b5、工作树干净的检出上运行 `sh scripts/package-macos.sh`,生成 0.2.7/`com.laincat.nekophage`、最低 macOS12.0 的 `.app`,并以 ad-hoc 签名完成归档往返。ZIP 10,425,020 字节,SHA-256 `bb39921af5e62891944584b5ac56bb734cf24d10d1b9456eb9f195972e4b614c`;包内二进制与原始 `.app` 的 SHA-256 均为 `d955c9ab422e1628389a0a5b5db72cabae24a6b16662bd2e186cbf177548fd9a`,权限 0755,plist 一致。原始包与解包后 `codesign --verify --deep --strict` 退出码均为0,签名显示 `Signature=adhoc`、`TeamIdentifier=not set`;包内二进制 `-version` 的提交与 Core 均匹配。回执/日志 `/tmp/nk-c545-acceptance/packages/`。初次预检误用不存在的 `build/core` 路径已按 `go list` 修正,失败日志保留。
+
+该项范围是构建、包内版本、归档与 ad-hoc 签名验证,不是 Gatekeeper、公证或新一次窗口启动;Mac 正常关窗仍受 `screen_locked` 限制。Windows 打包引脚保护只在此前的 4f213ff 与错误 stamp 反例上验证过,本次 macOS 包未重复负向对照。
+
 本次主线整合把 Core pin 更新为3be57b5,保留服务器关闭竞态修复1a83ef2、WebKit原生轨加入后的字幕修复079ef6b、打包pin检查047de37,并带回候选已验证的播放器探针等待页面加载和4a4caed的已保存关闭跨进程探针。整合树的Windows七项检查通过;新进程实际WebView2在1秒解码画面恢复关闭,保持value=-1、无活动轨/cue,页面重开也通过。播放器HTML与已验收97e24b6逐字节相同,证据 `E:/Temp/nk-desktop-core-integration-evidence/`。
 
 当前主线功能提交c545212/Core3be57b5的Windows安装包已实际用/S /NOREGISTER /D隔离安装:安装后exe与ZIP摘要一致,版本/pin正确,原生主窗实际出现搜索/书架/源管理/AI/视频入口。点击窗口关闭后确认原进程消失;卸载退出0、安装目录删除,独立资料逐文件摘要不变。回执/截图/日志 `E:/Temp/nk-desktop-core-integration-evidence/install-b42482cb/`。本轮只补安装与启动退出,不把较早97e24b6的完整媒体流程移用为本包全流程通过。
