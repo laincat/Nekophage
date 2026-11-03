@@ -10,6 +10,14 @@
 
 `sh scripts/check.sh` 全项通过(gofmt、pin、vet、race 测试、docs、partitions、capabilities),日志 `E:/Temp/nk-pin-4f213ff-check.log`;探针日志 `E:/Temp/nk-pin-4f213ff-urlprobe2.log`。这只证明单测与 Core 模块路径,不等于窗口套件已在新 pin 上重跑。
 
+## 升 pin 后的 Windows 包(2026-11-03,`e578d29`)
+
+重打 `e578d29`、Core **`4f213ff`** 的 Windows 包。便携 ZIP 为 **21,565,167 字节**,SHA-256 `41bd37c3e4bcec3a72e78ae316db8523361ccb4e6b25b8570ac2aa9661dced83`;NSIS setup 为 **18,719,324 字节**,SHA-256 `23dd1b453b19e6a8734937b35e86af585c73756de0e5d94ab86aa88224a3e69e`。构建脚本核对了 ZIP CRC、解压后的逐文件哈希及 `-version`,日志 `E:/Temp/nk-package-4f213ff-build.log`。
+
+安装器 `/S /NOREGISTER` 返回 0;安装后二进制报告版本 0.2.7、Core `4f213ff` 和提交 `e578d29`,自带卸载器,状态为 `skipRegistration=1`。安装版启动后系统报告标题 Nekophage、窗口 1100×760,随后窗口正常退出;卸载返回 0、安装目录移除、隔离 APPDATA 下的测试资料保留,日志 `E:/Temp/nk-package-e578d29-install2.log`。这次先误以为重定向 `LOCALAPPDATA` 会改变 NSIS 目标目录,实际安装器通过 shell 文件夹 API 仍选真实用户的 `Programs/Nekophage`;该次安装后已完成卸载。安装版的截图被其他窗口遮挡,不作界面证据。
+
+便携 ZIP 解压到独立目录后可启动和关闭,置顶后可见搜索/浏览/书架/分类/源管理/AI/视频栏及空库提示,截图 `E:/Temp/nk-portable-e578d29-window.png`,日志 `E:/Temp/nk-portable-e578d29-capture.log`。这是本地未签名测试包,不声称已发布或做过新 pin 的全套窗口回归。
+
 ## 媒体断流保留传输错误(2026-11-03)
 
 代理原先忽略 `io.Copy` 的错误:上游以 chunked 方式给出部分视频后断开,本地代理仍正常结束响应,播放器收到的是残缺正文加干净 EOF。真实 `httptest` HTTP 连接复现了该问题:修复前无长度声明的子例得到 `body="first" err=<nil>`;带 `Content-Length` 的对照则已能识别短正文。现在已发出响应头后若复制失败,处理器用 `http.ErrAbortHandler` 中止下游响应,两种情况下客户端都收到部分字节及 `io.ErrUnexpectedEOF`,不把断流当作播放完成。测试同时确认源 Referer 仍到达上游。
