@@ -236,11 +236,16 @@ func main() {
 				// Only read what the page itself wrote. Posting here would prove that
 				// the endpoint answers, which is not the question: the page has to
 				// notice the scroll and report it on its own.
-				raw, err := view.Page().Eval(`(() => {
-					const keys = Object.keys(localStorage).filter(k => k.endsWith(':pct'));
-					return JSON.stringify({y: Math.round(scrollY), h: document.body.scrollHeight,
-						pctKeys: keys, pct: keys.length ? localStorage.getItem(keys[0]) : null});
-				})()`)
+				// The chapter's own key, not whichever one comes first: the store is
+				// shared with other fixtures and chapters, and reading keys[0] once
+				// reported another chapter's percentage while looking like this one's.
+				own := fmt.Sprintf("nkreader.at:%s/%s/%s", rec.Key, pick.ID, chapterID)
+				raw, err := view.Page().Eval(fmt.Sprintf(`(() => {
+					const place = %q;
+					return JSON.stringify({scrollY: Math.round(scrollY), h: document.body.scrollHeight,
+						key: place, pct: localStorage.getItem(place + ':pct'),
+						allKeys: Object.keys(localStorage).filter(k => k.endsWith(':pct'))});
+				})()`, own))
 				if err != nil {
 					checkErr = fmt.Errorf("progress: %w", err)
 				} else {
@@ -252,6 +257,10 @@ func main() {
 					// report for *this* chapter on its own.
 					if !strings.Contains(text, ":"+rec.Key+"/") {
 						checkErr = fmt.Errorf("the page reported no position for %s: %s", rec.Key, text)
+					} else if !strings.Contains(text, `"pct":"`) && !strings.Contains(text, `"pct":null`) {
+						checkErr = fmt.Errorf("progress: no percentage in the report: %s", text)
+					} else if strings.Contains(text, `"pct":null`) {
+						checkErr = fmt.Errorf("the page stored no percentage for this chapter: %s", text)
 					}
 				}
 			}

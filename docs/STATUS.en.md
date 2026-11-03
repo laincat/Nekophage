@@ -69,6 +69,19 @@ All three reading checks ran on the repository fixture and exited 0:
 
 The third one deserves a question mark: macOS landed on **3207**, while the same operation on Windows returns exactly 1200 under the stricter rule described above. I tightened that rule from "at least 80%" to "within 20% of the saved value" (floor 80 px); Windows still reports `scrollY=1200 saved=1200` twice, but the macOS run predates the change, so whether 3207 is a defect is not settled — the Mac side has been asked to re-run with the new rule. The 20,756-byte captures hold only the native layer, not WebView pixels; the rendering evidence is `decoded=2 / images=2`.
 
+## The macOS re-run settles it: 3207 was an artefact of the old rule (2026-11-03, `12ad82e`)
+
+Two consecutive runs of the same fixture on the Mac with the new rule, **both passing**:
+
+```
+run1  settled at [1200,5,"1200"]  → reopened scrollY=1200 saved=1200
+run2  settled at [1240,5,"1240"]  → reopened scrollY=1240 saved=1240
+```
+
+run2's `moved` is 1240 rather than 1200 because the "offset by 40 px when within 2 px" rule fired: the previous run's stored 1200 had already restored the new process to 1200. The two fixes — the probe's offset and the reader applying the place only after the layout stops moving — fit together. `-layout` and `-progress` also exited 0 in the same batch.
+
+One correction to the report's inference: it took the `y=3207` in `-progress` for a value from Core's persistent store, and that is **not** what it is — it is the probe's own scroll to 55% of the page (`0.55 × 5752 ≈ 3164`, rounded). The real problem in that log was elsewhere: `pct` read the **first** `:pct` key in `localStorage`, and the store is shared across fixtures, so it once reported another chapter's 21. It now reads this chapter's key, with two new assertions — a `null` value means "this chapter stored no percentage", and a report without one fails. Measured here: `pct="55"`, `scrollY=3127`.
+
 ## The probe no longer bets that the key is written one second later (2026-11-03)
 
 Both macOS runs of `44410bf` failed on `settled at [1200,3,null]` — the place key was **never written**, so the reopen had nothing to restore. Their second point also held: the hard check that the store must equal the baseline did fire (`saved` was nil), but the restore comparison right after **overwrote** it, leaving only "not restored" in the log.
