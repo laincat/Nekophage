@@ -2,6 +2,14 @@
 
 [English](STATUS.en.md) | 简体中文
 
+## 主线整合 Core 3be57b5(2026-11-04)
+
+本次主线整合把 Core pin 更新为3be57b5,保留服务器关闭竞态修复1a83ef2、WebKit原生轨加入后的字幕修复079ef6b、打包pin检查047de37,并带回候选已验证的播放器探针等待页面加载和4a4caed的已保存关闭跨进程探针。整合树的Windows七项检查通过;新进程实际WebView2在1秒解码画面恢复关闭,保持value=-1、无活动轨/cue,页面重开也通过。播放器HTML与已验收97e24b6逐字节相同,证据 `E:/Temp/nk-desktop-core-integration-evidence/`。
+
+消费端依据分别保留:Windows97e24b6/Core3be安装版已验英文活动cue→关闭→正常退出→新进程关闭、3.030709秒与画面恢复、鉴权/Range206,回执 `E:/Temp/nk-ca8-package/media97-fe96ad14/receipt.json`。Orca Worker在Mac ca8f370/Core3be通过搜索/详情、两页解码与失败重试、右起双页、页面进度和章节重开1200、视频时钟与Range206;原字幕呈现失败经同一WebKit补丁修复,英文和关闭/页面重开通过,日志 `/tmp/nk-ca8-acceptance/evidence/`。Mac错误stamp拒绝且旧.app不变、正确pin ad-hoc打包也通过。
+
+Mac包装窗口已出现,正常关窗仍被screen_locked拒绝;未借SIGTERM或Windows结果计通过。Mac旧探针在新进程关闭资料上因强制活动字幕而失败,本次新-baseline-off尚未在Mac补验。阅读重开不等于跨App进程恢复,夹具无音轨。Nekularity main仍为4f213ff,其独立候选/签名模拟器结果不混用。下列旧版本记录保留原提交与pin。
+
 ## 主线字幕修复安装包验收(2026-11-03)
 
 Lead 已构建并实际安装 0.2.7/`bf9cbd9`(Core `4f213ff`)。ZIP 21,566,978 bytes,安装器 18,720,774 bytes;CRC、逐文件摘要、实际版本与安装后 exe 一致性通过,产物和构建日志位于 `E:/Temp/nk-subtitle-package/`。使用此前测试实际保存的英文字幕/3.030709 秒资料的副本,仅调整本地夹具地址,经原生搜索建立夹具会话后继续观看:英文 Subtitle rendering proof 实际可见。通过字幕控件选择关闭后文字消失且 off=true 落盘;正常逐窗退出并启动新进程后,关闭选择仍保留,恢复位置仍为 3.030709,视频区域逐像素一致。

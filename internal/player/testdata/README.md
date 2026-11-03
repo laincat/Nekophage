@@ -4,6 +4,8 @@
 
 `saved-english.json` 是 subcheck 的英文字幕恢复资料。将其复制为新的 `-work` 目录下的 `shelf.json`,再运行 `go run ./cmd/subcheck -work <目录> -baseline-text "Subtitle rendering proof" -choose 关闭`。探针先要求真实活动英文 cue,再经页面 change 处理保存关闭选择并重开验证。此用例覆盖 HLS 内部默认轨选择覆盖提前恢复的用户选择,已加入现有 desktop-probes;不是安装版 GUI 操作证明。
 
+关闭已通过页面保存后,用同一目录另启进程:`go run ./cmd/subcheck -work <目录> -baseline-off -choose 关闭`。它要求磁盘已有关闭选择,且初始页面已解码、字幕控件可见、有语言选项、两次连续采样都保持关闭且无活动轨/cue;不把尚未加载的空页面当关闭恢复通过。`-baseline-off` 与 `-baseline-text` 互斥。
+
 `hls/` 是 10 秒、320×180、无音轨的 H.264 fMP4 HLS。它包含主清单、子清单和一个共享的 `stream.mp4`;初始化片段与五个媒体分片都用 `BYTERANGE` 读取,可在真实解码时检验 Range 传递。文件只用于开发探针,不内置到正式程序。
 
 画面来自 **Big Buck Bunny**,© 2008 Blender Foundation,[peach.blender.org](https://peach.blender.org/),[CC BY 3.0](https://creativecommons.org/licenses/by/3.0/)。输入是 Nekularity `UITests/Fixtures/media/clip.mp4` 使用的 10 秒样本,原下载自 `test-videos.co.uk`。本夹具做了缩放、压缩和无音轨 HLS 封装。

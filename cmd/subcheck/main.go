@@ -95,9 +95,13 @@ func main() {
 	choose := flag.String("choose", "English", "the subtitle option to pick before reopening, including 关闭")
 	text := flag.String("text", "Subtitle rendering proof", "expected active cue text (ignored for 关闭)")
 	baselineText := flag.String("baseline-text", "", "optional active cue text required before changing the selection")
+	baselineOff := flag.Bool("baseline-off", false, "require a previously saved off choice to be restored before changing the selection")
 	out := flag.String("out", "", "where to write the final window capture")
 	wait := flag.Duration("wait", 25*time.Second, "how long the page may take to load")
 	flag.Parse()
+	if *baselineOff && *baselineText != "" {
+		log.Fatal("baseline-off and baseline-text cannot be combined")
+	}
 
 	abs, err := filepath.Abs(*dir)
 	if err != nil {
@@ -130,7 +134,14 @@ func main() {
 	}
 	meta := player.Meta{Source: "sub_check", ItemID: "clip", Title: "Local HLS clip",
 		LineID: "local", EpisodeID: "ep1", EpisodeName: "Episode 1"}
-	// Start with no playback history to exercise choosing before progress exists.
+	// An off baseline must come from an earlier saved choice, not a fresh page
+	// that has not loaded its subtitle tracks yet.
+	if *baselineOff {
+		choice, ok := records.VideoSubtitle(meta.Source, meta.ItemID, meta.EpisodeID)
+		if !ok || !choice.Off {
+			log.Fatal("baseline-off requires an already saved off choice")
+		}
+	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
 	defer cancel()
@@ -235,24 +246,36 @@ func main() {
 		// Wait until the manifest's subtitle groups have arrived: before that
 		// the select has only "关闭" and there is nothing to pick.
 		baselineMatches := func(s pageState) bool {
-			return s.ShowingText != "" && (*baselineText == "" || strings.Contains(s.ShowingText, *baselineText))
+			if s.Loading || s.Hidden || len(s.Options) < 2 || s.VideoWidth == 0 || s.Seeking || s.Time < 0.9 || s.Time > 1.1 {
+				return false
+			}
+			if *baselineOff {
+				return s.Selected == "关闭" && s.Value == "-1" && s.ShowingTracks == 0 && s.ShowingText == ""
+			}
+			return s.ShowingTracks > 0 && s.ShowingText != "" && (*baselineText == "" || strings.Contains(s.ShowingText, *baselineText))
 		}
 		deadline := time.Now().Add(*wait)
 		var before pageState
+		stable := 0
 		for time.Now().Before(deadline) {
 			if checkErr != nil {
 				mygo.App.Quit()
 				return
 			}
 			before = state()
-			if len(before.Options) > 1 && !before.Hidden && before.VideoWidth > 0 && !before.Seeking && before.Time > 0.9 && baselineMatches(before) {
-				break
+			if baselineMatches(before) {
+				stable++
+				if stable >= 2 {
+					break
+				}
+			} else {
+				stable = 0
 			}
 			time.Sleep(500 * time.Millisecond)
 		}
-		log.Printf("before: options=%v selected=%q hidden=%v hls=%s active=%q", before.Options, before.Selected, before.Hidden, before.HLS, before.ShowingText)
-		if len(before.Options) < 2 || before.VideoWidth == 0 || before.Seeking || before.Time < 0.9 || !baselineMatches(before) {
-			checkErr = fmt.Errorf("the fixture never displayed a decoded frame with an active baseline subtitle: %+v", before)
+		log.Printf("before: options=%v selected=%q hidden=%v hls=%s active=%q offBaseline=%t stable=%d width=%d time=%.3f", before.Options, before.Selected, before.Hidden, before.HLS, before.ShowingText, *baselineOff, stable, before.VideoWidth, before.Time)
+		if stable < 2 {
+			checkErr = fmt.Errorf("the fixture never reached the requested decoded subtitle baseline (off=%t): %+v", *baselineOff, before)
 			mygo.App.Quit()
 			return
 		}

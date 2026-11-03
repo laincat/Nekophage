@@ -529,8 +529,11 @@ func (a *App) runVideoProbe(query, out string, quit bool) {
 			time.Sleep(time.Second)
 			raw, err := view.Page().Eval(`(() => {
 				const v = document.getElementById('v');
+				const failure = document.getElementById('err');
+				if (!v || !failure) return JSON.stringify({ready: 0, w: 0, h: 0,
+					duration: 0, time: 0, err: '', phase: 'loading-document'});
 				return JSON.stringify({ready: v.readyState, w: v.videoWidth, h: v.videoHeight,
-					duration: v.duration, time: v.currentTime, err: document.getElementById('err').textContent});
+					duration: v.duration, time: v.currentTime, err: failure.textContent});
 			})()`)
 			if err != nil {
 				report(false, "reading the player page failed: "+err.Error())

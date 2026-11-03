@@ -2,6 +2,14 @@
 
 English | [简体中文](STATUS.md)
 
+## Mainline integration of Core 3be57b5 (2026-11-04)
+
+This mainline integration selects Core 3be57b5 and retains shutdown-race fix 1a83ef2, WebKit native-track subtitle fix 079ef6b and packaging pin guard 047de37. It also brings in the previously tested player-probe document wait and 4a4caed saved-off process probe. The integrated tree passes all seven Windows checks. A fresh actual WebView2 process restores off at a decoded one-second frame with value=-1, no showing track/cue, and retains it after a page reopen. Player HTML is byte-identical to accepted 97e24b6; evidence: `E:/Temp/nk-desktop-core-integration-evidence/`.
+
+Consumer evidence remains separate: Windows installed 97e24b6/Core 3be passed active English→off→normal exit→new-process off, 3.030709-second/frame restoration, auth and Range206; receipt: `E:/Temp/nk-ca8-package/media97-fe96ad14/receipt.json`. On Mac ca8f370/Core 3be, Orca Worker passed search/details, two-page decoding and failed-page retry, RTL spread, page progress and chapter reopen at 1200, advancing video and Range206. Original subtitle rendering failed and passed English/off/page reopen after the same WebKit patch; logs: `/tmp/nk-ca8-acceptance/evidence/`. Mac stale-stamp rejection preserved the prior .app, and correct-pin ad-hoc packaging also passed.
+
+The Mac packaged window appeared, but screen_locked still refused normal closure; neither SIGTERM nor Windows results count as that acceptance. The older Mac probe failed on a saved-off new process because it required active text; the new -baseline-off has not yet run on Mac. Chapter reopen is not cross-App-process restoration, and the fixture has no audio. Nekularity main remains 4f213ff; its candidate/signed-simulator evidence remains separate. Historical records below retain their original commits and pins.
+
 ## Installed acceptance of the mainline subtitle fix (2026-11-03)
 
 The Lead built and installed 0.2.7/`bf9cbd9` (Core `4f213ff`). The ZIP is 21,566,978 bytes and setup is 18,720,774 bytes; CRC, individual hashes, actual version and installed-exe identity pass. Artifacts and build log: `E:/Temp/nk-subtitle-package/`. A copy of previously observed English-subtitle/3.030709-second data was used, changing only the local fixture address. Native search established the fixture session, then Continue Watching visibly restored Subtitle rendering proof. Selecting off through the caption control removed the text and persisted off=true. After normal closure of all windows and a new process, off remained selected, the restored position was still 3.030709, and video pixels matched exactly.
