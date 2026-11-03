@@ -55,10 +55,19 @@ func buildInfo() string {
 
 func main() {
 	showVersion := flag.Bool("version", false, "print the build and exit")
+	dataDirOverride := flag.String("data-dir", "", "store application data in this directory")
 	flag.Parse()
 	if *showVersion {
 		fmt.Fprintln(os.Stdout, buildInfo())
 		return
+	}
+
+	// Set the override before any application component resolves its data path.
+	if *dataDirOverride != "" {
+		if err := os.MkdirAll(*dataDirOverride, 0o700); err != nil {
+			log.Fatal(err)
+		}
+		mygo.App.SetPath(mygo.PathUserData, *dataDirOverride)
 	}
 
 	// Sources, settings and cookies live in the per-user data directory.

@@ -4,6 +4,10 @@ English | [简体中文](STATUS.md)
 
 Updated 2026-11-03. Sections distinguish Windows live sites, loopback media fixtures, native windows, unit tests and macOS.
 
+## Choosing a data directory
+
+The `-data-dir <directory>` launch option points application data at the specified directory and creates it before use. Without the option, the existing user data directory is used. This supports separate profiles and packaged-app validation; a macOS packaged window still needs to be verified with it.
+
 ## macOS reading acceptance at the current Core pin (2026-11-03)
 
 An Orca Worker validated Nekophage `90e784f` with Core `4f213ff` on macOS arm64 using isolated profiles. Both bundle transfer hashes, the fresh clone's HEAD/tree and Core pin/stamp matched; all seven checks in `sh scripts/check.sh` passed. `uicheck` passed local-fixture search and detail. `readercheck` decoded both images and received page progress; the moved, saved and restored scroll positions were all 1200, and the two-column spread passed. Logs and screenshots are on the Mac under `/tmp/nk-neko-949/`. These are local-fixture results, not live-site validation.

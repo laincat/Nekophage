@@ -4,6 +4,10 @@
 
 更新:2026-11-03。以下按章节区分 Windows 真实站点、loopback 媒体夹具、原生窗口、单测与 macOS 的证据。
 
+## 可指定资料目录
+
+启动参数 `-data-dir <目录>` 将应用资料指向指定目录,并在使用前创建该目录;不传参数时沿用原有用户资料目录。此入口用于独立资料运行和包验收,macOS 打包窗口尚待用它实际验证。
+
 ## 当前 Core pin 的 macOS 阅读验收(2026-11-03)
 
 Orca Worker 在 macOS arm64 对 Nekophage `90e784f`、Core `4f213ff` 完成隔离资料验收:源码 bundle 两层 SHA-256、全新克隆 HEAD/tree 和 Core pin/stamp 一致;`sh scripts/check.sh` 7 项通过。`uicheck` 的本地源搜索与详情通过;`readercheck` 实际解码两页并由页面上报进度,滚动位置移动/保存/重开恢复均为 1200,双页布局两列通过。日志和截图在 Mac `/tmp/nk-neko-949/`。这些均是本地夹具,不是在线站点验证。
