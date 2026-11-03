@@ -80,6 +80,16 @@ run2  settled at [1240,5,"1240"]  → reopened scrollY=1240 saved=1240
 
 run2's `moved` is 1240 rather than 1200 because the "offset by 40 px when within 2 px" rule fired: the previous run's stored 1200 had already restored the new process to 1200. The two fixes — the probe's offset and the reader applying the place only after the layout stops moving — fit together. `-layout` and `-progress` also exited 0 in the same batch.
 
+The five-round convergence is worth keeping:
+
+| commit | `-scroll` | `settled at` / after reopening | what the rule could see |
+|---|---|---|---|
+| `baa35a4` | 2/2 passed | `[1200,5]` / `3207 saved=3207` | self-proving: the store was the baseline, so drift was invisible |
+| `44410bf` | 0/2 failed | `[1200,3,null]` / `0 saved=<nil>` | exposed "nothing was written at all" |
+| `2dbbc29` | 0/2 failed | same | page-side timing fixed, the probe still raced the boot |
+| `12ad82e` | 2/2 passed | `[1200,5,"1200"]` / `1200` | drift caught: `saved == moved` |
+| `1db4c91` | 2/2 passed | `[1200\|1240,5,"1200"\|"1240"]` / matching | stable once the boot wait was added |
+
 One correction to the report's inference: it took the `y=3207` in `-progress` for a value from Core's persistent store, and that is **not** what it is — it is the probe's own scroll to 55% of the page (`0.55 × 5752 ≈ 3164`, rounded). The real problem in that log was elsewhere: `pct` read the **first** `:pct` key in `localStorage`, and the store is shared across fixtures, so it once reported another chapter's 21. It now reads this chapter's key, with two new assertions — a `null` value means "this chapter stored no percentage", and a report without one fails. Measured here: `pct="55"`, `scrollY=3127`.
 
 ## The probe no longer bets that the key is written one second later (2026-11-03)
