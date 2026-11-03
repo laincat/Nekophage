@@ -69,6 +69,18 @@ All three reading checks ran on the repository fixture and exited 0:
 
 The third one deserves a question mark: macOS landed on **3207**, while the same operation on Windows returns exactly 1200 under the stricter rule described above. I tightened that rule from "at least 80%" to "within 20% of the saved value" (floor 80 px); Windows still reports `scrollY=1200 saved=1200` twice, but the macOS run predates the change, so whether 3207 is a defect is not settled — the Mac side has been asked to re-run with the new rule. The 20,756-byte captures hold only the native layer, not WebView pixels; the rendering evidence is `decoded=2 / images=2`.
 
+## The reading place drifted because the restore ran before the images sized the page (2026-11-03)
+
+The Mac side settled what the 3207 was: not a broken restore but **a stored value that had drifted from 1200 to 3207** — the restore happened before the images took their height, the layout grew, the browser carried the scroll position along, and the debounced save wrote the drifted position down, so the reopen read 3207 and comparing 3207 with 3207 of course agreed. Their estimate fits too: `1200 × 6752/2522 ≈ 3212`.
+
+The fix is about **timing**, not sampling:
+
+- the place is applied again once the **last image** has its size, and nothing is written until the layout has stopped moving;
+- the listeners attach to `pages.querySelectorAll('img')` rather than to `images`, which holds URL strings — the first version called `addEventListener` on a string, which threw and took the rest of the setup with it, so nothing was restored *or* saved (only three failing local runs showed it);
+- a cached image can be complete before the listener exists, so `img.complete` counts immediately, otherwise the count never reaches zero.
+
+Measured: three consecutive local `-scroll` runs pass (`1200 saved=1200`, `1240 saved=1240`), the window suite with retries disabled passes **12 PASS / 0 FAIL** twice, and `check.sh` plus the `internal/reader` tests pass. This changes page behaviour, so the verdict still comes from the Mac: the new probe compares against the position it actually scrolled to, so a drift fails loudly.
+
 ## The intermittent reading-place failure was "nothing moved", not "nothing remembered" (2026-11-03)
 
 With the stricter rule (within 20% of the saved value), `-scroll` started failing about half the time: after reopening, `scrollY=0` and no place key in storage, even though `scrollY` was 1200 at the moment of the scroll.

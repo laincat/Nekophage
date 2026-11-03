@@ -272,7 +272,17 @@
 		// The window reads this for the shelf; the page keeps its own place.
 		try { localStorage.setItem(placeKey() + ':pct', String(percent)); } catch (_) {}
 	};
+	// The images give the page its height after the first paint, and a scroll
+	// position set before that is carried along as the layout grows: a chapter
+	// opened at 1200 came back at 3207 on macOS and saved that, because the walk
+	// down the growing page was written by the same debounce as a real scroll.
+	// So the place is re-applied when the last image has taken its room, and
+	// nothing is written until the layout has stopped moving.
+	let place = 0;
+	let placeSettled = false;
+	let placePending = 0;
 	addEventListener('scroll', () => {
+		if (!placeSettled) return;
 		clearTimeout(saveTimer);
 		saveTimer = setTimeout(() => {
 			try { localStorage.setItem(placeKey(), String(scrollY)); } catch (_) {}
@@ -280,9 +290,19 @@
 		}, 400);
 	}, { passive: true });
 	function restorePlace() {
-		let y = 0;
-		try { y = Number(localStorage.getItem(placeKey()) || 0); } catch (_) {}
-		if (y > 0 && y < document.body.scrollHeight - innerHeight) scrollTo(0, y);
+		if (place === 0) {
+			try { place = Number(localStorage.getItem(placeKey()) || 0); } catch (_) { place = 0; }
+		}
+		if (place <= 0) { placeSettled = true; return; }
+		if (place >= document.body.scrollHeight - innerHeight) return;
+		scrollTo(0, place);
+		if (Math.abs(scrollY - place) <= 2) placeSettled = true;
+
+	}
+	function layoutReady() {
+		placePending--
+		if (placePending > 0) return;
+		requestAnimationFrame(restorePlace);
 	}
 
 	function fail(text, retry) {
@@ -359,8 +379,22 @@
 			img.src = imgURL(u);
 			pages.appendChild(fig);
 		});
-		// Restoring needs a height to scroll to, so it waits for the first
-		// images to take their room.
+		// Restoring needs a height to scroll to, so it waits for the images to take
+		// their room — and it runs again when the last one has, because the page
+		// grew in between.
+		placePending = images.length;
+		// The elements, not the addresses: `images` holds URLs, and attaching a
+		// listener to a string throws and takes the rest of this setup with it.
+		for (const img of pages.querySelectorAll('img')) {
+			let once = false;
+			const done = () => { if (!once) { once = true; layoutReady(); } };
+			img.addEventListener('load', done, { passive: true });
+			img.addEventListener('error', done, { passive: true });
+			// A cached image can be complete before the listener is attached, and
+			// then the count never reaches zero: nothing would be saved at all.
+			if (img.complete) done();
+		}
+		if (images.length === 0) placeSettled = true;
 		requestAnimationFrame(() => requestAnimationFrame(restorePlace));
 		setTimeout(restorePlace, 600);
 		// Say where reading starts, so opening a chapter alone is recorded.
