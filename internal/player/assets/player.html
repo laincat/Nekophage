@@ -130,7 +130,11 @@
       })
       .catch(function () { /* no saved choice: follow the default */ });
   }
-  video.textTracks.addEventListener('addtrack', updateNativeSubtitles);
+  video.textTracks.addEventListener('addtrack', function () {
+    // WebKit can disable a newly added track after HLS picked it. Reapply the
+    // existing choice once the native track exists, including an explicit off.
+    if (hls) queueMicrotask(updateHLSSubtitles); else updateNativeSubtitles();
+  });
   video.textTracks.addEventListener('change', updateNativeSubtitles);
   const forced = params.get('mode') || '';
   let lastPost = 0;
