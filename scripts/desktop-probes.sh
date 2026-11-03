@@ -152,15 +152,11 @@ run "a comment thread the source answers" \
 # The chip row follows the number of sections a source declares, and the
 # category page has two halves that must agree; both need a source that
 # declares them, which the repository fixture does not.
-if [ -n "${NK_PROBE_SRC:-}" ]; then
-	# The chip row follows the number of sections a source declares; both clients
-	# have to agree on that, so it is a check rather than a screenshot.
-	# The category contract has two halves, and a page that draws its choosers
-	# without loading anything is the failure this one exists to name.
-	run "the category page draws and loads" 		"$out/category-probe.log" sh scripts/category-probe.sh "$NK_PROBE_SRC"
-else
-	printf 'SKIP  category page (set NK_PROBE_SRC to a source script)\n'
-fi
+# The category contract has two halves: the parts drawn from `category` and the
+# comics from `categoryComics`. Counting both is how a page that draws its
+# choosers without loading anything becomes visible.
+run "the category page draws and loads" \
+	"$out/category-probe.log" sh scripts/category-probe.sh
 
 if [ -n "${NK_OFFICIAL_SRC:-}" ]; then
 	run "every callback the official sources declare" \

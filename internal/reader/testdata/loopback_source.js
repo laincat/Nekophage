@@ -41,6 +41,22 @@ class LoopbackPages extends ComicSource {
     }),
   }
 
+  // A category page: one part with two values, answered by categoryComics.load.
+  // Without it the category check has nowhere to run offline.
+  category = {
+    title: "Loopback Category",
+    parts: [
+      { name: "类型", type: "fixed", itemType: "category", categories: ["连载", "完结"], params: [] },
+    ],
+  }
+
+  categoryComics = {
+    load: async (category, param, options, page) => ({
+      comics: [{ id: "one", title: "Loopback Comic", cover: "" }],
+      maxPage: 1,
+    }),
+  }
+
   // Two browses, because a single section is drawn without the chip row: the
   // chips check cannot see whether a source's declaration reached the interface
   // unless there is more than one.

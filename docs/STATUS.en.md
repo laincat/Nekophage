@@ -2,7 +2,7 @@
 
 English | [简体中文](STATUS.md)
 
-Updated 2026-11-03. Sections distinguish Windows live sites, loopback media fixtures, native windows, unit tests and macOS. Recent progress: the macOS reading mainline and an ad-hoc bundle launch are verified, and the desktop window suite is now **16 with no external variables and 19 with every script** (local video playback, subtitles across a reopen, the native search and detail pages, progress reporting and the reading place), all folded into `scripts/desktop-probes.sh`. Local fixtures do not establish real-account or live-site behaviour.
+Updated 2026-11-03. Sections distinguish Windows live sites, loopback media fixtures, native windows, unit tests and macOS. Recent progress: the macOS reading mainline and an ad-hoc bundle launch are verified, and the desktop window suite is now **17 with no external variables and 19 with every script** (local video playback, subtitles across a reopen, the native search and detail pages, progress reporting and the reading place), all folded into `scripts/desktop-probes.sh`. Local fixtures do not establish real-account or live-site behaviour.
 
 
 The four CI jobs of Core's `6e07429` are green (three Go platforms plus Apple's xcframework with two Swift smoke tests), checked on 2026-11-01.
@@ -138,6 +138,18 @@ Running the suite back to back occasionally produced "one entry FAILs while its 
 - **The suite** starts a dozen window processes in a row and can still lose one. `run()` allows **one retry**, prints `RETRY <entry>` and keeps the first log as `.first`, so the failure stays visible instead of turning the suite into noise; `NK_NO_RETRY=1` disables it when measuring the real rate.
 
 Measured after the fixes: **three consecutive runs of 12 PASS / 0 FAIL / 0 RETRY**, and with retries off an environment-level failure still appeared once (login and dialog each seen once), which is why the retry is a backstop rather than the explanation. Logs `E:/Temp/nk-probes-final-{1,2,3}.log` and `E:/Temp/nk-dialog-{1..8}.log`.
+
+## The category page is offline too; only official scripts need an external directory (2026-11-03)
+
+The fixture grew `category` (one part, 类型, with 连载/完结) and `categoryComics.load`, `category-probe.sh` defaults to it, and the `NK_PROBE_SRC` conditional is gone from the suite.
+
+```
+category: parts=1 values=2 page=1 comics=1 err=""
+```
+
+Both halves count: drawing the choices without loading comics, or answering comics without drawing the declaration, is not a category page. The check reads both parts/values and comics, so it catches either half missing.
+
+Measured: **17 PASS / 1 SKIP** with no external variables, **19 PASS / 0 FAIL / 0 SKIP** with `NK_OFFICIAL_SRC` alone. The only thing still outside the repository is the **official callbacks and tags**, which should be checked on official scripts rather than replaced with ones made up for the check. Logs `E:/Temp/nk-probes-cat.log` and `E:/Temp/nk-probes-cat-full.log`.
 
 ## Comments and source favourites use the repository fixture too (2026-11-03)
 
