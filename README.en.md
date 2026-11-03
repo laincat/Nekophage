@@ -34,7 +34,7 @@ The reading path (add a source → search → details → read) has real-source 
 
 ## Building
 
-Needs Go 1.27 or later.
+Needs Go 1.27 or later. On Windows, run these build commands in Git Bash; packaging first verifies the selected Core checkout against its pin and rejects stale workspace/stamp state.
 
 ```sh
 scripts/fetch-core.sh      # clones Core into build/core (version in scripts/core-version)

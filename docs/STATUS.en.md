@@ -105,6 +105,10 @@ The proxy ignored `io.Copy` errors: an upstream chunked response could disconnec
 
 `go test -race -count=1 ./internal/player` and `go vet ./internal/player` pass. Negative-control and fixed logs are `E:/Temp/nk-media-truncated-before.log` and `E:/Temp/nk-media-truncated-after.log`. This is a regression for HTTP transfer errors; it does not establish player retries against live sites.
 
+## Verify the actual Core before packaging (2026-11-04)
+
+A stale go.work/corestamp.go after a branch switch let `97e24b6`, pinned to `3be57b5`, produce a `4f213ff` installer while the script incorrectly reported success after checking only its own commit. The incorrect artifacts were replaced with the correct-pin build; the original log remains at `E:/Temp/nk-ca8-package/build-fixed.log`. Windows and macOS packaging now reuse check-core-pin.sh before creating/replacing outputs, checking the selected module, clean checkout and generated stamp. Windows experiments with a wrong module and a stale stamp both reject before modifying existing outputs; log: `E:/Temp/nk-package-pin-evidence/negative.log`. The macOS script currently has syntax checking only, pending execution on Mac. The Windows development WebView uses WebView2, not WebKit.
+
 ## Reject new sessions after media-server closure (2026-11-04)
 
 Server.Open still returned a session and an unreachable page URL after shutdown. An Open racing with Close could also register an uncancelled media proxy after the session table was cleared. Two lifecycle cases reproduced failures before the fix. Closure state and session registration now share the server lock: a late Open cancels its newly allocated proxy and returns http.ErrServerClosed, while Close still cancels previously registered sessions.

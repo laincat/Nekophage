@@ -29,6 +29,9 @@ def main():
     args = parser.parse_args()
     if sys.platform != "win32":
         parser.error("run on Windows: the package is verified by executing its binary")
+    # A branch switch can leave go.work and corestamp.go on an older Core.
+    # Reject that checkout before building or publishing any package files.
+    subprocess.run(["sh", "scripts/check-core-pin.sh"], cwd=ROOT, check=True)
     out = args.out.resolve()
     out.mkdir(parents=True, exist_ok=True)
     revision = command("git", "rev-parse", "HEAD")

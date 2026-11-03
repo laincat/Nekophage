@@ -25,6 +25,9 @@ if [ "$(uname -s)" != "Darwin" ]; then
 	exit 2
 fi
 
+# Reject stale go.work/corestamp.go before replacing a previously built app.
+sh scripts/check-core-pin.sh
+
 out=build/macos
 app=$out/Nekophage.app
 rm -rf "$app"

@@ -34,7 +34,7 @@ Nekularity 的桌面端:用 Venera 兼容的源阅读漫画和播放视频;扩�
 
 ## 编译
 
-需要 Go 1.27 或更高版本。
+需要 Go 1.27 或更高版本。Windows 下请在 Git Bash 中运行以下构建命令;打包入口会先核对实际 Core 检出与 pin,拒绝残留工作区或版本戳记。
 
 ```sh
 scripts/fetch-core.sh      # 把 Core 拉到 build/core(版本见 scripts/core-version)

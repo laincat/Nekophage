@@ -100,6 +100,10 @@ Orca Worker 在 macOS arm64 对 Nekophage `90e784f`、Core `4f213ff` 完成隔�
 
 `go test -race -count=1 ./internal/player` 与 `go vet ./internal/player` 通过。负向对照与修复日志分别为 `E:/Temp/nk-media-truncated-before.log`、`E:/Temp/nk-media-truncated-after.log`。这是 HTTP 传输错误回归;不声称播放器已在真实站点完成自动重试。
 
+## 打包前核对实际 Core(2026-11-04)
+
+切换分支后残留的 go.work/corestamp.go 曾让 pin 为 `3be57b5` 的 `97e24b6` 打出 `4f213ff` 安装包,脚本因只核对自身提交而错误报告通过。错误产物已被正确pin版本替换,原日志 `E:/Temp/nk-ca8-package/build-fixed.log` 保留。现在 Windows 与 macOS 打包入口复用 check-core-pin.sh,在创建/替换产物前核对实际模块、干净检出与生成戳记。错误模块和旧戳记两种 Windows 实验均在输出变更前拒绝,已有产物保留,日志 `E:/Temp/nk-package-pin-evidence/negative.log`。macOS 脚本当前只做语法检查,真实执行待 Mac 验证;Windows 开发 WebView 的引擎是 WebView2,不是 WebKit。
+
 ## 媒体服务器关闭后拒绝新会话(2026-11-04)
 
 关闭后调用 Server.Open 仍返回会话和已无法访问的页面地址;新建与 Close 并发时也可在清空会话表后登记一个未取消的媒体代理。两个生命周期用例在修复前复现失败。现在关闭标记与会话登记共用服务器锁:关闭后的新建取消刚分配的代理并返回 http.ErrServerClosed;已登记的会话仍由 Close 取消。
