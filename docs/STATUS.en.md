@@ -12,6 +12,12 @@ The package contains the fix that stops a source's onLoginSuccess when the login
 
 0.2.12 adds the fix that stops a source's onLoginSuccess when the login window closes; the rest of the cancellation scope is unchanged from0.2.11. The following packaging and installation checks belong to this commit.
 
+## Windows0.2.15 local package (2026-11-04)
+
+2cf5688/Coreb882bf9 is packaged as0.2.15. ZIP22,262,124 bytes; installer19,309,638 bytes. CRC, individual hashes, embedded version/Core/commit and installed-versus-ZIP executable equality passed. Isolated installation showed the main window, exited0 on native close, preserved profile data on uninstall, and exposed no automation endpoint.
+
+Delivery:[0.2.15](../../deliveries/2026-11-04-nekophage-0215/README.en.md). A real login window and installed reader/video remain unverified.
+
 ## Windows0.2.15 candidate (2026-11-04)
 
 0.2.15 carries the Chinese sentence for the expired login handle and repackages the same product code that macOS already verified; the0.2.14 package predated that text commit. The packing and installation checks below belong to this commit.
