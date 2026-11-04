@@ -12,6 +12,18 @@ The package contains the fix that stops a source's onLoginSuccess when the login
 
 0.2.12 adds the fix that stops a source's onLoginSuccess when the login window closes; the rest of the cancellation scope is unchanged from0.2.11. The following packaging and installation checks belong to this commit.
 
+## macOS desktop acceptance: 822d62c / Core b882bf9 (2026-11-04)
+
+Using the committed bytes (`git archive`, tree `911f2e17`, 246 files, no CRLF anywhere) on an isolated Mac copy: `go build` passed; `scripts/check.sh` passed all seven ( `go test -race` across 17 packages, 0 failures); `scripts/desktop-probes.sh` recorded **19 PASS / 0 FAIL / 1 SKIP**, the skip being `official source callbacks and tags`, which needs `NK_OFFICIAL_SRC` because other people's source scripts are not in this repository.
+
+The subtitle pair matters most: the baseline had an active Chinese cue at t=1.0, switching to English produced `Subtitle rendering proof`, and choosing 关闭 stayed off after reopening and in a new process. The two-page spread (`spread rtl`, two 440.5px columns), scroll restore (`scrollY=1200 saved=1200` after reopening) and MP4 through the media proxy (206 with `bytes 0-1023/178570`, progress `time=0.25 duration=10.07`) passed in the same run.
+
+One earlier judgement needs correcting: this path does **not** use native HLS on macOS. `player.html` says "Native HLS is not preferred" and the page runs the same `hls.js 1.7.4` as Windows, so WKWebView's native parser cannot explain any subtitle difference.
+
+The previous round's "macOS subtitle failure" was traced to the preparation step damaging a binary: `hls-subs/stream.mp4` was treated as text and CRLF-normalised, removing four `0x0D` bytes from the fMP4 so the `moof/mdat` chain broke. A control with the CRLF manifest and intact media passed, so line endings are not the cause and neither macOS nor this repository's source is implicated.
+
+The binary `Nekophage-822d62c` is 38,072,162 bytes, SHA-256 `381864d04f558e58597943dda21b831c95e14c7d4b5fe3269ab39c8c259997f7`, `-version` 0.2.14 / Core b882bf9 / darwin/arm64; `commit` reads unknown because the source package carries no git history (the tree was matched). Logs are on the Mac at `/tmp/nk-archive-822/`.
+
 ## One sentence for the expired login handle (Windows, 2026-11-04)
 
 Core's expired-handle error is now mapped by the interface's text layer too: wherever it reaches the notice bar it reads "漫画源在登录过程中被更新或删除,这次登录已经失效" instead of English behind the "源返回错误:" prefix. One targeted text test was added and the existing cases are unchanged.

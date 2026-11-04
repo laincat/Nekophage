@@ -12,6 +12,18 @@ f81dab6/Core313951e已打包为0.2.12。ZIP22,260,020字节、安装器19,310,82
 
 0.2.12在0.2.11之上包含关闭登录窗口即停止源onLoginSuccess的修复，其余取消范围不变。以下打包与安装核验以本提交为准。
 
+## macOS 桌面主线验收：822d62c / Core b882bf9（2026-11-04）
+
+在 Mac 隔离副本上按提交内字节（`git archive`，tree `911f2e17`，246 文件、全树无 CRLF）构建并跑仓库自带探针：`go build` 通过；`scripts/check.sh` 七项全过（`go test -race` 17 个包、0 失败）；`scripts/desktop-probes.sh` 为 **19 PASS / 0 FAIL / 1 SKIP**，唯一跳过是 `official source callbacks and tags`，因为仓库内不含他人站源脚本、需要 `NK_OFFICIAL_SRC`。
+
+关键是字幕两条：基线在 t=1.0 有中文活动字幕，切 English 后生效文本为 `Subtitle rendering proof`，选「关闭」后重开与**新进程**都保持关闭。阅读两页并排（`spread rtl`、两列 440.5px）、滚动恢复（重开 `scrollY=1200 saved=1200`）、MP4 经媒体代理（206 与 `bytes 0-1023/178570`、进度 `time=0.25 duration=10.07`）同时通过。
+
+一处判断需要更正：这条路径在 macOS 上**并不走原生 HLS**，`player.html` 明确写「Native HLS is not preferred」，实际使用与 Windows 相同的 `hls.js 1.7.4`；因此不能用 WKWebView 原生解析器的宽严解释任何字幕差异。
+
+另外，此前一轮「macOS 字幕失败」已定位为**准备步骤误伤二进制**：把 `hls-subs/stream.mp4` 当作文本做了 CRLF→LF，fMP4 少了 4 个 `0x0D`，`moof/mdat` 链断裂。对照实验里 CRLF 清单配完好媒体同样通过，所以换行不是原因，与 macOS 和本仓库源码都无关。
+
+产物 `Nekophage-822d62c` 38,072,162 字节，SHA-256 `381864d04f558e58597943dda21b831c95e14c7d4b5fe3269ab39c8c259997f7`，`-version` 为 0.2.14 / Core b882bf9 / darwin/arm64；`commit` 显示 unknown，因为源码包没有 git 历史（tree 已对齐）。日志在 Mac `/tmp/nk-archive-822/`。
+
 ## 失效登录句柄的统一文案（Windows，2026-11-04）
 
 Core 的失效句柄错误现在也由界面文案层映射：任何路径把它带到提示条时都显示“漫画源在登录过程中被更新或删除,这次登录已经失效”，而不是落到“源返回错误:”前缀后的英文。定向文案测试新增一条并保持其余用例不变。
