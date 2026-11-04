@@ -6,7 +6,13 @@
 
 对照[上游图片加载流程](https://github.com/venera-app/venera/blob/a0eba914f4c2a84ac1bc925adec2baabe920b9be/lib/network/images.dart)的同一重试范围,onResponse异常、非字节返回值和像素脚本异常都应交给onLoadFailed。旧桌面适配器在这些失败路径提前返回,备用地址没有被请求。真实Core脚本+loopback HTTP负向用例复现三项失败,无镜像时保留原错误的对照通过。
 
-现在把单次响应转换独立成applyImageTransforms,错误统一回到既有有界镜像循环,保留配置完整替换、无镜像原错误和未知原生图片格式直通策略。四种情况及已有镜像/像素用例均过Windows race回归,完整scripts/check.sh七项通过,日志 `E:/Temp/nk-image-error-contract/full-check.log`。日志 `E:/Temp/nk-image-error-contract/before.log`、`after.log`;参考源码的精确提交/blob记录在 `E:/Temp/nk-image-error-contract/reference.json`。这里只核对公开源码契约并实际运行本地Core/HTTP,没有运行官方App。本项是客户端底层适配修复,Core pin仍3be57b5;此前0db2ead交付包不包含它,尚未新增Mac或包装UI结果。
+现在把单次响应转换独立成applyImageTransforms,错误统一回到既有有界镜像循环,保留配置完整替换、无镜像原错误和未知原生图片格式直通策略。四种情况及已有镜像/像素用例均过Windows race回归,完整scripts/check.sh七项通过,日志 `E:/Temp/nk-image-error-contract/full-check.log`。日志 `E:/Temp/nk-image-error-contract/before.log`、`after.log`;参考源码的精确提交/blob记录在 `E:/Temp/nk-image-error-contract/reference.json`。
+
+Mac上的darwin/arm64定向回归也已完成:Worker在`c545212`加`0db2ead`两份受测文件的小型隔离工作区上,核验补丁和结果文件SHA后,运行`go test -race ./internal/core -run '^Test(ImageTransformFailuresFollowMirrors|ImageFallback|ModifyImage)' -count=1 -v`(7个顶层、11个叶子用例)、`go build ./...`与`scripts/check-core-pin.sh`,结果均通过,Core实际为3be57b5。原始日志在Mac `/tmp/nk-desktop-mirror-bfc-evidence/`,Windows回执 `E:/Temp/nk-image-error-contract/mac-receipt.json` 是Worker回传记录。
+
+这不是完整`bfc3484`树、GUI、媒体播放、包装或iOS验收;Windows与Mac都只证明这两个受测文件及其受限Core/HTTP/race路径。临时传输gist `b697850a8e126c1f659d070755ba21c9` 在Mac核验后已由Lead删除,认证重读404,日志 `E:/Temp/nk-image-error-contract/gist-cleanup.log`。当前交付包仍对应旧`0db2ead`,不自动包含本修复。
+
+这里只核对公开源码契约并实际运行本地Core/HTTP,没有运行官方App。本项是客户端底层适配修复,Core pin仍3be57b5;此前0db2ead交付包不包含它,尚未新增Mac或包装UI结果。
 
 ## 图片镜像回退配置修复(2026-11-04)
 
