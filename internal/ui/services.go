@@ -115,7 +115,11 @@ func (a *App) serviceRow(c *ui.Context, t *ui.Theme, rec services.Record) {
 func serviceLine(rec services.Record) string {
 	parts := []string{rec.ID, "v" + rec.Version}
 	if len(rec.Permissions) > 0 {
-		parts = append(parts, "权限 "+strings.Join(rec.Permissions, ","))
+		names := make([]string, 0, len(rec.Permissions))
+		for _, p := range rec.Permissions {
+			names = append(names, string(p))
+		}
+		parts = append(parts, "权限 "+strings.Join(names, ","))
 	} else {
 		parts = append(parts, "无权限")
 	}

@@ -12,6 +12,14 @@ The package contains the fix that stops a source's onLoginSuccess when the login
 
 0.2.12 adds the fix that stops a source's onLoginSuccess when the login window closes; the rest of the cancellation scope is unchanged from0.2.11. The following packaging and installation checks belong to this commit.
 
+## Following Core d6b9f67: Core installs service packages (2026-11-04)
+
+Core main moves to `d6b9f67` (tree `c1495fdb`): installing, listing, reading and removing a service package now live in the `service` package, with `mobile` entry points for iOS. The desktop's `internal/services` shrank to a thin wrapper - the account file and its count - and the duplicate zip verification, file writing and index update are gone.
+
+Regressions and a run: the loopback collection flow (follow/install/list/ping/storage/accounts/whoami/remove) is still green after moving onto Core, and the seven engineering checks pass.
+
+Boundary unchanged: the window and the CLI cover a Windows development build only, and the `mobile` entry points are not called by iOS yet.
+
 ## 0.2.16 to 0.2.17 profile compatibility, and a refusal message (Windows, 2026-11-04)
 
 Core moves to `e94b68c` (tree `308a3f68`): a permission refusal no longer always says the service never asked, distinguishing "never asked" from "the host did not grant". That came out of the compatibility test below.

@@ -4,14 +4,15 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/laincat/veneracat-core/service"
+
 	"github.com/laincat/nekophage/internal/services"
 )
 
 func TestServiceLineStatesWhatARowShows(t *testing.T) {
-	rec := services.Record{
-		ID: "trakt", Name: "Trakt", Version: "1", Origin: "collection:x/trakt",
-		Permissions: []string{"network", "secrets"}, Accounts: 2,
-	}
+	rec := services.Record{Accounts: 2}
+	rec.ID, rec.Name, rec.Version, rec.Origin = "trakt", "Trakt", "1", "collection:x/trakt"
+	rec.Permissions = []service.Permission{service.PermissionNetwork, service.PermissionSecrets}
 	line := serviceLine(rec)
 	for _, want := range []string{"trakt", "v1", "network,secrets", "账号 2", "collection:x/trakt"} {
 		if !strings.Contains(line, want) {
@@ -19,7 +20,7 @@ func TestServiceLineStatesWhatARowShows(t *testing.T) {
 		}
 	}
 
-	bare := serviceLine(services.Record{ID: "demo", Version: "2"})
+	bare := serviceLine(services.Record{Installed: service.Installed{ID: "demo", Version: "2"}})
 	if !strings.Contains(bare, "无权限") {
 		t.Errorf("line %q does not say there are no permissions", bare)
 	}
