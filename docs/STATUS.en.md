@@ -12,6 +12,14 @@ The package contains the fix that stops a source's onLoginSuccess when the login
 
 0.2.12 adds the fix that stops a source's onLoginSuccess when the login window closes; the rest of the cancellation scope is unchanged from0.2.11. The following packaging and installation checks belong to this commit.
 
+## Collection entries install by digest (Windows, 2026-11-04)
+
+The desktop gains `-collection install <collectionID> <entryID>`: it first decides platform and capability compatibility and refuses with the missing capabilities listed; it only accepts `comic-source.js`; after downloading it checks the declared byte count and SHA-256 and refuses a mismatch without running or storing anything; and if the installed script registers a key that differs from the entry's declared key, it uninstalls immediately so the collection and the installed source cannot disagree.
+
+Three cases were exercised against a loopback collection: a normal install produced `probe` and wrote plugins.json; a mismatched declared key was refused and rolled back while the previously installed source stayed; tampered bytes were refused. Two new `internal/collections` regressions cover the digest refusal and entry compatibility/unknown ids, and all seven engineering checks pass.
+
+A test accident was also found and undone: the first CLI runs omitted `-data-dir` and wrote into the real Nekophage config directory under `%APPDATA%`; the two files created there (holding only this run's probe records) were deleted, and every later run used an isolated directory. This covers a Windows development build only, not the desktop GUI install entry or Mac.
+
 ## Windows in-place upgrade measured (2026-11-04)
 
 A real installer upgrade inside an isolated environment: `0.2.14` (`7550045`) was installed, launched and closed, then `0.2.15` (`2cf5688`) was installed into the same directory. Both installers exited 0, `-version` reported 0.2.14 and 0.2.15 respectively with Core `b882bf9`, both launches showed the main window and exited 0 on a native close, and uninstall removed the install directory while keeping the test profile.

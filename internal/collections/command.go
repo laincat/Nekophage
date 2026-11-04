@@ -20,8 +20,10 @@ func RunCommand(ctx context.Context, dataDir, action string, args []string, out 
 	case "list":
 		want = 0
 	case "follow", "refresh", "unfollow":
+	case "install":
+		want = 2
 	default:
-		return errors.New("合集命令须为 list、follow、refresh 或 unfollow")
+		return errors.New("合集命令须为 list、follow、refresh、unfollow 或 install")
 	}
 	if len(args) != want {
 		return fmt.Errorf("合集命令 %s 需要 %d 个参数", action, want)
@@ -36,6 +38,9 @@ func RunCommand(ctx context.Context, dataDir, action string, args []string, out 
 		return err
 	}
 	defer manager.Close()
+	if action == "install" {
+		return installEntry(ctx, manager, args[0], args[1], dataDir, userAgent, out)
+	}
 	switch action {
 	case "follow":
 		err = manager.Follow(ctx, args[0])
