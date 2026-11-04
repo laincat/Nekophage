@@ -12,6 +12,10 @@ The package contains the fix that stops a source's onLoginSuccess when the login
 
 0.2.12 adds the fix that stops a source's onLoginSuccess when the login window closes; the rest of the cancellation scope is unchanged from0.2.11. The following packaging and installation checks belong to this commit.
 
+## Windows0.2.13 candidate (2026-11-04)
+
+The desktop Core pin moves to the published25e5ca3 (main, including the mobile index entry), and the real cancellation evidence for the webview login wait is included. All four Core main CI jobs passed. The following packaging and installation checks belong to this commit.
+
 ## Real cancellation evidence for the webview login wait (Windows, 2026-11-04)
 
 "WebView login wait ends with the source manager" previously had only code wiring and engineering checks. A real loopback now covers it: the source's checkStatus fetches from a server that blocks, and after the wait's context is cancelled the call returns an error quickly while the server observes the connection stop. Without cancellation the same test fails after40 seconds with the connection still active; that negative reproduction is kept.
