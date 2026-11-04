@@ -12,6 +12,10 @@ The package contains the fix that stops a source's onLoginSuccess when the login
 
 0.2.12 adds the fix that stops a source's onLoginSuccess when the login window closes; the rest of the cancellation scope is unchanged from0.2.11. The following packaging and installation checks belong to this commit.
 
+## Windows0.2.15 candidate (2026-11-04)
+
+0.2.15 carries the Chinese sentence for the expired login handle and repackages the same product code that macOS already verified; the0.2.14 package predated that text commit. The packing and installation checks below belong to this commit.
+
 ## macOS desktop acceptance: 822d62c / Core b882bf9 (2026-11-04)
 
 Using the committed bytes (`git archive`, tree `911f2e17`, 246 files, no CRLF anywhere) on an isolated Mac copy: `go build` passed; `scripts/check.sh` passed all seven ( `go test -race` across 17 packages, 0 failures); `scripts/desktop-probes.sh` recorded **19 PASS / 0 FAIL / 1 SKIP**, the skip being `official source callbacks and tags`, which needs `NK_OFFICIAL_SRC` because other people's source scripts are not in this repository.

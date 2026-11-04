@@ -12,6 +12,10 @@ f81dab6/Core313951e已打包为0.2.12。ZIP22,260,020字节、安装器19,310,82
 
 0.2.12在0.2.11之上包含关闭登录窗口即停止源onLoginSuccess的修复，其余取消范围不变。以下打包与安装核验以本提交为准。
 
+## Windows 0.2.15 候选（2026-11-04）
+
+0.2.15把失效登录句柄的中文文案映射一并带上，并在macOS已验证的同一份产品代码上重新出包（此前0.2.14包早于该文案提交）。以下打包与安装核验以本提交为准。
+
 ## macOS 桌面主线验收：822d62c / Core b882bf9（2026-11-04）
 
 在 Mac 隔离副本上按提交内字节（`git archive`，tree `911f2e17`，246 文件、全树无 CRLF）构建并跑仓库自带探针：`go build` 通过；`scripts/check.sh` 七项全过（`go test -race` 17 个包、0 失败）；`scripts/desktop-probes.sh` 为 **19 PASS / 0 FAIL / 1 SKIP**，唯一跳过是 `official source callbacks and tags`，因为仓库内不含他人站源脚本、需要 `NK_OFFICIAL_SRC`。
