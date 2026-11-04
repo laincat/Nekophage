@@ -2,6 +2,10 @@
 
 English | [简体中文](STATUS.md)
 
+## Closing a source dialog cancels its picture HTTP (Windows, 2026-11-04)
+
+The captcha/QR picture in a source input dialog previously used an independent 30-second timeout and continued after the dialog closed. Its request cancel function now runs when the window closes; a real loopback request had its connection stopped by the server. Targeted race tests and seven engineering checks passed. Logs: `E:/Temp/nk-dialog-cancel/targeted.log` and `checks.log`. No new Mac or installed-build acceptance is claimed.
+
 ## Closing source management cancels install and index HTTP (Windows, 2026-11-04)
 
 URL installation, index reads, index-entry installation and file installation previously used independent timeouts and continued after source management closed. These paths now derive their context from the window lifetime and are cancelled on close. Real loopback checks cover URL installation and index-entry downloads, with the server observing stopped connections. Targeted race tests and seven engineering checks passed. Logs: `E:/Temp/nk-manage-cancel/targeted-entry.log` and `checks-entry.log`. Enable, remove, backup reading and application, plus source-setting reads, cookie/account login, setting callbacks and logout, are also wired to the same close cancellation. This round’s real HTTP evidence covers URL installation, index-entry downloads and account login; the server observed all connections stop. No new Mac or installed-build acceptance is claimed.

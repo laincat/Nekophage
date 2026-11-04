@@ -229,7 +229,15 @@ func (h *JSHandler) ShowInputDialog(title, image string, validate func(string) s
 				}
 			})
 		})
-	}, func() { finish(nil) })
+	}, func() {
+		picture.mu.Lock()
+		cancel := picture.cancel
+		picture.mu.Unlock()
+		if cancel != nil {
+			cancel()
+		}
+		finish(nil)
+	})
 	// The picture arrives after the window is up, and the window has to be told
 	// to paint again: the fetch does not touch this window.
 	if picture.url != "" {
@@ -250,7 +258,13 @@ func (h *JSHandler) fetchDialogImage(picture *dialogPicture, win *mygo.Window) {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
+	picture.mu.Lock()
+	picture.cancel = cancel
+	picture.mu.Unlock()
 	data, _, err := h.app.core.FetchThumbnail(ctx, h.app.currentKey(), picture.url, "jsinput")
+	picture.mu.Lock()
+	picture.cancel = nil
+	picture.mu.Unlock()
 	if err == nil {
 		picture.set(data)
 	}
@@ -262,7 +276,8 @@ func (h *JSHandler) fetchDialogImage(picture *dialogPicture, win *mygo.Window) {
 // dialogPicture holds the image a source asked to show beside a field, and
 // decodes it once.
 type dialogPicture struct {
-	url string
+	url    string
+	cancel context.CancelFunc
 
 	mu      sync.Mutex
 	data    []byte
