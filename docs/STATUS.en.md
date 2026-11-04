@@ -2,6 +2,10 @@
 
 English | [简体中文](STATUS.md)
 
+## Windows0.2.12 candidate (2026-11-04)
+
+0.2.12 adds the fix that stops a source's onLoginSuccess when the login window closes; the rest of the cancellation scope is unchanged from0.2.11. The following packaging and installation checks belong to this commit.
+
 ## Closing the login window stops onLoginSuccess (Windows, 2026-11-04)
 
 The browser-login flow used to record closure on a single once: after the user pressed "我已登录" that signal was consumed, so closing the window was no longer observable and the source's onLoginSuccess kept running for the full30 seconds. The window close is now recorded separately from done, and the hook is cancelled by the caller's context or the window close, returning an explicit error.
