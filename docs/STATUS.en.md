@@ -2,6 +2,12 @@
 
 English | [简体中文](STATUS.md)
 
+## Windows0.2.12 local package (2026-11-04)
+
+f81dab6/Core313951e is packaged as0.2.12. ZIP22,260,020 bytes; installer19,310,823 bytes. ZIP CRC, individual hashes, embedded version/Core/commit and installed-versus-ZIP executable equality passed. Isolated installation showed the main window, closed natively with exit0, preserved profile data on uninstall, and exposed no automation endpoint.
+
+The package contains the fix that stops a source's onLoginSuccess when the login window closes; other cancellation scope matches0.2.11. The login path was not reproduced by hand in a real window, Mac is not covered, and installed reader/video were not rerun. Delivery:[0.2.12](../../deliveries/2026-11-04-nekophage-0212/README.en.md).
+
 ## Windows0.2.12 candidate (2026-11-04)
 
 0.2.12 adds the fix that stops a source's onLoginSuccess when the login window closes; the rest of the cancellation scope is unchanged from0.2.11. The following packaging and installation checks belong to this commit.
