@@ -12,6 +12,12 @@ The package contains the fix that stops a source's onLoginSuccess when the login
 
 0.2.12 adds the fix that stops a source's onLoginSuccess when the login window closes; the rest of the cancellation scope is unchanged from0.2.11. The following packaging and installation checks belong to this commit.
 
+## Windows in-place upgrade measured (2026-11-04)
+
+A real installer upgrade inside an isolated environment: `0.2.14` (`7550045`) was installed, launched and closed, then `0.2.15` (`2cf5688`) was installed into the same directory. Both installers exited 0, `-version` reported 0.2.14 and 0.2.15 respectively with Core `b882bf9`, both launches showed the main window and exited 0 on a native close, and uninstall removed the install directory while keeping the test profile.
+
+The contents of source records, reading progress or sign-in state after the upgrade were not verified (no real sources or account data this run), and no other platform is covered. Delivery: `E:/Code/deliveries/2026-11-04-nekophage-upgrade-0214-0215/`.
+
 ## Windows0.2.15 local package (2026-11-04)
 
 2cf5688/Coreb882bf9 is packaged as0.2.15. ZIP22,262,124 bytes; installer19,309,638 bytes. CRC, individual hashes, embedded version/Core/commit and installed-versus-ZIP executable equality passed. Isolated installation showed the main window, exited0 on native close, preserved profile data on uninstall, and exposed no automation endpoint.
