@@ -12,6 +12,14 @@ The package contains the fix that stops a source's onLoginSuccess when the login
 
 0.2.12 adds the fix that stops a source's onLoginSuccess when the login window closes; the rest of the cancellation scope is unchanged from0.2.11. The following packaging and installation checks belong to this commit.
 
+## Windows 0.2.16 package and install acceptance (2026-11-04)
+
+Feature commit `a92401e`, Core `d62fbc7`. The portable ZIP is 22,365,596 bytes with SHA-256 `f6cdca4ddee0e1334ed129cdcb600d800da3d6cd78363b71d476b6298ddf1a23`; the installer is 19,402,671 bytes with SHA-256 `a48e8b58601a14b155481ab0effddec0e544275f6561b7b2f35ad5349ee4c80a`.
+
+This build carries the collection entry install (service packages included), the `-service` command line and account values. The packaging script itself verified the ZIP CRC, every unpacked file digest and that the unpacked executable reports the same `-version`; separately, an isolated run measured: the installer exited 0, the installed `-version` reported `0.2.16` and Core `d62fbc7`, the main window appeared and closed normally (exit 0), `-collection list` and `-service list` both returned 0 in the installed build, and uninstall exited 0 with the install directory removed.
+
+The cost is a test profile created in a temporary directory during the isolated run, so what remains recorded is that the install directory was removed; the build is unsigned and installs for the current user only.
+
 ## Service account values and the `secrets` permission (Windows, 2026-11-04)
 
 The `secrets` permission is no longer refused outright and no longer handed out freely: the command-line host adds it to the permissions in force only after the user has stored an account value for that service. Values are kept per service in `services/<ID>/accounts.json` with mode 0600 and **not encrypted** - the desktop has no platform keychain yet, and saying so is better than pretending. The install record now keeps the permissions the manifest asked for and how many account values exist, so an interface can show both without unpacking the package.
