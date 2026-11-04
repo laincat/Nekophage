@@ -12,6 +12,14 @@ The package contains the fix that stops a source's onLoginSuccess when the login
 
 0.2.12 adds the fix that stops a source's onLoginSuccess when the login window closes; the rest of the cancellation scope is unchanged from0.2.11. The following packaging and installation checks belong to this commit.
 
+## 0.2.16 to 0.2.17 profile compatibility, and a refusal message (Windows, 2026-11-04)
+
+Core moves to `e94b68c` (tree `308a3f68`): a permission refusal no longer always says the service never asked, distinguishing "never asked" from "the host did not grant". That came out of the compatibility test below.
+
+Measured with real binaries: 0.2.16 wrote a profile (subscribed to a loopback collection, installed a service package, stored an account value `user=alice`), then 0.2.17 read the same profile - the collection was still listed, the service was still installed with one account value, and `whoami` still returned `{"user":"alice"}`. After removing the account under 0.2.17, `whoami` was refused with the right message ("this host did not grant secrets") rather than the wrong one.
+
+This covers the command line and the service/collection state only; reading position, shelf and cookies are not promoted by this test.
+
 ## Windows 0.2.17 package and install acceptance (2026-11-04)
 
 Feature commit `d51e042`, Core `f349e3d`. The portable ZIP is 22,405,850 bytes with SHA-256 `0e5db636d7fdc7570a47e079014401732c9ebc4455be300a1e3a34f10f7c989e`; the installer is 19,438,473 bytes with SHA-256 `ee502547fa65b1ceb7c8ee90d3d166f323116882722e5770a41e3cde7f29790d`.
