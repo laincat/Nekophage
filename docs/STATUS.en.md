@@ -2,6 +2,12 @@
 
 English | [简体中文](STATUS.md)
 
+## Windows0.2.11 candidate and request-cancellation scope (2026-11-04)
+
+Eleven commits after0.2.10 complete cancellation when leaving or closing a view: search, details, browse, category, favorites, comments, shelf, covers, filter follow-up, source-manager install/index/enable-remove/backup/settings/account, and source dialog pictures. Real loopback evidence separately covers covers, favorites, comments, shelf, filter follow-up, source-manager URL installation, index-entry installation and account login. WebView login, enable/remove, backup and file installation were wired and covered by engineering checks, without independent network reproduction.
+
+Targeted race tests and all seven engineering checks passed, but these belong to Windows development builds. No installed reader/media or Mac acceptance exists for the new commits. The0.2.11 package is verified by the following build, unsigned and unpublished.
+
 ## WebView login follows source-management closure (Windows, 2026-11-04)
 
 "Sign in on the web" in source settings previously ran with a never-cancelled background context, so the login window and wait could continue after source management closed. The login window now ends with the source-management lifetime, and closing it cancels the wait. This cancellation has no separate real-HTTP reproduction; seven engineering checks only confirm no regression. Logs: `E:/Temp/nk-webview-cancel/gofmt.log`. No new Mac or installed-build acceptance is claimed.
