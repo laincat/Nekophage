@@ -12,9 +12,11 @@ See the [code audit](CODE-AUDIT.en.md) for fixes and remaining work, and the [in
 |---|---|
 | Go + [MyGo](https://github.com/egoist/mygo) | Pure Go, no cgo, cross-compiles to three platforms; native UI is drawn by MyGo, so the interface is not a web page; where a page is needed, a WebView sits inside native UI |
 | [VeneraCat Core](https://github.com/laincat/VeneraCat-Core) in the same process | Core is a Go library: `js.Runtime` and `plugin.Registry` are used directly, with no gomobile, FFI or cross-process protocol |
-| Wails dropped | It gives the whole interface to a web page, while Magpie (the reference) builds on one Library with native windows and panels; Nekophage's main window should be native, and only the reader needs a page |
+| MyGo today; reevaluate the UI/UX shell later | This is the current implementation,not evidence that Magpie is all-native. Inspection on2026-11-04 confirms Magpie uses Wails v3.0.0-beta.24 with HTML/CSS/JS main content; the earlier description was inaccurate. See the ecosystem survey below; no migration occurred |
 
 Reference: [Magpie](https://github.com/yetone/magpie) (MIT). Its layering and modules are the model (one Library as the source of truth, serialised changes, explicit provenance, switches for built-in modules); no code is copied.
+
+See the2026-11-04 [shared-source ecosystem survey](../../VeneraCat%20Sources/docs/ECOSYSTEM.en.md). Foundations,architecture and infrastructure precede the client UI/UX rebuild. Direct Wails/component-library reuse is a candidate,not a shell migration performed in this iteration.
 
 ## Layers
 

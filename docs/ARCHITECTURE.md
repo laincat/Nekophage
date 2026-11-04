@@ -12,9 +12,11 @@
 |---|---|
 | Go + [MyGo](https://github.com/egoist/mygo) | 纯 Go、无 cgo,交叉编译到三平台;原生 UI 由 MyGo 自绘,不必用 WebView 承载整个界面;需要网页时可以把 WebView 嵌进原生界面 |
 | [VeneraCat Core](https://github.com/laincat/VeneraCat-Core) 编译进同一进程 | Core 是 Go 库,`js.Runtime` 和 `plugin.Registry` 直接用;不需要 gomobile 或 FFI,也不需要跨进程协议 |
-| 弃用 Wails | 它把整个界面交给网页,而 Magpie(参考对象)用统一的 Library 加原生窗口/面板;Nekophage 的主界面应当是原生 UI,阅读器才需要网页 |
+| 当前使用MyGo,后续UI/UX重新选型 | 这是现有实现,不以Magpie为全原生界面作依据。2026-11-04核对上游确认Magpie使用Wails v3.0.0-beta.24与HTML/CSS/JS主内容;此前描述不准确。新壳方案见下方生态调研,尚未迁移 |
 
 参考 [Magpie](https://github.com/yetone/magpie)(MIT):借鉴它的分层与模块思路(单一 Library 作为数据源、变更串行化、显式来源归属、内置模块开关),不复制代码。
+
+2026-11-04生态调研与选型见[统一源项目方案](../../VeneraCat%20Sources/docs/ECOSYSTEM.md)。按用户要求先处理底层、架构与基建,后续整体重写UI/UX;直接复用Wails/成熟组件库是候选,不是本轮已经换壳。
 
 ## 分层
 
