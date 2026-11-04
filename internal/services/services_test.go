@@ -147,3 +147,80 @@ func TestInstalledDirRefusesABadID(t *testing.T) {
 		}
 	}
 }
+
+func TestAccountsKeepKeysApartFromValues(t *testing.T) {
+	data := t.TempDir()
+	archive := packageZip(t, map[string]string{"service.json": manifest("demo"), "index.mjs": "export function handle() {}"})
+	if _, err := Install(context.Background(), data, "a", "", archive); err != nil {
+		t.Fatal(err)
+	}
+	accounts, err := OpenAccounts(data, "demo")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := accounts.Set(context.Background(), "token", "abc"); err != nil {
+		t.Fatal(err)
+	}
+	if err := accounts.Set(context.Background(), "user", "alice"); err != nil {
+		t.Fatal(err)
+	}
+	keys, err := accounts.Keys()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(keys) != 2 || keys[0] != "token" || keys[1] != "user" {
+		t.Fatalf("keys = %v", keys)
+	}
+	value, err := accounts.Get(context.Background(), "token")
+	if err != nil || value != "abc" {
+		t.Fatalf("get = %q (%v)", value, err)
+	}
+	if _, err := accounts.Get(context.Background(), "missing"); err == nil {
+		t.Fatal("a missing key was returned")
+	}
+	if err := accounts.Remove(context.Background(), "token"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := accounts.Get(context.Background(), "token"); err == nil {
+		t.Fatal("a removed key was still readable")
+	}
+	if err := accounts.Remove(context.Background(), "token"); err == nil {
+		t.Fatal("removing a missing key was accepted")
+	}
+}
+
+// Accounts belong to one service: another service of the same id cannot read
+// them, and the file sits inside the service directory.
+func TestAccountsArePerService(t *testing.T) {
+	data := t.TempDir()
+	for _, id := range []string{"a", "b"} {
+		archive := packageZip(t, map[string]string{"service.json": manifest(id), "index.mjs": "export function handle() {}"})
+		if _, err := Install(context.Background(), data, "x", "", archive); err != nil {
+			t.Fatal(err)
+		}
+	}
+	a, err := OpenAccounts(data, "a")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := a.Set(context.Background(), "token", "for-a"); err != nil {
+		t.Fatal(err)
+	}
+	b, err := OpenAccounts(data, "b")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := b.Get(context.Background(), "token"); err == nil {
+		t.Fatal("one service read another's account value")
+	}
+	if _, err := os.Stat(filepath.Join(data, "services", "a", "accounts.json")); err != nil {
+		t.Fatalf("account file: %v", err)
+	}
+}
+
+// A service that is not installed has nowhere to keep accounts.
+func TestAccountsNeedAnInstalledService(t *testing.T) {
+	if _, err := OpenAccounts(t.TempDir(), "missing"); err == nil {
+		t.Fatal("accounts opened for a service that is not installed")
+	}
+}

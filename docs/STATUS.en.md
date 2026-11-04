@@ -12,6 +12,14 @@ The package contains the fix that stops a source's onLoginSuccess when the login
 
 0.2.12 adds the fix that stops a source's onLoginSuccess when the login window closes; the rest of the cancellation scope is unchanged from0.2.11. The following packaging and installation checks belong to this commit.
 
+## Service account values and the `secrets` permission (Windows, 2026-11-04)
+
+The `secrets` permission is no longer refused outright and no longer handed out freely: the command-line host adds it to the permissions in force only after the user has stored an account value for that service. Values are kept per service in `services/<ID>/accounts.json` with mode 0600 and **not encrypted** - the desktop has no platform keychain yet, and saying so is better than pretending. The install record now keeps the permissions the manifest asked for and how many account values exist, so an interface can show both without unpacking the package.
+
+`-service account-set`, `account-list` and `account-remove` are new. `account-list` and `-service list` expose key names and a count, never the values. A loopback collection exercised it: `whoami` was refused before any value existed, returned `{"user":"alice"}` after storing `user=alice`, `account-list` showed only `user`, and the call was refused again after the value was removed.
+
+Only the command line is covered; a graphical account form and a service entry in the desktop interface are not wired, and the file itself is not encrypted.
+
 ## Collections install service packages, callable from the command line (Windows, 2026-11-04)
 
 Core moves to `d62fbc7` (tree recorded in the publication receipt) and the `service` package gains `ReadPackageZip`: it reads the manifest and entry from a zip, bounds the bytes actually expanded, and refuses `../`, absolute paths and backslash names. The desktop wires `service.js` entries into `-collection install`: it downloads the zip, checks the declared digest, expands it into `services/<ID>/`, loads the package once before writing anything so a syntax error or an invalid manifest is refused before it reaches disk, and replaces a service of the same id as a whole. The install record lives in `services.json`.

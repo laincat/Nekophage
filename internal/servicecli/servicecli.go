@@ -52,8 +52,45 @@ func RunCommand(ctx context.Context, action string, args []string, dataDir strin
 			return err
 		}
 		return writeJSON(out, map[string]string{"removed": args[0]})
+	case "account-set":
+		if len(args) != 3 {
+			return errors.New("服务命令 account-set 需要 <服务 ID> <键> <值>")
+		}
+		accounts, err := services.OpenAccounts(dataDir, args[0])
+		if err != nil {
+			return err
+		}
+		if err := accounts.Set(ctx, args[1], args[2]); err != nil {
+			return err
+		}
+		return writeJSON(out, map[string]any{"service": args[0], "key": args[1], "stored": true})
+	case "account-list":
+		if len(args) != 1 {
+			return errors.New("服务命令 account-list 需要 <服务 ID>")
+		}
+		accounts, err := services.OpenAccounts(dataDir, args[0])
+		if err != nil {
+			return err
+		}
+		keys, err := accounts.Keys()
+		if err != nil {
+			return err
+		}
+		return writeJSON(out, map[string]any{"service": args[0], "keys": keys})
+	case "account-remove":
+		if len(args) != 2 {
+			return errors.New("服务命令 account-remove 需要 <服务 ID> <键>")
+		}
+		accounts, err := services.OpenAccounts(dataDir, args[0])
+		if err != nil {
+			return err
+		}
+		if err := accounts.Remove(ctx, args[1]); err != nil {
+			return err
+		}
+		return writeJSON(out, map[string]any{"service": args[0], "key": args[1], "removed": true})
 	default:
-		return errors.New("服务命令须为 call、info、list 或 remove")
+		return errors.New("服务命令须为 call、info、list、remove、account-set、account-list 或 account-remove")
 	}
 }
 
@@ -90,11 +127,27 @@ func call(ctx context.Context, dir, method string, payload []byte, dataDir strin
 		},
 		StorageGet: store.Get,
 		StorageSet: store.Set,
+		Secret: func(ctx context.Context, key string) (string, error) {
+			accounts, err := services.OpenAccounts(dataDir, m.ID)
+			if err != nil {
+				return "", err
+			}
+			return accounts.Get(ctx, key)
+		},
 		Log: func(level, message string) {
 			fmt.Fprintf(os.Stderr, "%s: %s %s\n", m.ID, level, message)
 		},
 	}
-	rt := service.NewRuntime(host, service.PermissionNetwork, service.PermissionStorage)
+	// Secrets are granted only once the user has entered something for this
+	// service: a service that asks for them but was never given an account has
+	// nothing to read, and granting the permission would only widen the surface.
+	granted := []service.Permission{service.PermissionNetwork, service.PermissionStorage}
+	if accounts, err := services.OpenAccounts(dataDir, m.ID); err == nil {
+		if count, err := accounts.Count(); err == nil && count > 0 {
+			granted = append(granted, service.PermissionSecrets)
+		}
+	}
+	rt := service.NewRuntime(host, granted...)
 	defer rt.Close()
 	if err := rt.Load(ctx, m, source); err != nil {
 		return err

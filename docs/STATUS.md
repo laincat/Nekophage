@@ -12,6 +12,14 @@ f81dab6/Core313951e已打包为0.2.12。ZIP22,260,020字节、安装器19,310,82
 
 0.2.12在0.2.11之上包含关闭登录窗口即停止源onLoginSuccess的修复，其余取消范围不变。以下打包与安装核验以本提交为准。
 
+## 服务账号值与 `secrets` 权限（Windows，2026-11-04）
+
+服务的 `secrets` 权限不再无条件拒绝，也不再乱开：只有当用户为该服务存过账号值之后，命令行宿主才把 `secrets` 加进生效权限。账号值按服务保存在 `services/<ID>/accounts.json`（0600，**未加密**——桌面还没有平台密钥库，与其假装有不如写清楚）。安装记录现在保留清单申请的权限与已存账号数量，界面不必解包就能显示。
+
+新增 `-service account-set|account-list|account-remove`。`account-list` 与 `-service list` 只给键名与数量，不打印值。loopback 合集实测：未存账号时 `whoami` 被拒绝；存 `user=alice` 后同一个调用返回 `{"user":"alice"}`；`account-list` 只列 `user`；删除后再调用又被拒绝。
+
+只覆盖命令行；桌面图形界面的账号填写与服务入口仍未接入，文件本身也没有加密。
+
 ## 合集可安装服务包并在命令行调用（Windows，2026-11-04）
 
 Core 升到 `d62fbc7`（tree 见发布回执），`service` 包新增 `ReadPackageZip`：从 zip 读清单与入口、按实际解压字节兜上限、拒绝 `../`、绝对路径与反斜杠文件名。桌面端把 `service.js` 条目接进 `-collection install`：下载 zip、按声明摘要校验、解压到 `services/<ID>/`，安装前先加载一次，语法错误或清单非法都在落盘前拒绝，同名服务整体替换。安装记录在 `services.json`。

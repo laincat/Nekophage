@@ -49,6 +49,14 @@ Nekophage -data-dir ./profile -service call demo-service ping '{"a":1}'
 Nekophage -data-dir ./profile -service remove demo-service
 ```
 
-`call` 的第一个参数既可以是已安装服务 ID，也可以是磁盘上的包目录。命令行的宿主授予 `network` 与 `storage`，不授予 `secrets`（命令行没有账号存储），存储按服务分别落在 `<data-dir>/services/<ID>.json`。服务契约见 Core 的 `docs/SERVICE-PLUGINS.md`。
+`call` 的第一个参数既可以是已安装服务 ID，也可以是磁盘上的包目录。命令行的宿主授予 `network` 与 `storage`，存储按服务分别落在 `<data-dir>/services/<ID>.json`；`secrets` 只有在用户为该服务存过账号值之后才授予：
+
+```sh
+Nekophage -data-dir ./profile -service account-set demo-service user alice
+Nekophage -data-dir ./profile -service account-list demo-service   # 只列键
+Nekophage -data-dir ./profile -service account-remove demo-service user
+```
+
+账号值保存在 `services/<ID>/accounts.json`，权限 0600，**未加密**：桌面还没有平台密钥库，与其假装有，不如写清楚。`account-list` 与 `-service list` 只暴露键名与数量，不打印值。服务契约见 Core 的 `docs/SERVICE-PLUGINS.md`。
 
 本轮不新增目录GUI，也没有图形界面的服务入口或账号流程。现有源安装路径保持独立；后续接入目录GUI时复用本Manager，并在后台调用网络和解析操作。执行结果与具体日志见[STATUS](STATUS.md)。

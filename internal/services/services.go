@@ -28,6 +28,11 @@ type Record struct {
 	SHA256    string    `json:"sha256,omitempty"`
 	Installed time.Time `json:"installed"`
 	Dir       string    `json:"dir"`
+	// Permissions is what the manifest asked for, kept so a client can show it
+	// without unpacking the package again.
+	Permissions []string `json:"permissions,omitempty"`
+	// Accounts is how many account values are stored for this service.
+	Accounts int `json:"accounts,omitempty"`
 }
 
 // Install verifies and installs a service package.
@@ -70,11 +75,22 @@ func Install(ctx context.Context, dataDir, origin, digest string, archive []byte
 	rec := &Record{
 		ID: manifest.ID, Name: manifest.Name, Version: manifest.Version,
 		Origin: origin, SHA256: digest, Installed: time.Now().UTC(), Dir: dir,
+		Permissions: permissionNames(manifest.Permissions),
 	}
 	if err := writeRecord(dataDir, rec); err != nil {
 		return nil, err
 	}
 	return rec, nil
+}
+
+// permissionNames turns the manifest permissions into plain strings for the
+// install record.
+func permissionNames(list []service.Permission) []string {
+	out := make([]string, 0, len(list))
+	for _, p := range list {
+		out = append(out, string(p))
+	}
+	return out
 }
 
 // checkCompiles loads the service in a throwaway runtime: a package whose
@@ -119,6 +135,11 @@ func List(dataDir string) ([]Record, error) {
 	}
 	out := make([]Record, 0, len(all))
 	for _, rec := range all {
+		if accounts, err := OpenAccounts(dataDir, rec.ID); err == nil {
+			if count, err := accounts.Count(); err == nil {
+				rec.Accounts = count
+			}
+		}
 		out = append(out, rec)
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].ID < out[j].ID })

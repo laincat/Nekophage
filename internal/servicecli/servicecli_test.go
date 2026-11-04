@@ -195,6 +195,60 @@ func zipPackage(t *testing.T, files map[string]string) []byte {
 	return buf.Bytes()
 }
 
+// A service that asks for secrets reads nothing until the user stores one, and
+// even then only the key it asks for.
+func TestSecretsAreGrantedOnlyAfterAnAccountValueExists(t *testing.T) {
+	archive := zipPackage(t, map[string]string{
+		"service.json": manifestFor(`"secrets"`),
+		"index.mjs":    "export function handle() { return { token: secret('token') }; }",
+	})
+	data := t.TempDir()
+	if _, err := services.Install(context.Background(), data, "test", "", archive); err != nil {
+		t.Fatalf("install: %v", err)
+	}
+	var out bytes.Buffer
+	if err := RunCommand(context.Background(), "call", []string{"demo", "get"}, data, &out, "Nekophage/test"); err == nil {
+		t.Fatal("a secret was readable before any was stored")
+	}
+
+	if err := RunCommand(context.Background(), "account-set", []string{"demo", "token", "s3cret"}, data, &out, "Nekophage/test"); err != nil {
+		t.Fatalf("account-set: %v", err)
+	}
+	out.Reset()
+	if err := RunCommand(context.Background(), "call", []string{"demo", "get"}, data, &out, "Nekophage/test"); err != nil {
+		t.Fatalf("call: %v", err)
+	}
+	if !strings.Contains(out.String(), "s3cret") {
+		t.Fatalf("call = %s", out.String())
+	}
+
+	// The list shows which keys exist, never the values.
+	out.Reset()
+	if err := RunCommand(context.Background(), "account-list", []string{"demo"}, data, &out, "Nekophage/test"); err != nil {
+		t.Fatalf("account-list: %v", err)
+	}
+	if strings.Contains(out.String(), "s3cret") || !strings.Contains(out.String(), "token") {
+		t.Fatalf("account-list = %s", out.String())
+	}
+
+	// Listing the service reports how many values are stored.
+	out.Reset()
+	if err := RunCommand(context.Background(), "list", nil, data, &out, "Nekophage/test"); err != nil {
+		t.Fatalf("list: %v", err)
+	}
+	if !strings.Contains(out.String(), `"accounts":1`) {
+		t.Fatalf("list = %s", out.String())
+	}
+
+	if err := RunCommand(context.Background(), "account-remove", []string{"demo", "token"}, data, &out, "Nekophage/test"); err != nil {
+		t.Fatalf("account-remove: %v", err)
+	}
+	out.Reset()
+	if err := RunCommand(context.Background(), "call", []string{"demo", "get"}, data, &out, "Nekophage/test"); err == nil {
+		t.Fatal("a removed secret was still readable")
+	}
+}
+
 func TestUnknownActionAndArgumentsAreRefused(t *testing.T) {
 	var out bytes.Buffer
 	if err := RunCommand(context.Background(), "nope", nil, t.TempDir(), &out, "Nekophage/test"); err == nil {

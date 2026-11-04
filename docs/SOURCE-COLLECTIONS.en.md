@@ -48,6 +48,14 @@ Nekophage -data-dir ./profile -service call demo-service ping '{"a":1}'
 Nekophage -data-dir ./profile -service remove demo-service
 ```
 
-The first argument of `call` is either an installed service id or a package directory. The command-line host grants `network` and `storage`, and does not grant `secrets` because it has no account store; storage is kept per service in `<data-dir>/services/<ID>.json`. The contract itself is Core's `docs/SERVICE-PLUGINS.md`.
+The first argument of `call` is either an installed service id or a package directory. The command-line host grants `network` and `storage`, with storage kept per service in `<data-dir>/services/<ID>.json`; `secrets` is granted only after the user has stored an account value for that service:
+
+```sh
+Nekophage -data-dir ./profile -service account-set demo-service user alice
+Nekophage -data-dir ./profile -service account-list demo-service   # keys only
+Nekophage -data-dir ./profile -service account-remove demo-service user
+```
+
+Account values live in `services/<ID>/accounts.json` with mode 0600 and are **not encrypted**: the desktop has no platform keychain yet, and saying so is better than pretending. `account-list` and `-service list` expose key names and a count, never the values. The contract itself is Core's `docs/SERVICE-PLUGINS.md`.
 
 This round adds no catalogue GUI, and there is no interface entry or account flow for services. Existing source installation remains separate. A future catalogue GUI can reuse this Manager, with networking and parsing off the UI thread. Execution results and log locations are recorded in [STATUS](STATUS.en.md).
