@@ -6,7 +6,7 @@
 
 桌面图片请求在 `onLoadFailed` 返回备用配置后,旧逻辑只替换部分字段:省略method/data的备用地址会收到原POST与正文,而modifyImage始终沿用旧值。真实Core源脚本和loopback HTTP已复现:应为GET/空正文的请求仍是POST/original-request-body;应保持4×2的图被旧脚本旋转为2×4,新镜像的旋转则被忽略。
 
-现按新的ImageLoadingConfig完整替换请求,method缺省GET,正文和像素脚本可清空或替换,新onResponse仍在像素处理之前执行。两项回归与原像素处理用例通过race测试,完整 `bash scripts/check.sh` 七项也全部通过,日志 `E:/Temp/nk-image-fallback/full-check.log`;旧实现负向日志 `E:/Temp/nk-image-fallback/before.log`,修复后 `after.log`。这是Lead在Windows执行的真实Core/HTTP/PNG解码验证,不代表Mac或GUI重新验收。Core功能pin仍为3be57b5;已交付c545212包不包含本次修复。
+现按新的ImageLoadingConfig完整替换请求,method缺省GET,正文和像素脚本可清空或替换,新onResponse仍在像素处理之前执行。两项回归与原像素处理用例通过race测试,完整 `bash scripts/check.sh` 七项也全部通过,日志 `E:/Temp/nk-image-fallback/full-check.log`;旧实现负向日志 `E:/Temp/nk-image-fallback/before.log`,修复后 `after.log`。这是Lead在Windows执行的真实Core/HTTP/PNG解码验证,不代表Mac或GUI重新验收。Core功能pin仍为3be57b5;旧c545212包不包含本次修复。修复提交0db2ead4381ad67c5e3075daaf261b76909e12bf已生成Windows ZIP与安装器,位于 `E:/Code/deliveries/2026-11-04-image-mirror-fix/README.md`;ZIP摘要/CRC/版本及隔离安装/卸载/资料保留均通过,新包GUI/媒体/Mac尚未复验。
 
 ## Mac包装窗口正常关闭与Core主线复验(2026-11-04)
 
