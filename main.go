@@ -143,7 +143,7 @@ func main() {
 }
 
 // version is the app's own version, shown to the user.
-const version = "0.2.15"
+const version = "0.2.16"
 
 // sourceVersion is what sources see through getAppVersion() and what
 // minAppVersion is compared with. It is the Venera source API level this
