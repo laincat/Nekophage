@@ -2,6 +2,10 @@
 
 English | [简体中文](STATUS.md)
 
+## Current macOS Core313 combination acceptance (2026-11-04)
+
+The Orca Worker verified HEAD e887914, tree93a2d42, Core313951e and all239 file hashes in an isolated clone, then built the development app. The reader fixture decoded2/2 pages, first image320x1200, and restored scrollY1200. An actual window opened read-only source code from source management; all2789 characters matched, readOnly was present, writes did not alter content, and plugins.json hash was unchanged after close. HLS.js and native MP4 confirmed authentication, Range,320x180 frames and reopened positions. macOS WKWebView exposes no webkitAudioDecodedByteCount, so both counters were-1; decoded-audio bytes and speaker output are not accepted. Original logs: `/tmp/nk-mac-313-e887914/`. The temporary gist was deleted and reread404.
+
 ## Read-only source viewer integrated and verified in Windows windows (2026-11-04)
 
 The Orca Worker patch passed three transport SHA checks and all seven file hashes before commit2b38049. Dependencies are unchanged; automation imports require the e2e tag. Targeted race tests and seven engineering checks passed. The Lead then used actual Windows windows with Core313951e to verify three source bodies, rejected read-only writes, switching, manager close/reopen, GUI URL reinstall1.0.0→2.0.0, fixed snapshots and restoration in a new process. Both processes closed normally and exited0. See [source viewer](source-code-viewer.en.md) and `E:/Temp/nk-source-viewer-windows/`.

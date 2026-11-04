@@ -2,6 +2,10 @@
 
 [English](STATUS.en.md) | 简体中文
 
+## macOS当前Core313组合定向验收（2026-11-04）
+
+Orca Worker在隔离副本核验HEAD e887914、tree93a2d42、Core313951e及239个文件摘要后，完成开发构建。阅读夹具2/2页解码、首图320x1200、scrollY1200重开通过。真实窗口从源管理打开只读源码，正文2789字符逐字一致，readOnly状态存在，写入不改变正文，关闭后plugins.json摘要不变。HLS.js与原生MP4均确认鉴权、Range、320x180画面及重开位置；但macOS WKWebView没有webkitAudioDecodedByteCount，HLS/MP4计数均为-1，因此音频解码字节和扬声器不通过。原日志 `/tmp/nk-mac-313-e887914/`。临时gist已删除并回读404。
+
 ## 只读源码查看已整合与Windows原生验证（2026-11-04）
 
 Orca Worker的补丁三层SHA与7个目标文件SHA核对后，已提交2b38049；依赖不变，测试自动化仅e2e标签导入。定向race和七项工程通过。Lead另在当前Core313951e实际Windows窗口验证三类源码正文、只读写入拒绝、换源、源管理关闭重开、GUI URL重装1.0.0→2.0.0、快照固定及新进程恢复，两进程均正常关窗退出0。详见[源码查看](source-code-viewer.md)及 `E:/Temp/nk-source-viewer-windows/`。
