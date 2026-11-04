@@ -88,6 +88,71 @@ func TestLoginWindowClosedByUserEndsTheWait(t *testing.T) {
 	}
 }
 
+// The source manager's window owns the login wait: closing it cancels the
+// context the wait polls with. The evidence that the wait really stopped is
+// the server seeing the request connection end, not the panel clearing.
+func TestCancellingTheLoginWaitStopsTheSourceRequest(t *testing.T) {
+	var once sync.Once
+	hit := make(chan struct{})
+	gone := make(chan struct{})
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		once.Do(func() { close(hit) })
+		<-r.Context().Done()
+		close(gone)
+	}))
+	defer server.Close()
+
+	c, err := core.Open(core.Options{DataDir: filepath.Join(t.TempDir(), "d"), AppVersion: "1.6.3", Locale: "zh_CN"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { c.Close() })
+	script := `class Poller extends ComicSource {
+  name = 'Poller'; key = 'poller'; version = '1'
+  account = {
+    loginWithWebview: {
+      url: 'https://site.test/login',
+      checkStatus: async (url, title) => { await Network.get('` + server.URL + `/poll'); return false },
+    },
+  }
+  search = {load: async () => ({comics: [], maxPage: 1})}
+}`
+	if _, err := c.Install(context.Background(), script, "file", ""); err != nil {
+		t.Fatal(err)
+	}
+	decl, err := c.AccountWebviewLogin(context.Background(), "poller")
+	if err != nil {
+		t.Fatalf("declaration: %v", err)
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	finished := make(chan error, 1)
+	go func() {
+		_, err := c.WebviewStatus(ctx, "poller", decl.Handle, "https://site.test/home", "title")
+		finished <- err
+	}()
+
+	select {
+	case <-hit:
+	case <-time.After(20 * time.Second):
+		t.Fatal("the source's status request never reached the server")
+	}
+	cancel()
+	select {
+	case err := <-finished:
+		if err == nil {
+			t.Fatal("the status check reported success after the manager closed")
+		}
+	case <-time.After(20 * time.Second):
+		t.Fatal("the status check kept running after the manager closed")
+	}
+	select {
+	case <-gone:
+	case <-time.After(10 * time.Second):
+		t.Fatal("the server never saw the request connection stop")
+	}
+}
+
 // Pressing "我已登录" and then closing the window must still stop the source's
 // onLoginSuccess: it runs after done is closed, so a close-only-once signal
 // would let it keep working for a window the user already dismissed. The server

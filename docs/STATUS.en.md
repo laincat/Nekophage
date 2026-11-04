@@ -12,6 +12,12 @@ The package contains the fix that stops a source's onLoginSuccess when the login
 
 0.2.12 adds the fix that stops a source's onLoginSuccess when the login window closes; the rest of the cancellation scope is unchanged from0.2.11. The following packaging and installation checks belong to this commit.
 
+## Real cancellation evidence for the webview login wait (Windows, 2026-11-04)
+
+"WebView login wait ends with the source manager" previously had only code wiring and engineering checks. A real loopback now covers it: the source's checkStatus fetches from a server that blocks, and after the wait's context is cancelled the call returns an error quickly while the server observes the connection stop. Without cancellation the same test fails after40 seconds with the connection still active; that negative reproduction is kept.
+
+This shows cancellation reaches the source's status request layer. Closing the source-management window by hand is still unreproduced, so the window-close to context-cancel link is only guaranteed by code. The regression belongs to a Windows development build and does not cover Mac. Targeted race and all seven engineering checks passed.
+
 ## Closing the login window stops onLoginSuccess (Windows, 2026-11-04)
 
 The browser-login flow used to record closure on a single once: after the user pressed "我已登录" that signal was consumed, so closing the window was no longer observable and the source's onLoginSuccess kept running for the full30 seconds. The window close is now recorded separately from done, and the hook is cancelled by the caller's context or the window close, returning an explicit error.
