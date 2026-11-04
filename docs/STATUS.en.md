@@ -2,6 +2,12 @@
 
 English | [简体中文](STATUS.md)
 
+## Windows0.2.9 new-Core package and installed media (2026-11-04)
+
+fe101db/Core ccb6268 is packaged as0.2.9. Seven engineering checks, ZIP CRC/file hashes/version, NSIS and actual isolated installation passed. A copy of earlier test data changed only fixture endpoint/source hash. Native search re-authenticated, then Continue Watching rendered English and the existing3.030709-second frame, with a pixel-identical video crop. Authenticated manifests returned200 without Range; media and English VTT returned206. UIA did not change subtitle selection; subsequent foreground Off input was refused by USER_INPUT_ACTIVE and not sent. New switching/Off/cross-process Off persistence is not accepted. Task-owned process cleanup is not normal closure. Uninstall and isolated/original profile-hash retention passed.
+
+Delivery:[0.2.9 package and receipt](../../deliveries/2026-11-04-nekophage-029/README.en.md). ZIP21,567,624 bytes; installer18,720,179 bytes. Logs:`E:/Temp/nk-desktop-029/`. The package is unsigned and unpublished. Mac evidence remains attributed to4d947098 non-Markdown sources. This fixture has no audio and does not prove speaker output.
+
 ## Core ccb6268 desktop main integration (2026-11-04)
 
 Desktop main fast-forwarded to4d947098 with functional pin ccb626825bc116dad3b3e9a082867fd22c09caf4. Windows Lead completed seven engineering checks, real WebView reading with2/2 decoded pages and scrollY1200 restoration, HLS authentication/Range/resume at2.011 seconds,18718 decoded audio bytes, native MP4 Range206, plus candidate installed main-window startup, native close, process exit, uninstall and profile retention. Packaged media was not rerun. The package is unsigned and has no public destination.
