@@ -2,6 +2,12 @@
 
 English | [简体中文](STATUS.md)
 
+## Core ccb6268 desktop main integration (2026-11-04)
+
+Desktop main fast-forwarded to4d947098 with functional pin ccb626825bc116dad3b3e9a082867fd22c09caf4. Windows Lead completed seven engineering checks, real WebView reading with2/2 decoded pages and scrollY1200 restoration, HLS authentication/Range/resume at2.011 seconds,18718 decoded audio bytes, native MP4 Range206, plus candidate installed main-window startup, native close, process exit, uninstall and profile retention. Packaged media was not rerun. The package is unsigned and has no public destination.
+
+Orca Worker mac-validation verified that205 non-Markdown files from clean c545212 plus the same five-file patch match the Windows candidate fingerprint, without claiming a whole Git tree match. On macOS27.0.1/arm64 and Go1.27.3, with GOMAXPROCS=2 and GOFLAGS=-p=2, all seven checks passed. Reader decoded two320x1200 pages and restored scrollY1200. HLS.js decoded320x180 with authentication/Range, saved2.063912541 seconds and restored2.064 seconds. Original logs remain on Mac under `/tmp/nk-desktop-ccb6268-evidence/`; `E:/Temp/nk-core-source-release/mac-consumer-receipt.json` is a Worker receipt, not a log copy. Mac did not test an installed app/package, cross-process resume, audio or native MP4; the development build reports commit unknown.
+
 ## Core ccb6268 consumer candidate (not integrated, 2026-11-04)
 
 Candidate 1fbd2647 consumes Core ccb626825bc116dad3b3e9a082867fd22c09caf4; client main and the delivered 0.2.8 package still use 3be57b5. All seven Windows engineering checks passed. Existing readercheck decoded 2/2 pages in isolation and restored scrollY=1200. uicheck passed Referer/Cookie-authenticated HLS/Range requests, 320x180 decoding and page-written/reopened progress at 2.011 seconds; 18718 decoded audio bytes do not establish speaker output. videocheck passed native MP4 playback/progress and a 1024-byte Range206 response. These are development WebView results, not new package or Mac acceptance. Core Apple CI is not terminal yet. Logs: `E:/Temp/nk-core-source-release/`.

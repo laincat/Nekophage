@@ -2,6 +2,12 @@
 
 [English](STATUS.en.md) | 简体中文
 
+## Core ccb6268 桌面主线整合（2026-11-04）
+
+桌面main已快进到4d947098，功能pin为ccb626825bc116dad3b3e9a082867fd22c09caf4。Windows Lead完成七项工程检查、真实WebView阅读2/2页及scrollY1200恢复、HLS鉴权/Range/2.011秒续播、18718音频解码字节、原生MP4 Range206，以及候选安装版主窗启动、原生关闭、进程退出、卸载和资料保留。安装媒体未重跑，包未签名，公开目的地仍待指定。
+
+Orca Worker mac-validation在干净c545212加同一5文件补丁上验证205个非Markdown文件指纹与Windows候选一致，不宣称完整Git树一致。macOS27.0.1/arm64、Go1.27.3以GOMAXPROCS=2/GOFLAGS=-p=2完成7/7工程检查、2张320×1200页图解码、scrollY1200恢复、HLS.js320×180、鉴权/Range、2.063912541秒落盘及2.064秒重开。原日志仅在Mac `/tmp/nk-desktop-ccb6268-evidence/`，本地回执 `E:/Temp/nk-core-source-release/mac-consumer-receipt.json` 不是原日志副本。Mac未验安装版、正式包、跨进程、音频或原生MP4；开发构建commit字段为unknown。
+
 ## Core ccb6268 候选消费（未整合主线，2026-11-04）
 
 本分支候选1fbd2647使用Core ccb626825bc116dad3b3e9a082867fd22c09caf4，正式客户端主线和0.2.8交付包仍为3be57b5。Windows七项工程检查通过；现有readercheck在隔离资料中实际解码2/2页，重开恢复scrollY=1200。uicheck通过带Referer/Cookie鉴权的HLS/Range请求、320×180解码和页面进度落盘/重开2.011秒；音频解码18718字节，不代表扬声器。videocheck原生MP4播放、进度报告及1024字节Range206通过。这些是开发WebView路径，不是新安装包或Mac验收。Core Apple CI尚未有终态，日志 `E:/Temp/nk-core-source-release/`。
