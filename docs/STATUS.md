@@ -18,7 +18,17 @@ f81dab6/Core313951e已打包为0.2.12。ZIP22,260,020字节、安装器19,310,82
 
 截图证据：用隔离资料预置一个已装服务（`demo-service`，权限 network,storage,secrets，账号 1 项 `user`），经 `cmd/uicheck -settings` 抓源管理窗口，见 `E:/Temp/nk-service-ui/panel.png`（1084×721，42,226 字节）。
 
-边界：本轮只证明面板渲染与实际数据一致；按钮调用的是与命令行相同的 `services`/`accounts` 实现（这些路径有 Go 测试与 loopback 夹具），但**没有逐个点击按钮**，也没有覆盖拖放、键盘导航与高 DPI。
+点击实证（`cmd/uicheck -hold` 保留窗口，外部驱动按无障碍元素操作真实按钮，不是调用内部方法）：
+
+| 操作 | 结果 |
+| --- | --- |
+| 账号键填 `token`、值填 `s3cret`，点「保存」 | 提示"已保存账号项 token"，行显示"账号 2"，键列表变为 `token、user`；值字段因密码样式不回读 |
+| 点「删除」 | 提示"已删除账号项 token"，行回到"账号 1"，键列表只剩 `user` |
+| 点「移除」 | 提示"已移除 demo-service"，标题变为"服务插件 0 个"，显示空状态 |
+
+移除后磁盘核对：`services/demo-service` 目录消失，`services.json` 为 `{}`。截图 `before.png`、`after-remove.png`。
+
+边界：未点击「安装服务包…」（会开系统文件对话框）、「账号」（仅切换选中）与服务下拉；未覆盖拖放、键盘导航与高 DPI。
 
 ## 跟随 Core f349e3d：服务的网络走受控传输桥（2026-11-04）
 

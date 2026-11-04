@@ -92,6 +92,7 @@ func main() {
 	videoSubsText := flag.String("video-subs-text", "", "require this text in the active subtitle cue")
 	// dir reuses a profile, so the shelf and installed sources carry over
 	// from an earlier import.
+	hold := flag.Duration("hold", 0, "keep the windows open this long after the capture, for an outside driver")
 	dir := flag.String("dir", "", "profile directory; a fresh one under the temp directory when empty")
 	flag.Parse()
 	if *script == "" && *script2 == "" && *videoScript == "" && *dir == "" {
@@ -341,6 +342,12 @@ func main() {
 				} else {
 					log.Printf("dialog capture: no dialog window was opened")
 				}
+			}
+			// -hold keeps the windows up so an outside driver can click them;
+			// the run then ends on its own or when the process is stopped.
+			if *hold > 0 {
+				log.Printf("holding the windows for %s", *hold)
+				time.Sleep(*hold)
 			}
 			mygo.App.Quit()
 		}()

@@ -18,7 +18,17 @@ The source manager gains a "服务插件" section: it lists each installed servi
 
 Evidence: an isolated profile was seeded with one installed service (`demo-service`, permissions network,storage,secrets, one account value `user`), and `cmd/uicheck -settings` captured the source manager window at `E:/Temp/nk-service-ui/panel.png` (1084x721, 42,226 bytes).
 
-Boundary: this round proves the panel renders the real data; the buttons call the same `services`/`accounts` code the command line uses (covered by Go tests and the loopback fixture), but **the buttons were not clicked one by one**, and drag and drop, keyboard navigation and high DPI are not covered.
+Click evidence (`cmd/uicheck -hold` keeps the window up and an outside driver presses the real buttons through accessibility, not by calling internal methods):
+
+| Action | Result |
+| --- | --- |
+| Key `token`, value `s3cret`, press "保存" | "已保存账号项 token", the row shows "账号 2" and the keys become `token、user`; the password field does not read back its value |
+| Press "删除" | "已删除账号项 token", the row returns to "账号 1" and only `user` remains |
+| Press "移除" | "已移除 demo-service", the header becomes "服务插件 0 个" and the empty state appears |
+
+After removal on disk: `services/demo-service` is gone and `services.json` is `{}`. Screenshots `before.png` and `after-remove.png`.
+
+Boundary: "安装服务包…" (it opens a system file dialog), "账号" (only changes the selection) and the service dropdown were not pressed; drag and drop, keyboard navigation and high DPI are not covered.
 
 ## Following Core f349e3d: a service reaches the network through a controlled bridge (2026-11-04)
 
