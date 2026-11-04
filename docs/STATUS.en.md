@@ -12,6 +12,14 @@ The package contains the fix that stops a source's onLoginSuccess when the login
 
 0.2.12 adds the fix that stops a source's onLoginSuccess when the login window closes; the rest of the cancellation scope is unchanged from0.2.11. The following packaging and installation checks belong to this commit.
 
+## Windows 0.2.18: services and collections together (Windows, 2026-11-04)
+
+`0.2.18` (commit `1fac121`, Core `78826c8`) ships this round's service-plugin and collection work together: installing and listing packages, method discovery, calls with arguments, cancellation, per-service account values, collection subscriptions and entry installs, and the service and collection panels in the window.
+
+Package: ZIP 22,437,039 bytes (SHA-256 `4194cf1f...`), installer 19,461,379 bytes (SHA-256 `34196ff8...`). Eleven checks pass in an isolated directory: ZIP CRC and digest, the `0.2.18` version and Core markers, `-service list` against its own data directory, silent install, the main window appearing, a native close exiting 0, silent uninstall, the test profile surviving, and the install directory being removed. The regression probes report 19 PASS / 0 FAIL / 1 SKIP (only the official-source callback that needs `NK_OFFICIAL_SRC`).
+
+Packaging hit a real snag: rewriting the version through Python's default text mode turned `main.go` into CRLF, which `gofmt -l` caught immediately. After forcing LF the package was rebuilt so the artifact matches the commit.
+
 ## A running service method can be cancelled (Windows, 2026-11-04)
 
 Core moves to `78826c8` (tree `1161a5e3`): `Supervisor` now interrupts the runtime when the caller cancels, not only on timeout, and keeps the reason apart (`ErrTimeout` vs `context.Canceled`); `NewSupervisorFor` gives one host per service, and `Supervisor.Describe` was added.
