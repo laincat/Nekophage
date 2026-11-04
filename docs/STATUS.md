@@ -2,11 +2,11 @@
 
 [English](STATUS.en.md) | 简体中文
 
-## 结构化重复键消费候选（2026-11-04，尚未整合）
+## 结构化重复键与索引身份修复已整合（2026-11-04）
 
 隔离worktree使用Core重复键修复候选，通过errors.As读取plugin.KeyExistsError.Key，移除按冒号拆错误文字的更新目标选择。启用漫画/视频源真实文件重装到2.0.0、URL更新到3.0.0、新运行时从磁盘恢复并执行3.0.0均通过；普通/伪造报错不能选择已安装源。既有禁用源更新、跨类型拒绝和写盘失败回滚回归保持。额外复现并修复索引指定A、正文声明已安装B时通用安装流程误更新B的问题：索引新装现在调用Core既有InstallFromComicIndex，保留索引声明的身份；负例中B的运行记录和磁盘均不变，日志index-before.log/consumer-identity.log。
 
-候选脚本pin已更新为313951e157a18e524f4c0c80c46d78abee662f2b，并由fetch-core.sh从公开候选分支真实取回、生成版本标记和通过pin检查；主线pin仍ccb6268。此证据不表示主线已升级或包含于既有安装包。日志 `E:/Temp/core-duplicate-key-evidence/consumer-targeted-fixed.log`；首次隔离目录缺少build/core的编译失败单列保留。Core正式发布及两端pin需要按发布流程完成。
+Core313951e已保树发布main，功能提交4273e06已快进整合桌面主线。fetch-core.sh已从公开main取回实际checkout、生成版本戳并通过pin检查；Nekularity主线pin同步。七项工程保持候选执行归属，整合不改变产品源码。新Windows exe另经五个进程验证合集follow/refresh/离线list/unfollow/重开，实际版本核对提交与Core完整标记。交付 `E:/Code/deliveries/2026-11-04-core-313951e/`；原定向日志 `E:/Temp/core-duplicate-key-evidence/consumer-targeted-fixed.log`，主线pin日志 `E:/Temp/nk-313-consumer/main-fetch-core.log`。既有0.2.9安装包仍为ccb版本；未新增Mac或GUI验收。首次缺少build/core的失败单列保留。
 
 ## 源更新写盘失败回滚（Windows，2026-11-04）
 
@@ -14,7 +14,7 @@
 
 定向race验证启用/停用两种状态、旧正文实际执行、原登录数据和Cookie保持、磁盘字节不变及解除写入故障后重试成功。另验旧init无法恢复的反例：未保存的新版本被停用并报告恢复失败，旧磁盘记录保留。全仓七项工程检查通过。日志 `E:/Temp/nk-source-update-atomic/entry-before.log`、`rollback-cases.log`、`checks.log`。未扩称所有init外部副作用可回滚，也未进行新Mac/UI验收。
 
-独立兼容限制：直接InstallTypedText重装已启用同key脚本时，当前Core会返回 `js: invalid source: key(first_source) already exists`，未转为客户端期望的plugin.ErrExists；证据 `before.log`。本次明确key的索引更新已修复，该错误契约仍需单独处理，不能标为直接重装通过。
+独立兼容限制：直接InstallTypedText重装已启用同key脚本时，当前Core会返回 `js: invalid source: key(first_source) already exists`，未转为客户端期望的plugin.ErrExists；证据 `before.log`。本次明确key的索引更新已修复，该错误契约现已由上方Core313及结构化消费修复，原始失败作为回归依据保留。
 
 ## 统一合集订阅服务与命令入口（Windows，2026-11-04）
 

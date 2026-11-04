@@ -2,11 +2,11 @@
 
 English | [简体中文](STATUS.md)
 
-## Structured duplicate-key consumer candidate (2026-11-04, not integrated)
+## Structured duplicate-key and index-identity fixes integrated (2026-11-04)
 
 An isolated worktree uses the Core duplicate-key candidate and errors.As(plugin.KeyExistsError) to select the key, replacing colon-based error-text parsing. Enabled comic/video sources updated from actual files to2.0.0, via URLs to3.0.0, and executed3.0.0 after a new runtime restored the saved records. Plain/forged errors cannot choose installed sources. Existing disabled updates, wrong-type rejection and failed-persistence rollback regressions remain intact. An additional regression reproduced an index naming A while its body selected installed B through generic-install fallback. New index installs now use Core InstallFromComicIndex to retain the declared identity; B runtime/disk records remain unchanged. Logs: index-before.log/consumer-identity.log.
 
-The candidate script pin is now313951e157a18e524f4c0c80c46d78abee662f2b; fetch-core.sh retrieved the public candidate, generated its version stamp and passed the pin check. Main remains pinned toccb6268. This does not claim main was upgraded or the existing installer includes these changes. Log: `E:/Temp/core-duplicate-key-evidence/consumer-targeted-fixed.log`; the initial missing-build/core compile failure remains separate. Core publication and both consumer pins still follow the release procedure.
+Core313951e was published on main with its tested tree preserved, and functional commit4273e06 was fast-forwarded into desktop main. fetch-core.sh retrieved the actual public-main checkout, generated its stamp and passed the pin check; Nekularity main uses the same pin. Seven engineering checks retain their candidate execution attribution, with product source unchanged by integration. A new Windows executable passed five processes covering collection follow/refresh/offline list/unfollow/reopening, and its version output matched the commit/full Core marker. Delivery: `E:/Code/deliveries/2026-11-04-core-313951e/`; original targeted log: `E:/Temp/core-duplicate-key-evidence/consumer-targeted-fixed.log`; main pin log: `E:/Temp/nk-313-consumer/main-fetch-core.log`. The existing0.2.9 installer remains theccb version; no new Mac or GUI acceptance is claimed. The initial missing-build/core failure stays separate.
 
 ## Roll back source updates when persistence fails (Windows, 2026-11-04)
 
@@ -14,7 +14,7 @@ The real index-update path reproduced a mismatch: after plugins.json writing fai
 
 Targeted race cases cover enabled/disabled sources, actual previous-body execution, preserved account data/cookies, unchanged disk bytes and successful retry after clearing the write failure. Another case makes old init fail during recovery: the unpersisted replacement is disabled, recovery failure is reported and previous disk records remain. All seven engineering checks passed. Logs: `E:/Temp/nk-source-update-atomic/entry-before.log`, `rollback-cases.log`, `checks.log`. This does not promise rollback of all external init side effects or add Mac/UI evidence.
 
-Separate compatibility limitation: directly reinstalling an enabled same-key script through InstallTypedText currently returns Core's `js: invalid source: key(first_source) already exists` instead of the plugin.ErrExists expected by the client. Evidence: `before.log`. The explicit-key index update is repaired here; that error contract still needs independent work and direct reinstall is not accepted.
+Separate compatibility limitation: directly reinstalling an enabled same-key script through InstallTypedText currently returns Core's `js: invalid source: key(first_source) already exists` instead of the plugin.ErrExists expected by the client. Evidence: `before.log`. The explicit-key index update is repaired here; that error contract is now repaired by Core313 and its structured consumer above; the original failure remains regression evidence.
 
 ## Collection subscriptions and command entry point (Windows, 2026-11-04)
 
