@@ -31,8 +31,11 @@ func (a *App) loadSearchOptions(key string) {
 	if key == "" {
 		return
 	}
+	a.mu.Lock()
+	ticket := a.searchGen.peek()
+	a.mu.Unlock()
 	go func() {
-		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		ctx, cancel := context.WithTimeout(a.searchGen.requestContext(ticket), 30*time.Second)
 		defer cancel()
 		groups, err := a.core.SearchOptions(ctx, key)
 		if err != nil {
@@ -56,6 +59,10 @@ func (a *App) loadSearchOptions(key string) {
 			}
 		}
 		a.mu.Lock()
+		if !a.searchGen.current(ticket) || a.sourceKey != key {
+			a.mu.Unlock()
+			return
+		}
 		a.searchGroups, a.searchValues, a.searchKey = groups, values, key
 		query := a.query
 		a.mu.Unlock()

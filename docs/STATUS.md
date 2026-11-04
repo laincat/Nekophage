@@ -2,6 +2,10 @@
 
 [English](STATUS.en.md) | 简体中文
 
+## 替换搜索取消筛选后续请求（Windows，2026-11-04）
+
+筛选读取原先使用独立超时，完成后可能用旧筛选再次搜索。现在读取跟随搜索代次，搜索被替换后旧结果既不写筛选状态，也不触发后续HTTP。定向race与七项工程检查通过。日志 `E:/Temp/nk-filter-cancel/targeted-followup.log`、`checks.log`。尚未做新的Mac或安装版验收。
+
 ## 离开书架取消保留页HTTP（Windows，2026-11-04）
 
 书架保留页图片原先使用独立60秒超时，离开书架后下载继续。现在请求跟随书架代次，切换到其他模式时服务端观察到连接取消。定向race与七项工程检查通过。日志 `E:/Temp/nk-shelf-cancel/targeted.log`、`checks.log`。关闭阅读器本身不取消书架图片；尚未做新的Mac或安装版验收。

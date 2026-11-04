@@ -2,6 +2,10 @@
 
 English | [简体中文](STATUS.md)
 
+## Replacing a search cancels its filter follow-up (Windows, 2026-11-04)
+
+Filter loading previously used an independent timeout and could search again with stale filters. Loading now follows the search generation. After replacement, the old result neither writes filter state nor triggers follow-up HTTP. Targeted race tests and seven engineering checks passed. Logs: `E:/Temp/nk-filter-cancel/targeted-followup.log` and `checks.log`. No new Mac or installed-build acceptance is claimed.
+
 ## Leaving the shelf cancels kept-page HTTP (Windows, 2026-11-04)
 
 Kept shelf-page images previously used an independent 60-second timeout and continued after leaving the shelf. Requests now follow the shelf generation, and switching modes makes the server observe connection cancellation. Targeted race tests and seven engineering checks passed. Logs: `E:/Temp/nk-shelf-cancel/targeted.log` and `checks.log`. Closing the reader itself does not cancel shelf images. No new Mac or installed-build acceptance is claimed.
