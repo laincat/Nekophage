@@ -252,7 +252,26 @@ func (a *App) serviceSupervisor() (*service.Supervisor, error) {
 		return nil, err
 	}
 	a.svcSup = sup
+	a.svcSweep = make(chan struct{})
+	go a.sweepServices(sup, a.svcSweep)
 	return sup, nil
+}
+
+// sweepServices unloads services nobody has used for a while. Core keeps a
+// service loaded so a second call is cheap, but a service that stays resident
+// keeps its runtime memory with it; the window owns the lifetime and releases
+// the idle ones.
+func (a *App) sweepServices(sup *service.Supervisor, stop <-chan struct{}) {
+	ticker := time.NewTicker(time.Minute)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-stop:
+			return
+		case <-ticker.C:
+			sup.Sweep()
+		}
+	}
 }
 
 // closeServiceSupervisor unloads every service; the window calls it when it
@@ -260,8 +279,13 @@ func (a *App) serviceSupervisor() (*service.Supervisor, error) {
 func (a *App) closeServiceSupervisor() {
 	a.mu.Lock()
 	sup := a.svcSup
+	stop := a.svcSweep
 	a.svcSup = nil
+	a.svcSweep = nil
 	a.mu.Unlock()
+	if stop != nil {
+		close(stop)
+	}
 	if sup != nil {
 		sup.Close()
 	}

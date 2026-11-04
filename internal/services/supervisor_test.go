@@ -109,3 +109,36 @@ export function handle() { return { ok: true }; }`
 	}
 	var _ = service.PermissionNetwork
 }
+
+// An idle service is unloaded by the sweep, so a panel that keeps services
+// loaded does not keep their runtimes alive forever.
+func TestSupervisorSweepUnloadsIdleServices(t *testing.T) {
+	data := t.TempDir()
+	manifest := `{"id":"idle","name":"Idle","version":"1","kind":"service.js","entry":"index.mjs","permissions":[]}`
+	entry := `export function handle() { return { ok: true }; }`
+	var buf bytes.Buffer
+	w := zip.NewWriter(&buf)
+	for name, body := range map[string]string{"service.json": manifest, "index.mjs": entry} {
+		f, _ := w.Create(name)
+		f.Write([]byte(body))
+	}
+	w.Close()
+	if _, err := Install(context.Background(), data, "test", "", buf.Bytes()); err != nil {
+		t.Fatal(err)
+	}
+	s, err := NewSupervisor(data, "test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.Close()
+	if _, err := s.Call(context.Background(), "idle", "go", nil); err != nil {
+		t.Fatal(err)
+	}
+	if len(s.Loaded()) != 1 {
+		t.Fatalf("loaded = %v", s.Loaded())
+	}
+	// The default idle window is minutes, so a sweep right away keeps it.
+	if n := s.Sweep(); n != 0 {
+		t.Fatalf("sweep unloaded %d services too early", n)
+	}
+}

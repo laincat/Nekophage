@@ -12,6 +12,10 @@ The package contains the fix that stops a source's onLoginSuccess when the login
 
 0.2.12 adds the fix that stops a source's onLoginSuccess when the login window closes; the rest of the cancellation scope is unchanged from0.2.11. The following packaging and installation checks belong to this commit.
 
+## An idle service is unloaded (Windows, 2026-11-04)
+
+A resident service makes a second call cheap, but its runtime keeps memory too. The desktop now sweeps every minute: Core's `Supervisor.Sweep` unloads services idle for longer than the window (five minutes by default), and closing the window unloads them all. A regression covers that a service that was just used is not cleared away at once.
+
 ## Windows 0.2.18: services and collections together (Windows, 2026-11-04)
 
 `0.2.18` (commit `1fac121`, Core `78826c8`) ships this round's service-plugin and collection work together: installing and listing packages, method discovery, calls with arguments, cancellation, per-service account values, collection subscriptions and entry installs, and the service and collection panels in the window.

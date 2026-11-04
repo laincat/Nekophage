@@ -176,6 +176,8 @@ type App struct {
 	cols collectionPanel
 	// svcSup runs service methods for the panel, one per window.
 	svcSup *service.Supervisor
+	// svcSweep stops the goroutine that unloads idle services.
+	svcSweep chan struct{}
 	// video is the video window and its player.
 	video          videoState
 	videoSearchGen generation
