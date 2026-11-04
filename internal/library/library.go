@@ -16,6 +16,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/laincat/nekophage/internal/cookies"
 	"github.com/laincat/nekophage/internal/core"
@@ -30,6 +31,8 @@ const MaxScriptBytes = 4 << 20
 type Library struct {
 	core *core.Core
 
+	// op keeps registry mutations and their persistence/rollback together.
+	op      sync.Mutex
 	mu      sync.Mutex
 	records []plugin.Record
 }
@@ -40,6 +43,8 @@ func New(c *core.Core) *Library { return &Library{core: c} }
 // Restore loads the saved records into Core. It returns the sources that
 // could not be restored, keyed by key.
 func (l *Library) Restore(ctx context.Context) (map[string]error, error) {
+	l.op.Lock()
+	defer l.op.Unlock()
 	data, err := l.core.Store().Records()
 	if err != nil {
 		return nil, err
@@ -147,6 +152,8 @@ func (l *Library) InstallEntry(ctx context.Context, entry subscription.Entry, in
 
 // Remove uninstalls a source and forgets what it stored.
 func (l *Library) Remove(ctx context.Context, key string) error {
+	l.op.Lock()
+	defer l.op.Unlock()
 	if err := l.core.Remove(ctx, key); err != nil {
 		return err
 	}
@@ -155,6 +162,8 @@ func (l *Library) Remove(ctx context.Context, key string) error {
 
 // SetEnabled turns a source on or off.
 func (l *Library) SetEnabled(ctx context.Context, key string, on bool) error {
+	l.op.Lock()
+	defer l.op.Unlock()
 	if err := l.core.SetEnabled(ctx, key, on); err != nil {
 		return err
 	}
@@ -238,13 +247,15 @@ func (l *Library) IndexFrom(body []byte, rawURL string) (*subscription.ComicInde
 // --- internals ---
 
 func (l *Library) installOrReplace(ctx context.Context, typ plugin.Type, body, origin, indexURL string) (*plugin.Record, error) {
+	l.op.Lock()
+	defer l.op.Unlock()
 	rec, err := l.core.InstallTyped(ctx, typ, body, origin, indexURL)
 	if err != nil {
 		// Core is the only one that knows a script's key, so a taken key is
 		// only discovered here; update that source instead.
 		if errors.Is(err, plugin.ErrExists) {
 			if key := keyOf(err); key != "" && l.IsInstalled(key) {
-				return l.replaceTyped(ctx, key, typ, body, origin, indexURL)
+				return l.replaceTypedLocked(ctx, key, typ, body, origin, indexURL)
 			}
 		}
 		return nil, err
@@ -268,12 +279,43 @@ func (l *Library) replace(ctx context.Context, key, body, origin, indexURL strin
 }
 
 func (l *Library) replaceTyped(ctx context.Context, key string, typ plugin.Type, body, origin, indexURL string) (*plugin.Record, error) {
+	l.op.Lock()
+	defer l.op.Unlock()
+	return l.replaceTypedLocked(ctx, key, typ, body, origin, indexURL)
+}
+
+func (l *Library) replaceTypedLocked(ctx context.Context, key string, typ plugin.Type, body, origin, indexURL string) (*plugin.Record, error) {
+	var previous *plugin.Record
+	for _, old := range l.core.Records() {
+		if old.Key == key {
+			previous = &old
+			break
+		}
+	}
+	if previous == nil {
+		return nil, plugin.ErrNotFound
+	}
 	rec, err := l.core.ReplaceTyped(ctx, key, typ, body, origin, indexURL)
 	if err != nil {
 		return nil, err
 	}
 	if err := l.persist(); err != nil {
-		return rec, err
+		// Never uninstall to roll back: Remove also erases this source's data
+		// and sign-in cookies. Replace preserves both and its enabled state.
+		rctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		_, restoreErr := l.core.ReplaceTyped(rctx, key, previous.Type, previous.Body, previous.Origin, previous.IndexURL)
+		cancel()
+		if restoreErr != nil {
+			// If old init cannot run again, stop the unpersisted replacement and
+			// report recovery failure rather than silently running the new code.
+			dctx, stop := context.WithTimeout(context.Background(), 5*time.Second)
+			disableErr := l.core.SetEnabled(dctx, key, false)
+			stop()
+			l.refresh()
+			return nil, errors.Join(err, fmt.Errorf("library: previous source could not be restored: %w", restoreErr), disableErr)
+		}
+		l.refresh()
+		return nil, err
 	}
 	return rec, nil
 }
@@ -295,14 +337,17 @@ func (l *Library) refresh() {
 
 func (l *Library) persist() error {
 	l.mu.Lock()
+	defer l.mu.Unlock()
 	recs := l.core.Records()
-	l.records = recs
-	l.mu.Unlock()
 	data, err := json.Marshal(recs)
 	if err != nil {
 		return err
 	}
-	return l.core.Store().SaveRecords(data)
+	if err := l.core.Store().SaveRecords(data); err != nil {
+		return err
+	}
+	l.records = recs
+	return nil
 }
 
 func (l *Library) installed() []subscription.Installed {

@@ -2,6 +2,14 @@
 
 [English](STATUS.en.md) | 简体中文
 
+## 源更新写盘失败回滚（Windows，2026-11-04）
+
+通过真实索引更新入口复现：plugins.json写入失败时，启用源仍执行新正文（maxPage=2），停用源内存也保留新正文/摘要/来源，而磁盘仍是旧版本。现将Library注册表变更与持久化/恢复串行化；更新写盘失败时，用独立5秒context恢复旧正文与来源，保留启用状态，失败返回不再携带“已安装新记录”。内存索引缓存只在成功落盘后更新。恢复使用Replace，不通过会清除源数据和Cookie的Remove。
+
+定向race验证启用/停用两种状态、旧正文实际执行、原登录数据和Cookie保持、磁盘字节不变及解除写入故障后重试成功。另验旧init无法恢复的反例：未保存的新版本被停用并报告恢复失败，旧磁盘记录保留。全仓七项工程检查通过。日志 `E:/Temp/nk-source-update-atomic/entry-before.log`、`rollback-cases.log`、`checks.log`。未扩称所有init外部副作用可回滚，也未进行新Mac/UI验收。
+
+独立兼容限制：直接InstallTypedText重装已启用同key脚本时，当前Core会返回 `js: invalid source: key(first_source) already exists`，未转为客户端期望的plugin.ErrExists；证据 `before.log`。本次明确key的索引更新已修复，该错误契约仍需单独处理，不能标为直接重装通过。
+
 ## 统一合集订阅服务与命令入口（Windows，2026-11-04）
 
 当前源码新增 `-collection follow/list/refresh/unfollow`，复用Core ccb6268的合集解析与平台/能力匹配，单独持久化到资料目录collections.json。订阅不安装条目，不改plugins.json。新刷新、取消订阅、关闭管理器会取消旧连接；失败或写盘失败保留旧快照。已修复实现期间复现的HTML描述转义膨胀导致重启拒绝，以及空文件被误当新资料的问题。

@@ -2,6 +2,14 @@
 
 English | [简体中文](STATUS.md)
 
+## Roll back source updates when persistence fails (Windows, 2026-11-04)
+
+The real index-update path reproduced a mismatch: after plugins.json writing failed, enabled sources still executed the new body (maxPage=2), while disabled records also retained the new body/digest/origin in memory and disk kept the previous version. Library registry mutations now remain serialized through persistence/recovery. A failed write restores the previous body/origin with an independent five-second context, preserving enabled state, and returns no supposedly installed new record. Cached index state changes after successful persistence. Recovery uses Replace, avoiding Remove's source-data/cookie deletion.
+
+Targeted race cases cover enabled/disabled sources, actual previous-body execution, preserved account data/cookies, unchanged disk bytes and successful retry after clearing the write failure. Another case makes old init fail during recovery: the unpersisted replacement is disabled, recovery failure is reported and previous disk records remain. All seven engineering checks passed. Logs: `E:/Temp/nk-source-update-atomic/entry-before.log`, `rollback-cases.log`, `checks.log`. This does not promise rollback of all external init side effects or add Mac/UI evidence.
+
+Separate compatibility limitation: directly reinstalling an enabled same-key script through InstallTypedText currently returns Core's `js: invalid source: key(first_source) already exists` instead of the plugin.ErrExists expected by the client. Evidence: `before.log`. The explicit-key index update is repaired here; that error contract still needs independent work and direct reinstall is not accepted.
+
 ## Collection subscriptions and command entry point (Windows, 2026-11-04)
 
 Current source adds `-collection follow/list/refresh/unfollow`, reusing Core ccb6268 parsing and platform/capability matching with a separate profile collections.json. Subscription does not install entries or change plugins.json. Replacement refresh, unfollow and manager closure cancel older connections; fetch/persistence failures retain the previous snapshot. Implementation regressions reproduced and fixed HTML-description escape expansion preventing reopening and empty files being treated as fresh profiles.
