@@ -12,6 +12,12 @@ The package contains the fix that stops a source's onLoginSuccess when the login
 
 0.2.12 adds the fix that stops a source's onLoginSuccess when the login window closes; the rest of the cancellation scope is unchanged from0.2.11. The following packaging and installation checks belong to this commit.
 
+## One sentence for the expired login handle (Windows, 2026-11-04)
+
+Core's expired-handle error is now mapped by the interface's text layer too: wherever it reaches the notice bar it reads "漫画源在登录过程中被更新或删除,这次登录已经失效" instead of English behind the "源返回错误:" prefix. One targeted text test was added and the existing cases are unchanged.
+
+This is a Windows development-build scope; the installed build was not rerun and Mac is not covered.
+
 ## Desktop media proxy re-checked on0.2.14 (2026-11-04)
 
 Two real-window probes were rerun against the `0.2.14` build on Core `b882bf9`. MP4 through the media proxy: `readyState=4`, duration10.066667s, position advanced on its own to4.0678s, a byte-range request answered206 with `bytes 0-1023/178570`, and the player page reported progress itself (time=0.33, duration=10.07, paused=false).

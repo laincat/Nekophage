@@ -18,6 +18,7 @@ func TestExplainKnownFailures(t *testing.T) {
 		{errors.New("context canceled"), "操作已取消", true},
 		{errors.New("core: unknown source mini"), "找不到这个漫画源,可能已被删除", true},
 		{errors.New("plugin: not installed"), "漫画源还未安装", true},
+		{errors.New("js: webview login handle is no longer valid"), "漫画源在登录过程中被更新或删除,这次登录已经失效", true},
 		{errors.New("Get https://x: i/o timeout"), "网络超时,请稍后重试", true},
 		{errors.New("js: Challenge needed"), "源要求人机验证或拒绝了请求", true},
 		{errors.New(""), "操作失败,源没有给出原因", true},

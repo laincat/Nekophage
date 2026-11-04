@@ -28,6 +28,8 @@ func explain(err error) string {
 		return "这个漫画源存的数据太大,写进备份后会读不回来,所以没有导出"
 	case has("not installed"):
 		return "漫画源还未安装"
+	case has("webview login handle is no longer valid"):
+		return "漫画源在登录过程中被更新或删除,这次登录已经失效"
 	case has("timeout") || has("deadline exceeded"):
 		return "网络超时,请稍后重试"
 	case has("no such comic") || has("comic not found"):
