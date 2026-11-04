@@ -12,6 +12,14 @@ The package contains the fix that stops a source's onLoginSuccess when the login
 
 0.2.12 adds the fix that stops a source's onLoginSuccess when the login window closes; the rest of the cancellation scope is unchanged from0.2.11. The following packaging and installation checks belong to this commit.
 
+## Desktop media proxy re-checked on0.2.14 (2026-11-04)
+
+Two real-window probes were rerun against the `0.2.14` build on Core `b882bf9`. MP4 through the media proxy: `readyState=4`, duration10.066667s, position advanced on its own to4.0678s, a byte-range request answered206 with `bytes 0-1023/178570`, and the player page reported progress itself (time=0.33, duration=10.07, paused=false).
+
+HLS with subtitles: the `hls.js 1.7.4` session decoded, options were 关闭 / English / 中文, choosing English produced the active text `Subtitle rendering proof` and stored `{Off:false Name:English Language:en}`, and after closing and reopening the choice was still English with the same text.
+
+Headers and byte ranges off playlists are covered by the `internal/player` unit test: playlists carry no Range/If-Range, while media bytes keep the Referer the play source set. These results cover Windows and local fixtures only — no live site, installed build or Mac.
+
 ## Windows0.2.14 local package (2026-11-04)
 
 7550045/Coreb882bf9 is packaged as0.2.14. ZIP22,262,198 bytes; installer19,311,655 bytes. CRC, individual hashes, embedded version/Core/commit and installed-versus-ZIP executable equality passed. Isolated installation showed the main window, closed natively with exit0, preserved profile data on uninstall, and exposed no automation endpoint.
