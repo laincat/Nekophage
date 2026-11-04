@@ -12,6 +12,10 @@ f81dab6/Core313951e已打包为0.2.12。ZIP22,260,020字节、安装器19,310,82
 
 0.2.12在0.2.11之上包含关闭登录窗口即停止源onLoginSuccess的修复，其余取消范围不变。以下打包与安装核验以本提交为准。
 
+## 跟随 Core fbbda3f：服务生命周期与超时（2026-11-04）
+
+Core 主线升到 `fbbda3f`（tree `4cd4c8c5`）：新增 `service.Supervisor`，按需加载、常驻上限、空闲卸载，并用中断实现单次调用超时；异步 handler 按 Promise 状态读取或明确拒绝。桌面端 pin 跟随，`go build` 与七项工程检查通过。桌面目前仍是一进程一次调用，没有接入 Supervisor；接入应在图形界面的服务入口里做。
+
 ## Windows 0.2.16 包与安装验收（2026-11-04）
 
 功能提交 `a92401e`，Core `d62fbc7`。便携 ZIP 22,365,596 bytes，SHA-256 `f6cdca4ddee0e1334ed129cdcb600d800da3d6cd78363b71d476b6298ddf1a23`；安装器 19,402,671 bytes，SHA-256 `a48e8b58601a14b155481ab0effddec0e544275f6561b7b2f35ad5349ee4c80a`。

@@ -12,6 +12,10 @@ The package contains the fix that stops a source's onLoginSuccess when the login
 
 0.2.12 adds the fix that stops a source's onLoginSuccess when the login window closes; the rest of the cancellation scope is unchanged from0.2.11. The following packaging and installation checks belong to this commit.
 
+## Following Core fbbda3f: service lifecycle and timeouts (2026-11-04)
+
+Core main moves to `fbbda3f` (tree `4cd4c8c5`): `service.Supervisor` loads on demand, bounds the resident set, unloads idle services, and enforces a per-call deadline by interrupting the runtime; async handlers are read by promise state or refused clearly. The desktop pin follows, and `go build` plus the seven engineering checks pass. The desktop still makes one call per process and does not use the Supervisor; wiring it belongs in a graphical service entry.
+
 ## Windows 0.2.16 package and install acceptance (2026-11-04)
 
 Feature commit `a92401e`, Core `d62fbc7`. The portable ZIP is 22,365,596 bytes with SHA-256 `f6cdca4ddee0e1334ed129cdcb600d800da3d6cd78363b71d476b6298ddf1a23`; the installer is 19,402,671 bytes with SHA-256 `a48e8b58601a14b155481ab0effddec0e544275f6561b7b2f35ad5349ee4c80a`.
