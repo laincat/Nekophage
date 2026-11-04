@@ -14,7 +14,6 @@ import (
 	"net/url"
 	"os"
 	"sort"
-	"strings"
 	"sync"
 	"time"
 
@@ -144,10 +143,18 @@ func (l *Library) InstallEntry(ctx context.Context, entry subscription.Entry, in
 	if err != nil {
 		return nil, err
 	}
+	l.op.Lock()
+	defer l.op.Unlock()
 	if l.IsInstalled(entry.Key) {
-		return l.replace(ctx, entry.Key, string(body), entry.URL, indexURL)
+		return l.replaceTypedLocked(ctx, entry.Key, plugin.TypeComic, string(body), entry.URL, indexURL)
 	}
-	return l.installOrReplace(ctx, plugin.TypeComic, string(body), entry.URL, indexURL)
+	// The index selected this key. A downloaded body cannot redirect the
+	// install into updating another source through a duplicate-key fallback.
+	rec, err := l.core.InstallComicEntry(ctx, entry, string(body), indexURL)
+	if err != nil {
+		return nil, err
+	}
+	return l.persistInstalled(ctx, rec)
 }
 
 // Remove uninstalls a source and forgets what it stored.
@@ -260,6 +267,11 @@ func (l *Library) installOrReplace(ctx context.Context, typ plugin.Type, body, o
 		}
 		return nil, err
 	}
+	return l.persistInstalled(ctx, rec)
+}
+
+// persistInstalled is called under op for a newly installed source.
+func (l *Library) persistInstalled(ctx context.Context, rec *plugin.Record) (*plugin.Record, error) {
 	if err := l.persist(); err != nil {
 		// Core now holds a source the disk refused. Undo it: the window would
 		// otherwise show a source that the next launch silently loses, while the
@@ -272,16 +284,6 @@ func (l *Library) installOrReplace(ctx context.Context, typ plugin.Type, body, o
 		return nil, err
 	}
 	return rec, nil
-}
-
-func (l *Library) replace(ctx context.Context, key, body, origin, indexURL string) (*plugin.Record, error) {
-	return l.replaceTyped(ctx, key, plugin.TypeComic, body, origin, indexURL)
-}
-
-func (l *Library) replaceTyped(ctx context.Context, key string, typ plugin.Type, body, origin, indexURL string) (*plugin.Record, error) {
-	l.op.Lock()
-	defer l.op.Unlock()
-	return l.replaceTypedLocked(ctx, key, typ, body, origin, indexURL)
 }
 
 func (l *Library) replaceTypedLocked(ctx context.Context, key string, typ plugin.Type, body, origin, indexURL string) (*plugin.Record, error) {
@@ -320,11 +322,12 @@ func (l *Library) replaceTypedLocked(ctx context.Context, key string, typ plugin
 	return rec, nil
 }
 
-// keyOf reads the key from plugin.ErrExists's message ("...: key").
+// keyOf only accepts a registry-produced collision; script text cannot choose
+// which installed source the update path will replace.
 func keyOf(err error) string {
-	msg := err.Error()
-	if i := strings.LastIndex(msg, ": "); i >= 0 {
-		return strings.TrimSpace(msg[i+2:])
+	var collision *plugin.KeyExistsError
+	if errors.As(err, &collision) {
+		return collision.Key
 	}
 	return ""
 }

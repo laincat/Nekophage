@@ -2,6 +2,12 @@
 
 [English](STATUS.en.md) | 简体中文
 
+## 结构化重复键消费候选（2026-11-04，尚未整合）
+
+隔离worktree使用Core重复键修复候选，通过errors.As读取plugin.KeyExistsError.Key，移除按冒号拆错误文字的更新目标选择。启用漫画/视频源真实文件重装到2.0.0、URL更新到3.0.0、新运行时从磁盘恢复并执行3.0.0均通过；普通/伪造报错不能选择已安装源。既有禁用源更新、跨类型拒绝和写盘失败回滚回归保持。额外复现并修复索引指定A、正文声明已安装B时通用安装流程误更新B的问题：索引新装现在调用Core既有InstallFromComicIndex，保留索引声明的身份；负例中B的运行记录和磁盘均不变，日志index-before.log/consumer-identity.log。
+
+候选脚本pin已更新为313951e157a18e524f4c0c80c46d78abee662f2b，并由fetch-core.sh从公开候选分支真实取回、生成版本标记和通过pin检查；主线pin仍ccb6268。此证据不表示主线已升级或包含于既有安装包。日志 `E:/Temp/core-duplicate-key-evidence/consumer-targeted-fixed.log`；首次隔离目录缺少build/core的编译失败单列保留。Core正式发布及两端pin需要按发布流程完成。
+
 ## 源更新写盘失败回滚（Windows，2026-11-04）
 
 通过真实索引更新入口复现：plugins.json写入失败时，启用源仍执行新正文（maxPage=2），停用源内存也保留新正文/摘要/来源，而磁盘仍是旧版本。现将Library注册表变更与持久化/恢复串行化；更新写盘失败时，用独立5秒context恢复旧正文与来源，保留启用状态，失败返回不再携带“已安装新记录”。内存索引缓存只在成功落盘后更新。恢复使用Replace，不通过会清除源数据和Cookie的Remove。

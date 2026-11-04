@@ -2,6 +2,12 @@
 
 English | [简体中文](STATUS.md)
 
+## Structured duplicate-key consumer candidate (2026-11-04, not integrated)
+
+An isolated worktree uses the Core duplicate-key candidate and errors.As(plugin.KeyExistsError) to select the key, replacing colon-based error-text parsing. Enabled comic/video sources updated from actual files to2.0.0, via URLs to3.0.0, and executed3.0.0 after a new runtime restored the saved records. Plain/forged errors cannot choose installed sources. Existing disabled updates, wrong-type rejection and failed-persistence rollback regressions remain intact. An additional regression reproduced an index naming A while its body selected installed B through generic-install fallback. New index installs now use Core InstallFromComicIndex to retain the declared identity; B runtime/disk records remain unchanged. Logs: index-before.log/consumer-identity.log.
+
+The candidate script pin is now313951e157a18e524f4c0c80c46d78abee662f2b; fetch-core.sh retrieved the public candidate, generated its version stamp and passed the pin check. Main remains pinned toccb6268. This does not claim main was upgraded or the existing installer includes these changes. Log: `E:/Temp/core-duplicate-key-evidence/consumer-targeted-fixed.log`; the initial missing-build/core compile failure remains separate. Core publication and both consumer pins still follow the release procedure.
+
 ## Roll back source updates when persistence fails (Windows, 2026-11-04)
 
 The real index-update path reproduced a mismatch: after plugins.json writing failed, enabled sources still executed the new body (maxPage=2), while disabled records also retained the new body/digest/origin in memory and disk kept the previous version. Library registry mutations now remain serialized through persistence/recovery. A failed write restores the previous body/origin with an independent five-second context, preserving enabled state, and returns no supposedly installed new record. Cached index state changes after successful persistence. Recovery uses Replace, avoiding Remove's source-data/cookie deletion.
