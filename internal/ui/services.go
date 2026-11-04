@@ -40,6 +40,8 @@ type servicePanel struct {
 	// answers are shown in full rather than truncated.
 	payload    string
 	resultFull map[string]bool
+	// cancel stops the method that is running, if one is.
+	cancel context.CancelFunc
 }
 
 // methodLabel is what a method button says: its title when it has one, its
@@ -194,6 +196,13 @@ func (a *App) serviceMethods(c *ui.Context, t *ui.Theme, rec services.Record) {
 				a.runServiceMethod(rec.ID, method.Name)
 			}
 		}
+		if p.running != "" {
+			if ui.Button(c, "取消").Key("service-cancel").Clicked() {
+				if p.cancel != nil {
+					p.cancel()
+				}
+			}
+		}
 	})
 	if result := p.result[rec.ID]; result != "" {
 		full := p.resultFull[rec.ID]
@@ -229,6 +238,35 @@ func methodPayload(text string) (json.RawMessage, error) {
 	return json.RawMessage(text), nil
 }
 
+// serviceSupervisor opens, once per window, the supervisor that runs services.
+// Keeping one means a service stays compiled between calls and a call can be
+// cancelled by interrupting the runtime that is running it.
+func (a *App) serviceSupervisor() (*service.Supervisor, error) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	if a.svcSup != nil {
+		return a.svcSup, nil
+	}
+	sup, err := services.NewSupervisor(a.core.DataDir(), "Nekophage")
+	if err != nil {
+		return nil, err
+	}
+	a.svcSup = sup
+	return sup, nil
+}
+
+// closeServiceSupervisor unloads every service; the window calls it when it
+// closes so a background script does not outlive the panel.
+func (a *App) closeServiceSupervisor() {
+	a.mu.Lock()
+	sup := a.svcSup
+	a.svcSup = nil
+	a.mu.Unlock()
+	if sup != nil {
+		sup.Close()
+	}
+}
+
 // loadServiceMethods asks a service what it offers.
 func (a *App) loadServiceMethods(id string) {
 	a.mu.Lock()
@@ -237,11 +275,10 @@ func (a *App) loadServiceMethods(id string) {
 	go func() {
 		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 		defer cancel()
-		rt, _, err := services.Open(ctx, a.core.DataDir(), id, "Nekophage")
+		sup, err := a.serviceSupervisor()
 		var methods []service.Method
 		if err == nil {
-			methods, err = rt.Describe(ctx)
-			rt.Close()
+			methods, err = sup.Describe(ctx, id)
 		}
 		a.manageWin.Update(func() {
 			a.svc.busy = ""
@@ -271,17 +308,20 @@ func (a *App) runServiceMethod(id, method string) {
 		a.svc.errText = payloadErr.Error()
 		return
 	}
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	a.mu.Lock()
+	a.svc.cancel = cancel
+	a.mu.Unlock()
 	go func() {
-		ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 		defer cancel()
-		rt, _, err := services.Open(ctx, a.core.DataDir(), id, "Nekophage")
+		sup, err := a.serviceSupervisor()
 		var out []byte
 		if err == nil {
-			out, err = rt.Call(ctx, method, payload)
-			rt.Close()
+			out, err = sup.Call(ctx, id, method, payload)
 		}
 		a.manageWin.Update(func() {
 			a.svc.running = ""
+			a.svc.cancel = nil
 			if a.svc.result == nil {
 				a.svc.result = map[string]string{}
 			}

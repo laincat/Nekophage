@@ -214,3 +214,29 @@ func HostPackage(ctx context.Context, dataDir string, manifest *service.Manifest
 	}
 	return rt, nil
 }
+
+// NewSupervisor builds a supervisor that loads installed services and gives
+// each one its own host: the network through Core's bridge, storage beside the
+// package, and the account values the user stored for that service only.
+//
+// The window keeps one of these so a call can be cancelled and a service stays
+// loaded between calls rather than being compiled again each time.
+func NewSupervisor(dataDir, userAgent string) (*service.Supervisor, error) {
+	hostFor := func(id string) service.Host {
+		host := service.Host{}
+		if stored, err := openServiceData(dataDir, id); err == nil {
+			host.StorageGet = stored.Get
+			host.StorageSet = stored.Set
+		}
+		if accounts, err := OpenAccounts(dataDir, id); err == nil {
+			host.Secret = accounts.Get
+		}
+		bridge := service.NewBridge(service.BridgePolicy{})
+		host.Fetch = bridge.Fetch
+		return host
+	}
+	allowed := []service.Permission{service.PermissionNetwork, service.PermissionStorage, service.PermissionSecrets}
+	return service.NewSupervisorFor(hostFor, allowed, service.SupervisorOptions{}, func(ctx context.Context, id string) (*service.Manifest, string, error) {
+		return service.ReadInstalledPackage(dataDir, id)
+	}), nil
+}

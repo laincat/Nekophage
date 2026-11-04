@@ -117,6 +117,7 @@ func (a *App) openManage() {
 		a.refreshServices()
 		a.refreshCollections()
 		a.manageWin.OnClosed(func() {
+			a.closeServiceSupervisor()
 			a.manage.mu.Lock()
 			if a.manage.cancel != nil {
 				a.manage.cancel()

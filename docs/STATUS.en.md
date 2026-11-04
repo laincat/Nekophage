@@ -12,6 +12,18 @@ The package contains the fix that stops a source's onLoginSuccess when the login
 
 0.2.12 adds the fix that stops a source's onLoginSuccess when the login window closes; the rest of the cancellation scope is unchanged from0.2.11. The following packaging and installation checks belong to this commit.
 
+## A running service method can be cancelled (Windows, 2026-11-04)
+
+Core moves to `78826c8` (tree `1161a5e3`): `Supervisor` now interrupts the runtime when the caller cancels, not only on timeout, and keeps the reason apart (`ErrTimeout` vs `context.Canceled`); `NewSupervisorFor` gives one host per service, and `Supervisor.Describe` was added.
+
+The desktop uses one supervisor per window: a service stays loaded between calls, a running method shows `取消`, and pressing it interrupts the script, unloads the service and leaves "操作已取消" in the panel.
+
+Measured: in Core a looping service returns `context.Canceled` within 0.2 s of cancelling; the desktop `internal/services` equivalent returns in 0.16 s; in the window, `方法` then `一直跑` showed `取消`, and pressing it restored the method button within about three seconds with the red "操作已取消" message.
+
+**A real race was fixed in Core**: the interrupt goroutine could be scheduled after the call had finished and `cancel()` had run, interrupting the runtime the next call was using (another service reporting "interrupted: call timed out"). A flag guarded by the same lock the caller takes now decides whether the call is still running, and the interrupt reason follows the case; five consecutive `go test ./service` runs are stable.
+
+Boundary: this covers service methods only; the reader and player have their own cancellation paths.
+
 ## A service method takes arguments, and a result can be expanded (Windows, 2026-11-04)
 
 A payload field now sits beside the method buttons: empty means no payload, and anything else has to be valid JSON, otherwise the panel says "参数不是合法 JSON" and sends nothing - handing invalid text to a service only produces a parse error about a field the user never saw. Results show truncated by default, with `展开`/`收起` when they are long.

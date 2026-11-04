@@ -21,6 +21,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/laincat/veneracat-core/service"
+
 	"github.com/egoist/mygo"
 	"github.com/egoist/mygo/ui"
 	"github.com/egoist/mygo/ui/markdown"
@@ -172,6 +174,8 @@ type App struct {
 	svc servicePanel
 	// cols is the shared-source collection panel beside it.
 	cols collectionPanel
+	// svcSup runs service methods for the panel, one per window.
+	svcSup *service.Supervisor
 	// video is the video window and its player.
 	video          videoState
 	videoSearchGen generation
