@@ -80,3 +80,20 @@ func TestMethodLabelAndShortResult(t *testing.T) {
 		t.Errorf("shortResult = %q", got)
 	}
 }
+
+// The argument field is JSON or nothing: sending text that is not JSON would
+// make the service fail with a parsing error about a field the user never saw.
+func TestMethodPayload(t *testing.T) {
+	if got, err := methodPayload("  "); err != nil || got != nil {
+		t.Fatalf("empty: %q (%v)", got, err)
+	}
+	got, err := methodPayload(`{"since":"2026-11-01"}`)
+	if err != nil || string(got) != `{"since":"2026-11-01"}` {
+		t.Fatalf("object: %q (%v)", got, err)
+	}
+	if _, err := methodPayload("{not json"); err == nil {
+		t.Fatal("invalid JSON was accepted")
+	} else if !strings.Contains(err.Error(), "JSON") {
+		t.Fatalf("error = %v", err)
+	}
+}

@@ -12,6 +12,16 @@ The package contains the fix that stops a source's onLoginSuccess when the login
 
 0.2.12 adds the fix that stops a source's onLoginSuccess when the login window closes; the rest of the cancellation scope is unchanged from0.2.11. The following packaging and installation checks belong to this commit.
 
+## A service method takes arguments, and a result can be expanded (Windows, 2026-11-04)
+
+A payload field now sits beside the method buttons: empty means no payload, and anything else has to be valid JSON, otherwise the panel says "参数不是合法 JSON" and sends nothing - handing invalid text to a service only produces a parse error about a field the user never saw. Results show truncated by default, with `展开`/`收起` when they are long.
+
+Measured in the window with real UIA clicks: after entering `{"since":"2026-11-01"}` and pressing `回显参数`, the window showed `{"got":"{\"since\":\"2026-11-01\"}","len":22,"ok":true}` (the service receives the raw JSON text as a string); changing the field to `{oops` and pressing again showed the red `参数不是合法 JSON` while the previous result stayed.
+
+**A crash I introduced and fixed this round**: the payload input first carried `.Key(...)`, and MyGo initialises an input's state at construction, so setting a key afterwards panics - opening `方法` crashed the whole window. It now relies on the binding pointer, and the comment says why.
+
+Boundary: a running method cannot be cancelled yet (`services.Open` builds the runtime directly, so cancelling does not interrupt the script; that needs Core's `Supervisor`), and results are only truncated, not formatted.
+
 ## The service panel runs the methods a service offers (Windows, 2026-11-04)
 
 Core moves to `8b82378` (tree `06ac2e3a`) with `Runtime.Describe`: a service may export `describe()` to say what it can do, and the host draws buttons from it. The desktop adds a `方法` button per service (loaded on demand); when methods exist it lists one button each (title first, name otherwise), and pressing one runs `handle(name, payload)` and shows the truncated JSON result in place.

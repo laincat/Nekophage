@@ -4,6 +4,8 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
+	"errors"
 	"os"
 	"strconv"
 	"strings"
@@ -34,6 +36,10 @@ type servicePanel struct {
 	// running names the "id/method" call in flight, result its last answer.
 	running string
 	result  map[string]string
+	// payload is the JSON text handed to the method, and resultFull says which
+	// answers are shown in full rather than truncated.
+	payload    string
+	resultFull map[string]bool
 }
 
 // methodLabel is what a method button says: its title when it has one, its
@@ -174,6 +180,9 @@ func (a *App) serviceMethods(c *ui.Context, t *ui.Theme, rec services.Record) {
 		return
 	}
 	ui.Row(c).Padding(0, 32, 6, 16).Gap(6).AlignItems(ui.Center).Children(func() {
+		// No Key here: MyGo initialises an input's state at construction, so a
+		// key set afterwards panics. The binding pointer identifies it.
+		ui.TextInput(c, &p.payload).Placeholder("参数 JSON（可空）").Width(220)
 		for _, method := range methods {
 			key := rec.ID + "/" + method.Name
 			if p.running == key {
@@ -185,10 +194,39 @@ func (a *App) serviceMethods(c *ui.Context, t *ui.Theme, rec services.Record) {
 				a.runServiceMethod(rec.ID, method.Name)
 			}
 		}
-		if result := p.result[rec.ID]; result != "" {
-			ui.Text(c, shortResult(result)).FontSize(11).TextColor(t.TextMuted).SingleLine().Grow(1)
-		}
 	})
+	if result := p.result[rec.ID]; result != "" {
+		full := p.resultFull[rec.ID]
+		ui.Row(c).Padding(0, 32, 6, 16).Gap(6).AlignItems(ui.Center).Children(func() {
+			if full || len(shortResult(result)) < len(result) {
+				if ui.Button(c, map[bool]string{true: "收起", false: "展开"}[full]).Key("service-result:" + rec.ID).Clicked() {
+					if p.resultFull == nil {
+						p.resultFull = map[string]bool{}
+					}
+					p.resultFull[rec.ID] = !full
+				}
+			}
+			if full {
+				ui.Text(c, result).FontSize(11).TextColor(t.TextMuted).Selectable().Grow(1)
+			} else {
+				ui.Text(c, shortResult(result)).FontSize(11).TextColor(t.TextMuted).SingleLine().Grow(1)
+			}
+		})
+	}
+}
+
+// methodPayload reads the argument field: empty means no payload, anything else
+// has to be JSON. Sending invalid text would make the service fail with a
+// parsing error that says nothing about the field the user typed in.
+func methodPayload(text string) (json.RawMessage, error) {
+	text = strings.TrimSpace(text)
+	if text == "" {
+		return nil, nil
+	}
+	if !json.Valid([]byte(text)) {
+		return nil, errors.New("参数不是合法 JSON")
+	}
+	return json.RawMessage(text), nil
 }
 
 // loadServiceMethods asks a service what it offers.
@@ -227,13 +265,19 @@ func (a *App) runServiceMethod(id, method string) {
 	a.mu.Lock()
 	a.svc.running = key
 	a.mu.Unlock()
+	payload, payloadErr := methodPayload(a.svc.payload)
+	if payloadErr != nil {
+		a.svc.running = ""
+		a.svc.errText = payloadErr.Error()
+		return
+	}
 	go func() {
 		ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 		defer cancel()
 		rt, _, err := services.Open(ctx, a.core.DataDir(), id, "Nekophage")
 		var out []byte
 		if err == nil {
-			out, err = rt.Call(ctx, method, nil)
+			out, err = rt.Call(ctx, method, payload)
 			rt.Close()
 		}
 		a.manageWin.Update(func() {
