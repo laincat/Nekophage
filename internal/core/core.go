@@ -194,6 +194,10 @@ func ComicPartition(key string) string { return "comic:" + key }
 func (c *Core) Transport() *Transport  { return c.tr }
 func (c *Core) Runtime() *js.Runtime   { return c.rt }
 
+// WebviewHandleGone reports a login handle whose source was unloaded or
+// replaced. The client must stop waiting: nothing will ever answer for it.
+func WebviewHandleGone(err error) bool { return errors.Is(err, js.ErrWebviewHandleGone) }
+
 // logLine writes script and Core log lines to stderr, prefixed so they are
 // easy to filter in a terminal.
 func logLine(level, title, content string) {

@@ -171,6 +171,12 @@ func (l *LoginWindow) watch(ctx context.Context, decl core.WebviewLogin, state *
 			title, _ := rawTitle.(string)
 			done, err := l.core.WebviewStatus(ctx, l.key, decl.Handle, pageURL, title)
 			if err != nil {
+				// The source was replaced or removed while this window was open: its
+				// callbacks went with the old runtime, so polling again can never
+				// succeed. Say so instead of spinning on a dead handle.
+				if core.WebviewHandleGone(err) {
+					return 0, errors.New("browser: 漫画源在登录过程中被更新或删除,这次登录已经失效")
+				}
 				// A source that throws on a page it does not recognise is
 				// ordinary: keep watching.
 				continue
@@ -262,6 +268,9 @@ func (l *LoginWindow) runLoginHook(ctx context.Context, decl core.WebviewLogin, 
 	<-stopped
 	if err != nil && state.closed.Load() {
 		return errors.New("browser: the login window was closed before the source finished")
+	}
+	if core.WebviewHandleGone(err) {
+		return errors.New("browser: 漫画源在登录过程中被更新或删除,登录回调没有执行")
 	}
 	return err
 }
