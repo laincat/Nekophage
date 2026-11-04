@@ -2,6 +2,12 @@
 
 [English](STATUS.en.md) | 简体中文
 
+## 图片响应/像素处理失败的镜像契约(2026-11-04)
+
+对照[上游图片加载流程](https://github.com/venera-app/venera/blob/a0eba914f4c2a84ac1bc925adec2baabe920b9be/lib/network/images.dart)的同一重试范围,onResponse异常、非字节返回值和像素脚本异常都应交给onLoadFailed。旧桌面适配器在这些失败路径提前返回,备用地址没有被请求。真实Core脚本+loopback HTTP负向用例复现三项失败,无镜像时保留原错误的对照通过。
+
+现在把单次响应转换独立成applyImageTransforms,错误统一回到既有有界镜像循环,保留配置完整替换、无镜像原错误和未知原生图片格式直通策略。四种情况及已有镜像/像素用例均过Windows race回归,完整scripts/check.sh七项通过,日志 `E:/Temp/nk-image-error-contract/full-check.log`。日志 `E:/Temp/nk-image-error-contract/before.log`、`after.log`;参考源码的精确提交/blob记录在 `E:/Temp/nk-image-error-contract/reference.json`。这里只核对公开源码契约并实际运行本地Core/HTTP,没有运行官方App。本项是客户端底层适配修复,Core pin仍3be57b5;此前0db2ead交付包不包含它,尚未新增Mac或包装UI结果。
+
 ## 图片镜像回退配置修复(2026-11-04)
 
 桌面图片请求在 `onLoadFailed` 返回备用配置后,旧逻辑只替换部分字段:省略method/data的备用地址会收到原POST与正文,而modifyImage始终沿用旧值。真实Core源脚本和loopback HTTP已复现:应为GET/空正文的请求仍是POST/original-request-body;应保持4×2的图被旧脚本旋转为2×4,新镜像的旋转则被忽略。

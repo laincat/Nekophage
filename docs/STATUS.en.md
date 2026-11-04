@@ -2,6 +2,12 @@
 
 English | [简体中文](STATUS.md)
 
+## Mirror handling after response/pixel-transform failures (2026-11-04)
+
+The [upstream image-loading flow](https://github.com/venera-app/venera/blob/a0eba914f4c2a84ac1bc925adec2baabe920b9be/lib/network/images.dart) includes onResponse exceptions, non-byte results and pixel-script errors within the same retry scope that invokes onLoadFailed. The desktop adapter returned early on these failure paths without requesting the mirror. Actual Core scripts with loopback HTTP reproduced three failures; the no-mirror control preserved its original error.
+
+Single-response processing now lives in applyImageTransforms, with errors returning to the existing bounded mirror loop. Complete config replacement, original errors without mirrors and native-format pass-through are preserved. All four cases and existing mirror/pixel tests passed the Windows race regression. All seven scripts/check.sh checks passed; log: `E:/Temp/nk-image-error-contract/full-check.log`. Logs: `E:/Temp/nk-image-error-contract/before.log` and `after.log`; exact reference commit/blob identities are in `E:/Temp/nk-image-error-contract/reference.json`. This compares the public source contract and executes local Core/HTTP; the official App was not run. This is a client foundation fix, with Core still pinned to 3be57b5. Earlier 0db2ead packages do not contain it, and no new Mac or packaged-UI result is claimed.
+
 ## Image mirror configuration replacement fix (2026-11-04)
 
 When `onLoadFailed` returned a mirror config, the desktop adapter replaced only some fields: a mirror omitting method/data inherited the old POST body, while modifyImage always retained its old value. Actual Core source scripts and loopback HTTP reproduced this: the expected GET/empty body remained POST/original-request-body; a 4×2 image was incorrectly rotated to 2×4 by the old script, while a new mirror's rotation was ignored.

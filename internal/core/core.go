@@ -1281,39 +1281,12 @@ func (c *Core) doImage(ctx context.Context, key string, req ImageRequest) ([]byt
 			err = errors.New("core: image response is an HTML page")
 		}
 		if err == nil {
-			if req.Handle != "" && req.HasCallback("onResponse") {
-				rt, rerr := c.reg.Comic(key)
-				if rerr != nil {
-					return nil, "", rerr
-				}
-				got, aerr := rt.ApplyImageResponse(ctx, key, req.Handle, data)
-				if aerr != nil && !errors.Is(aerr, js.ErrNoImageCallback) {
-					return nil, "", aerr
-				}
-				if aerr == nil {
-					// The bytes are whatever the source produced now, so the
-					// server's label no longer describes them.
-					data, ctype = got, ""
-				}
+			// Source transforms are part of this load attempt. Their errors
+			// must reach the same bounded fallback loop as transport errors.
+			data, ctype, err = c.applyImageTransforms(ctx, key, req, data, ctype)
+			if err == nil {
+				return data, ctype, nil
 			}
-			if req.ModifyImage != "" {
-				// A source may ask for a pixel pass: jm reorders the blocks of a
-				// long strip, and several sources rotate a page. The result is
-				// re-encoded, so the server's label no longer applies.
-				fixed, merr := c.modifyImage(ctx, key, req.ModifyImage, data)
-				if errors.Is(merr, errUndecodable) {
-					// The source asked for a pixel pass but this build cannot
-					// read the format it sent (avif, for one). Showing the image
-					// as it arrived beats failing the page over an ordering the
-					// reader may not even notice.
-					return data, ctype, nil
-				}
-				if merr != nil {
-					return nil, "", merr
-				}
-				return fixed, "image/png", nil
-			}
-			return data, ctype, nil
 		}
 		lastErr = err
 		if req.Handle == "" || !req.HasCallback("onLoadFailed") {
@@ -1339,6 +1312,38 @@ func (c *Core) doImage(ctx context.Context, key string, req ImageRequest) ([]byt
 		}
 	}
 	return nil, "", lastErr
+}
+
+// applyImageTransforms handles one response. Mirror selection stays in doImage
+// so response and pixel failures follow the source's onLoadFailed contract.
+func (c *Core) applyImageTransforms(ctx context.Context, key string, req ImageRequest, data []byte, ctype string) ([]byte, string, error) {
+	if req.Handle != "" && req.HasCallback("onResponse") {
+		rt, err := c.reg.Comic(key)
+		if err != nil {
+			return nil, "", err
+		}
+		got, err := rt.ApplyImageResponse(ctx, key, req.Handle, data)
+		if err != nil && !errors.Is(err, js.ErrNoImageCallback) {
+			return nil, "", err
+		}
+		if err == nil {
+			// The source's bytes need not match the server's content type.
+			data, ctype = got, ""
+		}
+	}
+	if req.ModifyImage == "" {
+		return data, ctype, nil
+	}
+	fixed, err := c.modifyImage(ctx, key, req.ModifyImage, data)
+	if errors.Is(err, errUndecodable) {
+		// Preserve the existing pass-through for formats this Go build cannot
+		// decode (such as AVIF) but the native reader may still display.
+		return data, ctype, nil
+	}
+	if err != nil {
+		return nil, "", err
+	}
+	return fixed, "image/png", nil
 }
 
 // looksLikeHTML reports whether a body is a web page rather than an image. A
