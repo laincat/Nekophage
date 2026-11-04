@@ -2,6 +2,10 @@
 
 English | [简体中文](STATUS.md)
 
+## Leaving favorites or details cancels favorite HTTP (Windows, 2026-11-04)
+
+Favorite list reads and detail writes previously used independent timeouts and only discarded late results. List reads now follow the favorites generation and detail writes follow the details generation. A real loopback server observed both connections cancel after leaving their views. Targeted race tests and seven engineering checks passed. Logs: `E:/Temp/nk-favorite-cancel/targeted-fixed.log` and `checks.log`. No new Mac or installed-build acceptance is claimed.
+
 ## Leaving a view cancels its cover HTTP request (Windows, 2026-11-04)
 
 Cover requests previously used an independent 30-second context, so replacing search, details, browse or category left their HTTP running. A cover now uses the generation of the view that requested it; leaving or replacing that view makes the server observe connection cancellation. Completed cached covers remain, avoiding repeat downloads on return. Targeted race tests cover real loopback cancellation and the existing four-way concurrency/queued cancellation. Seven engineering checks then passed. Logs: `E:/Temp/nk-cover-cancel/targeted-initialized.log` and `gofmt.log`. No new Mac or installed-build acceptance is claimed.

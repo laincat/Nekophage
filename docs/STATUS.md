@@ -2,6 +2,10 @@
 
 [English](STATUS.en.md) | 简体中文
 
+## 离开收藏与详情取消收藏HTTP（Windows，2026-11-04）
+
+收藏列表与详情页的收藏读写原先使用独立超时，离开后只丢弃返回结果。现在列表读取跟随收藏代次，详情页写入跟随详情代次；真实loopback服务观察到离开后连接取消。定向race与七项工程检查通过。日志 `E:/Temp/nk-favorite-cancel/targeted-fixed.log`、`checks.log`。尚未做新的Mac或安装版验收。
+
 ## 离开界面取消封面HTTP请求（Windows，2026-11-04）
 
 封面请求原先使用独立30秒context，搜索、详情、浏览或分类被新请求取代后，封面HTTP仍继续。现在封面请求绑定发起它的界面对应代次；离开或替换该界面时，服务端观察到连接取消。已完成并进入缓存的封面不清除，避免返回时重复下载。定向race覆盖真实loopback取消及既有四路并发/排队取消；随后七项工程检查通过。日志 `E:/Temp/nk-cover-cancel/targeted-initialized.log`、`gofmt.log`。尚未做新的Mac或安装版验收。

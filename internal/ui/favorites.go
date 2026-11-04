@@ -35,7 +35,7 @@ func (a *App) loadFavorites(key string) {
 	ticket := a.favGen.next()
 	a.mu.Unlock()
 	go func() {
-		ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
+		ctx, cancel := context.WithTimeout(a.favGen.requestContext(ticket), 90*time.Second)
 		defer cancel()
 		sup := a.core.FavoritesSupport(ctx, key)
 		var folders map[string]string
@@ -84,7 +84,7 @@ func (a *App) loadFavoritePage(key, folder string, page int) {
 	ticket := a.favGen.next()
 	a.mu.Unlock()
 	go func() {
-		ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
+		ctx, cancel := context.WithTimeout(a.favGen.requestContext(ticket), 90*time.Second)
 		defer cancel()
 		result, err := a.core.FavoriteComics(ctx, key, folder, page)
 		a.win.Update(func() {
@@ -249,7 +249,7 @@ func (a *App) toggleSourceFavorite() {
 		return
 	}
 	a.srcFavBusy, a.srcFavMsg = true, ""
-	ticket := a.favGen.next()
+	ticket := a.detailGen.peek()
 	a.mu.Unlock()
 
 	adding := true
@@ -260,7 +260,7 @@ func (a *App) toggleSourceFavorite() {
 		}
 	}
 	go func() {
-		ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+		ctx, cancel := context.WithTimeout(a.detailGen.requestContext(ticket), 60*time.Second)
 		defer cancel()
 		var err error
 		if sup.Supported {
@@ -269,7 +269,7 @@ func (a *App) toggleSourceFavorite() {
 		a.win.Update(func() {
 			a.mu.Lock()
 			defer a.mu.Unlock()
-			if !a.favGen.current(ticket) {
+			if !a.detailGen.current(ticket) {
 				return
 			}
 			a.srcFavBusy = false
