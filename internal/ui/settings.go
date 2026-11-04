@@ -31,7 +31,9 @@ func (a *App) openSourceSettings(key string) {
 	a.manage.accountUser, a.manage.accountPass = "", ""
 	a.manageWin.Update(func() {})
 	go func() {
-		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		ctx, cancel := a.manageContext()
+		defer cancel()
+		ctx, cancel = context.WithTimeout(ctx, 30*time.Second)
 		defer cancel()
 		translations, terr := a.core.Translations(ctx, key)
 		if terr != nil {
@@ -194,7 +196,9 @@ func (a *App) loginWithCookies(key string, values []string) {
 	a.manage.accountMessage = ""
 	a.manageWin.Update(func() {})
 	go func() {
-		ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+		ctx, cancel := a.manageContext()
+		defer cancel()
+		ctx, cancel = context.WithTimeout(ctx, 60*time.Second)
 		defer cancel()
 		ok, err := a.core.LoginWithCookies(ctx, key, values)
 		a.manageWin.Update(func() {
@@ -221,7 +225,9 @@ func (a *App) callSettingCallback(key, settingKey string) {
 	delete(a.manage.callbackMsgs, settingKey)
 	a.manageWin.Update(func() {})
 	go func() {
-		ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
+		ctx, cancel := a.manageContext()
+		defer cancel()
+		ctx, cancel = context.WithTimeout(ctx, 120*time.Second)
 		defer cancel()
 		answer, err := a.core.CallSettingCallback(ctx, key, settingKey)
 		a.manageWin.Update(func() {
@@ -236,7 +242,9 @@ func (a *App) loginAccount(key, account, password string) {
 	a.manage.accountMessage = ""
 	a.manageWin.Update(func() {})
 	go func() {
-		ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+		ctx, cancel := a.manageContext()
+		defer cancel()
+		ctx, cancel = context.WithTimeout(ctx, 60*time.Second)
 		defer cancel()
 		message, err := a.core.LoginAccount(ctx, key, account, password)
 		a.manageWin.Update(func() {
@@ -262,7 +270,9 @@ func (a *App) logoutAccount(key string) {
 	a.manage.accountMessage = ""
 	a.manageWin.Update(func() {})
 	go func() {
-		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		ctx, cancel := a.manageContext()
+		defer cancel()
+		ctx, cancel = context.WithTimeout(ctx, 30*time.Second)
 		defer cancel()
 		err := a.core.LogoutAccount(ctx, key)
 		a.manageWin.Update(func() {
