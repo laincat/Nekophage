@@ -10,6 +10,8 @@
 
 随后Lead在干净42b9465(功能修复0db2ead)/Core3be运行现有 `readercheck`:真实源脚本先发POST/旧正文得到503,再以GET/空正文且无旧请求头取备用地址。备用响应经onResponse反转和modifyImage旋转后,Windows WebView2实际解码1/1页,尺寸96×64→64×96。日志 `E:/Temp/nk-image-fallback/reader-688d774f/verify.log`,同目录receipt.json记录HTTP序列和二进制身份。这是开发阅读器路径,不计包内GUI、Mac或截图视觉通过。
 
+随后Orca Worker在Laincat-Mini独立临时检出c545212上加上述两个文件(非完整0db2ead文件树),补丁5279字节/SHA26db4295…及两文件SHA与Lead逐字节一致。Go1.27.3 darwin/arm64上 `go test -race ./internal/core` 的镜像回退与5条像素处理用例全部通过,`go build ./...`、Core pin3be57b5检查也通过;原c545检出未改动。日志 `/tmp/nk-desktop-mirror-0db-evidence/`,Lead回执 `E:/Temp/nk-image-fallback/mac-desktop-mirror-receipt.json`。该轮未开窗口、未跑媒体矩阵与完整套件,故Mac GUI与打包媒体仍按旧提交证据单列。
+
 ## Mac包装窗口正常关闭与Core主线复验(2026-11-04)
 
 用户确认Laincat-Mini已解锁后,Orca Worker对已核验c545212/Core3be的0.2.7 arm64包做隔离验收:包SHA bb39921a…、二进制SHA d955c9ab…及ad-hoc严格签名复核通过,以独立 `-data-dir /tmp/nk-c545-close-only/data` 启动PID78539/窗口11481;原生关闭按钮一次AX点击后窗口消失、原进程退出码0,未发终止信号。独立资料目录前后无文件。原始日志 `/tmp/nk-c545-close-only/`,Lead回执 `E:/Temp/nk-c545-mac-transfer/normal-close-accepted.json`。这不代替Gatekeeper/公证、其他机器运行或完整包装媒体流程。
