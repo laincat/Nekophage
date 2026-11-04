@@ -16,15 +16,18 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/laincat/veneracat-core/service"
 
-	"github.com/laincat/nekophage/internal/core"
 	"github.com/laincat/nekophage/internal/services"
 )
 
 // maxFetchBytes bounds one fetch a service makes.
 const maxFetchBytes = 4 << 20
+
+// requestTimeout bounds one request a service makes.
+const requestTimeout = 20 * time.Second
 
 // RunCommand runs one service action and writes its result to out.
 func RunCommand(ctx context.Context, action string, args []string, dataDir string, out io.Writer, userAgent string) error {
@@ -120,11 +123,12 @@ func call(ctx context.Context, dir, method string, payload []byte, dataDir strin
 	if err != nil {
 		return err
 	}
+	// Every request a service makes goes through the bridge: scheme, host
+	// policy, redirects and response size are enforced there, not by whatever
+	// the plugin decided to call.
+	bridge := service.NewBridge(service.BridgePolicy{MaxBytes: maxFetchBytes, Timeout: requestTimeout})
 	host := service.Host{
-		Fetch: func(ctx context.Context, rawURL string) (string, error) {
-			body, _, err := transport(userAgent).Fetch(ctx, rawURL, maxFetchBytes)
-			return string(body), err
-		},
+		Fetch:      bridge.Fetch,
 		StorageGet: store.Get,
 		StorageSet: store.Set,
 		Secret: func(ctx context.Context, key string) (string, error) {
@@ -187,11 +191,6 @@ func payloadArg(args []string) []byte {
 		return nil
 	}
 	return json.RawMessage(args[2])
-}
-
-// transport builds the HTTP transport the service uses for the network.
-func transport(userAgent string) *core.Transport {
-	return core.NewTransport(nil, userAgent, 0)
 }
 
 // writeJSON prints one JSON document.

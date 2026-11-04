@@ -12,6 +12,12 @@ The package contains the fix that stops a source's onLoginSuccess when the login
 
 0.2.12 adds the fix that stops a source's onLoginSuccess when the login window closes; the rest of the cancellation scope is unchanged from0.2.11. The following packaging and installation checks belong to this commit.
 
+## Following Core f349e3d: a service reaches the network through a controlled bridge (2026-11-04)
+
+Core main moves to `f349e3d` (tree `1a84c653`): the new `service.Bridge` is the only way a service's `fetch` can go - HTTP and HTTPS only, every redirect hop re-checked, a 4 MiB response bound by default and no cookies by default. The desktop command line now sends requests through the bridge instead of calling the client transport directly.
+
+A new regression refuses `fetch('file:///etc/passwd')` from inside a service with a scheme error. The loopback collection run (follow/install/list/ping/storage/accounts/remove) is still green after the change, and the seven engineering checks pass.
+
 ## Following Core fbbda3f: service lifecycle and timeouts (2026-11-04)
 
 Core main moves to `fbbda3f` (tree `4cd4c8c5`): `service.Supervisor` loads on demand, bounds the resident set, unloads idle services, and enforces a per-call deadline by interrupting the runtime; async handlers are read by promise state or refused clearly. The desktop pin follows, and `go build` plus the seven engineering checks pass. The desktop still makes one call per process and does not use the Supervisor; wiring it belongs in a graphical service entry.

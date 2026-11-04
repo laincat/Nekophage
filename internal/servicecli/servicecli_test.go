@@ -249,6 +249,21 @@ func TestSecretsAreGrantedOnlyAfterAnAccountValueExists(t *testing.T) {
 	}
 }
 
+// A service cannot use the command-line host to read local files or speak other
+// protocols: the bridge refuses anything that is not HTTP or HTTPS.
+func TestCallRefusesNonHTTPURLs(t *testing.T) {
+	dir := writeService(t, manifestFor(`"network"`),
+		"export function handle() { return { body: fetch('file:///etc/passwd') }; }")
+	var out bytes.Buffer
+	err := RunCommand(context.Background(), "call", []string{dir, "get"}, t.TempDir(), &out, "Nekophage/test")
+	if err == nil {
+		t.Fatal("a file URL was fetched")
+	}
+	if !strings.Contains(err.Error(), "http") {
+		t.Fatalf("error = %v", err)
+	}
+}
+
 func TestUnknownActionAndArgumentsAreRefused(t *testing.T) {
 	var out bytes.Buffer
 	if err := RunCommand(context.Background(), "nope", nil, t.TempDir(), &out, "Nekophage/test"); err == nil {

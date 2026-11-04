@@ -12,6 +12,12 @@ f81dab6/Core313951e已打包为0.2.12。ZIP22,260,020字节、安装器19,310,82
 
 0.2.12在0.2.11之上包含关闭登录窗口即停止源onLoginSuccess的修复，其余取消范围不变。以下打包与安装核验以本提交为准。
 
+## 跟随 Core f349e3d：服务的网络走受控传输桥（2026-11-04）
+
+Core 主线升到 `f349e3d`（tree `1a84c653`）：新增 `service.Bridge`，服务里的 `fetch` 只能走它——只允许 `http`/`https`、每一跳重定向重新校验、单次响应默认 4 MiB、默认不带 Cookie。桌面命令行已改为通过桥发出请求，不再直接调客户端传输。
+
+新增回归：服务用 `fetch('file:///etc/passwd')` 会被拒绝并报出协议错误。loopback 合集回归（follow/install/list/ping/存储/账号/remove）在接入桥之后仍然全绿，七项工程检查通过。
+
 ## 跟随 Core fbbda3f：服务生命周期与超时（2026-11-04）
 
 Core 主线升到 `fbbda3f`（tree `4cd4c8c5`）：新增 `service.Supervisor`，按需加载、常驻上限、空闲卸载，并用中断实现单次调用超时；异步 handler 按 Promise 状态读取或明确拒绝。桌面端 pin 跟随，`go build` 与七项工程检查通过。桌面目前仍是一进程一次调用，没有接入 Supervisor；接入应在图形界面的服务入口里做。
