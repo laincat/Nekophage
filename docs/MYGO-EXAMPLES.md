@@ -43,6 +43,10 @@ NuxtUI Go 的[兼容性说明](https://github.com/josexy/nuxt-ui-go/blob/main/do
 
 证据 `E:/Temp/nk-mygo-ime/`：`preedit.log`、`mygo-074.log`保留选区恢复失败；`readonly-copy-073.log`、`readonly-copy-074.log`为只读复制/防修改与提交撤销通过。原始最小复现为 `editor_input_test.go`，在独立模块执行，未修改MyGo依赖缓存或产品版本。
 
+## 原生Liquid Glass补充核查（2026-11-04）
+
+固定的MyGo0.7.3已带 `github.com/egoist/mygo/plugins/glass`，支持Glass的Regular/Clear、Tint、Interactive、Clarity，以及ScrollEdge/渐进模糊。它实现ui.Material，可直接在现有控件上调用；无需先升级MyGo或移植CSS/SVG光学代码。窗口VibrancyGlass在macOS使用系统玻璃，Windows映射Acrylic，与插件内的同窗口背景采样分开。Windows的23项上游测试通过，包含CPU渲染与Direct3D11离屏对照；亮/暗和实色对照样张已由公开ui.Tester渲染。日志 `E:/Temp/nk-liquid-glass/mygo-glass-tests.log`。尚未接入产品或验真实视频合成/性能，配方的自定义RGB色散不是此公开API的现成参数。
+
 ## 后续执行顺序
 
 1. 复用 Gallery/Embed WebView 的导航和窗口组织，保留 Go 服务、存储及媒体代理。

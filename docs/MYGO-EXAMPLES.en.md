@@ -43,6 +43,10 @@ Read-only mode preserved the original bytes on both versions: selected copy stil
 
 Evidence: `E:/Temp/nk-mygo-ime/`. `preedit.log` and `mygo-074.log` retain the selected-text restoration failures; `readonly-copy-073.log` and `readonly-copy-074.log` record read-only copy/protection and commit/undo passes. The minimal reproduction is `editor_input_test.go`, executed in an isolated module without modifying the MyGo cache or product version.
 
+## Native Liquid Glass follow-up (2026-11-04)
+
+Pinned MyGo0.7.3 includes `github.com/egoist/mygo/plugins/glass`, with Regular/Clear, Tint, Interactive, Clarity, ScrollEdge and progressive blur. It implements ui.Material for existing controls without first upgrading MyGo or porting CSS/SVG optics. Window VibrancyGlass uses system glass on macOS and Acrylic on Windows, separately from the plugin sampling content within a frame. All23 upstream Windows tests passed, including CPU rendering and Direct3D11 offscreen comparisons; light/dark and solid-control studies were rendered through public ui.Tester. Log: `E:/Temp/nk-liquid-glass/mygo-glass-tests.log`. Product integration, real video composition and performance are unverified; custom RGB dispersion is not a ready-made parameter of this API.
+
 ## Later execution order
 
 1. Reuse Gallery/Embed WebView navigation and window organization while retaining Go services, storage and media proxies.
