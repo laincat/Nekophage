@@ -366,7 +366,9 @@ func (a *App) installEntry(row subscription.Row) {
 	indexURL := strings.TrimSpace(a.manage.indexURL)
 	a.manage.start("正在安装 " + row.Name + "…")
 	go func() {
-		ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
+		ctx, cancel := a.manageContext()
+		defer cancel()
+		ctx, cancel = context.WithTimeout(ctx, 120*time.Second)
 		defer cancel()
 		rec, err := a.lib.InstallEntry(ctx, row.Entry, indexURL)
 		a.manageWin.Update(func() {
@@ -400,7 +402,9 @@ func (a *App) pickSourceFile() {
 			a.manageWin.Update(func() { a.manage.done(err, "") })
 			return
 		}
-		ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
+		ctx, cancel := a.manageContext()
+		defer cancel()
+		ctx, cancel = context.WithTimeout(ctx, 120*time.Second)
 		defer cancel()
 		rec, err := a.lib.InstallFile(ctx, typ, paths[0])
 		a.manageWin.Update(func() {
