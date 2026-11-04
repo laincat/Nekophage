@@ -37,7 +37,11 @@ Onevra currently uses MyGo's CLI for packaging: its README explicitly says it ad
 
 An isolated program using public `components`, `shells/plain` and `theme` APIs compiled with Onevra v0.2026.17, MyGo v0.7.4 and Go 1.27.3. The first build exceeded a 50-second limit; the subsequent incremental build passed, and both logs are retained. No window, theme/IME interaction or macOS validation ran. Nekophage remains pinned to MyGo 0.7.3.
 
-NuxtUI Go's [compatibility notes](https://github.com/josexy/nuxt-ui-go/blob/main/docs/compatibility.md) describe possible loss of selected text when composing and then cancelling IME input; macOS has only cross-compilation evidence, without desktop execution. These are upstream statements, not reproductions from this round. Verify that exact input sequence before adopting a native source editor or upgrading MyGo.
+NuxtUI Go's [compatibility notes](https://github.com/josexy/nuxt-ui-go/blob/main/docs/compatibility.md) describe selected-text loss on composition cancellation and cross-compilation-only macOS evidence. The Lead subsequently reproduced the input-model behavior on Windows through public `ui.Tester` and `ui/editor` APIs: on both0.7.3 and0.7.4, selecting `原文😀` in a JS string, then calling Compose("拼", 1) and Compose("", 0), leaves an empty string. Upgrading to0.7.4 does not remove this behavior.
+
+Read-only mode preserved the original bytes on both versions: selected copy still returned `原文😀`, while composition, typing, cut and delete could not modify content. The control case of committing Chinese and undoing once also restored the original. Limit the integration candidate to read-only source viewing, without in-place editing or saving. These are public input-model results, not Windows system-IME or native macOS window acceptance.
+
+Evidence: `E:/Temp/nk-mygo-ime/`. `preedit.log` and `mygo-074.log` retain the selected-text restoration failures; `readonly-copy-073.log` and `readonly-copy-074.log` record read-only copy/protection and commit/undo passes. The minimal reproduction is `editor_input_test.go`, executed in an isolated module without modifying the MyGo cache or product version.
 
 ## Later execution order
 

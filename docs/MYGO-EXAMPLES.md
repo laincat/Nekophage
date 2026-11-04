@@ -37,7 +37,11 @@ Onevra 当前采用 MyGo 自带 CLI 打包，README 明确说它不再另带打�
 
 已在独立模块用公开的 `components`、`shells/plain`、`theme` API 编译小程序，解析到 Onevra v0.2026.17、MyGo v0.7.4、Go 1.27.3。首轮编译超出50秒限时；后续增量编译通过，两份日志都保留。没有运行窗口、测试主题/IME，或验证 macOS；Nekophage 仍固定 MyGo 0.7.3。
 
-NuxtUI Go 的[兼容性说明](https://github.com/josexy/nuxt-ui-go/blob/main/docs/compatibility.md)记录了“选中文字后组合输入再取消可能丢失选区文字”的问题，以及 macOS 仅交叉构建、未桌面运行的范围。这是上游声明，本轮未复现；在选用原生源编辑器或升级 MyGo 前应验证该具体流程。
+NuxtUI Go 的[兼容性说明](https://github.com/josexy/nuxt-ui-go/blob/main/docs/compatibility.md)记录了取消组合时可能丢失选区文字，以及 macOS 仅交叉构建、未桌面运行的范围。Lead随后在Windows使用MyGo公开的 `ui.Tester` 和 `ui/editor` 复现了模型层行为：在0.7.3和0.7.4中，选中JS字符串里的 `原文😀`，Compose("拼", 1)后Compose("", 0)，结果均变成空字符串。升级0.7.4并未消除该行为。
+
+两个版本的只读模式均保持原字节，选择复制仍返回 `原文😀`，组合/键入/剪切/删除不能修改内容；正常提交中文后一次撤销恢复原文的对照也通过。接入候选先限定为只读源码查看，不开放原地编辑保存。上述为公开测试接口的输入模型结果，不是Windows系统IME或macOS原生窗口验收。
+
+证据 `E:/Temp/nk-mygo-ime/`：`preedit.log`、`mygo-074.log`保留选区恢复失败；`readonly-copy-073.log`、`readonly-copy-074.log`为只读复制/防修改与提交撤销通过。原始最小复现为 `editor_input_test.go`，在独立模块执行，未修改MyGo依赖缓存或产品版本。
 
 ## 后续执行顺序
 
