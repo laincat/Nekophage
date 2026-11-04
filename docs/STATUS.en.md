@@ -2,6 +2,14 @@
 
 English | [简体中文](STATUS.md)
 
+## Closing the login window stops onLoginSuccess (Windows, 2026-11-04)
+
+The browser-login flow used to record closure on a single once: after the user pressed "我已登录" that signal was consumed, so closing the window was no longer observable and the source's onLoginSuccess kept running for the full30 seconds. The window close is now recorded separately from done, and the hook is cancelled by the caller's context or the window close, returning an explicit error.
+
+A new regression uses real loopback: the source fetches inside onLoginSuccess while the server blocks until the connection ends; closing the window makes the hook return within milliseconds and the server observes the connection stop. With cancellation removed the same test fails at the30 second timeout with the connection still active; that reproduction is kept. Targeted race and all seven engineering checks passed.
+
+This path was not reproduced by hand in a real window and does not cover Mac. Core still awaits onLoginSuccess through its runtime; Core was not changed here.
+
 ## Windows0.2.11 local package (2026-11-04)
 
 633bea2/Core313951e is packaged as0.2.11. ZIP22,255,744 bytes; installer19,306,866 bytes. ZIP CRC, individual hashes, embedded version/Core/commit and installed-versus-ZIP executable equality passed. Isolated installation showed the main window, closed natively with exit0, and uninstall removed the directory while preserving profile data. Normal builds expose no automation endpoint.

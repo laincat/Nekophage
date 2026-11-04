@@ -9,6 +9,7 @@ import (
 	"os"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/egoist/mygo"
@@ -72,7 +73,7 @@ func (l *LoginWindow) Run(ctx context.Context) (int, error) {
 	}
 	defer func() { _ = mygo.Cookies.Clear() }()
 
-	state := &loginState{done: make(chan struct{})}
+	state := &loginState{done: make(chan struct{}), closedCh: make(chan struct{})}
 	win := mygo.NewWindow(mygo.WindowOptions{
 		Title:   "登录 " + l.key,
 		Width:   520,
@@ -87,8 +88,16 @@ func (l *LoginWindow) Run(ctx context.Context) (int, error) {
 	state.win, state.web = win, view
 	// Closing the window is the user giving up. Without this the poll keeps
 	// asking a destroyed page whether it is logged in, and the panel's busy
-	// spinner never clears.
-	win.OnClosed(func() { state.once.Do(func() { state.closed = true; close(state.done) }) })
+	// spinner never clears. The close signal is separate from done: a user who
+	// pressed "我已登录" and then closed the window while the source's
+	// onLoginSuccess is still running must still be able to stop it.
+	win.OnClosed(func() {
+		state.closeOnce.Do(func() {
+			state.closed.Store(true)
+			close(state.closedCh)
+		})
+		state.once.Do(func() { close(state.done) })
+	})
 	win.Show()
 	win.Focus()
 	if l.OnWindow != nil {
@@ -109,9 +118,13 @@ type loginState struct {
 	web  *mygo.WebView
 	once sync.Once
 	done chan struct{}
+	// closedCh fires whenever the window closes, even after done, because the
+	// source's onLoginSuccess can still be running when the user closes it.
+	closeOnce sync.Once
+	closedCh  chan struct{}
 	// closed records that the user closed the window rather than saying they
 	// finished, so the caller can report it instead of storing half a login.
-	closed bool
+	closed atomic.Bool
 }
 
 func (s *loginState) draw(c *ui.Context) {
@@ -134,12 +147,12 @@ func (l *LoginWindow) watch(ctx context.Context, decl core.WebviewLogin, state *
 		case <-ctx.Done():
 			return 0, ctx.Err()
 		case <-state.done:
-			if state.closed {
+			if state.closed.Load() {
 				return 0, errors.New("browser: the login window was closed before the source agreed")
 			}
 			// The user says they are logged in even though checkStatus never
 			// agreed; the cookies are still worth keeping.
-			stored, err := l.store(decl, "")
+			stored, err := l.store(ctx, decl, "", state)
 			if errors.Is(err, errNoCookiesYet) {
 				return 0, errors.New("browser: the page set no cookies to keep")
 			}
@@ -168,7 +181,7 @@ func (l *LoginWindow) watch(ctx context.Context, decl core.WebviewLogin, state *
 			if !done {
 				continue
 			}
-			stored, err := l.store(decl, pageURL)
+			stored, err := l.store(ctx, decl, pageURL, state)
 			if err == nil {
 				return stored, nil
 			}
@@ -185,8 +198,10 @@ func (l *LoginWindow) watch(ctx context.Context, decl core.WebviewLogin, state *
 }
 
 // store moves the browser's cookies into the source's partition and runs
-// onLoginSuccess.
-func (l *LoginWindow) store(decl core.WebviewLogin, pageURL string) (int, error) {
+// onLoginSuccess. The hook runs under the caller's context and stops when the
+// user closes the window: a source that fetches on login must not keep working
+// for a window the user already dismissed.
+func (l *LoginWindow) store(ctx context.Context, decl core.WebviewLogin, pageURL string, state *loginState) (int, error) {
 	listed, err := mygo.Cookies.List(mygo.CookieFilter{})
 	if err != nil {
 		return 0, err
@@ -222,12 +237,33 @@ func (l *LoginWindow) store(decl core.WebviewLogin, pageURL string) (int, error)
 	l.jar.Import(l.partition, out)
 	// The source may need to read its own cookie to finish: ehentai copies it to
 	// another host, ccc refreshes its profile.
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
-	if err := l.core.WebviewLoginDone(ctx, l.key, decl.Handle); err != nil {
+	if err := l.runLoginHook(ctx, decl, state); err != nil {
 		return len(out), err
 	}
 	return len(out), nil
+}
+
+// runLoginHook runs the source's onLoginSuccess under the caller's context and
+// a 30s cap, stopping it when the user closes the login window.
+func (l *LoginWindow) runLoginHook(ctx context.Context, decl core.WebviewLogin, state *loginState) error {
+	hctx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
+	stopped := make(chan struct{})
+	go func() {
+		defer close(stopped)
+		select {
+		case <-state.closedCh:
+			cancel()
+		case <-hctx.Done():
+		}
+	}()
+	err := l.core.WebviewLoginDone(hctx, l.key, decl.Handle)
+	cancel()
+	<-stopped
+	if err != nil && state.closed.Load() {
+		return errors.New("browser: the login window was closed before the source finished")
+	}
+	return err
 }
 
 // loginCookiesFor keeps the cookies that belong to the page the user logged in
