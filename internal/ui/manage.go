@@ -263,7 +263,9 @@ func (a *App) sourceRow(c *ui.Context, t *ui.Theme, rec plugin.Record) {
 		}).Grow(1)
 		if ui.Switch(c, &on).Label("启用").Changed() {
 			go func() {
-				ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+				ctx, cancel := a.manageContext()
+				defer cancel()
+				ctx, cancel = context.WithTimeout(ctx, 20*time.Second)
 				defer cancel()
 				err := a.lib.SetEnabled(ctx, key, on)
 				a.manageWin.Update(func() {
@@ -287,7 +289,9 @@ func (a *App) sourceRow(c *ui.Context, t *ui.Theme, rec plugin.Record) {
 		} else if ui.Button(c, "删除").Clicked() {
 			a.manage.removing = key
 			go func() {
-				ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+				ctx, cancel := a.manageContext()
+				defer cancel()
+				ctx, cancel = context.WithTimeout(ctx, 20*time.Second)
 				defer cancel()
 				err := a.lib.Remove(ctx, key)
 				a.manageWin.Update(func() {
@@ -529,7 +533,9 @@ func (a *App) pickBackup() {
 			a.manageWin.Update(func() { a.manage.backupBusy = false })
 			return
 		}
-		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+		ctx, cancel := a.manageContext()
+		defer cancel()
+		ctx, cancel = context.WithTimeout(ctx, 2*time.Minute)
 		defer cancel()
 		known := make([]string, 0, len(a.lib.Sources()))
 		for _, s := range a.lib.Sources() {
@@ -560,7 +566,9 @@ func (a *App) applyBackup() {
 	m.backupBusy = true
 	m.errText, m.notice = "", ""
 	go func() {
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+		ctx, cancel := a.manageContext()
+		defer cancel()
+		ctx, cancel = context.WithTimeout(ctx, 5*time.Minute)
 		defer cancel()
 		sources, fields := 0, 0
 		var firstErr error
