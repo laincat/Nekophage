@@ -156,6 +156,7 @@ type App struct {
 	detailGen  generation
 	tagGen     generation
 	exploreGen generation
+	shelfGen   generation
 
 	manageWin  *mygo.Window
 	sourceCode *sourceCodePanel
@@ -1205,12 +1206,13 @@ func (a *App) pageImage(source, comicID, chapterID, url string) {
 	name := pageName(source, url)
 	a.mu.Lock()
 	start := a.images.want(name, url)
+	ticket := a.shelfGen.peek()
 	a.mu.Unlock()
 	if !start {
 		return
 	}
 	go func() {
-		ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+		ctx, cancel := context.WithTimeout(a.shelfGen.requestContext(ticket), 60*time.Second)
 		defer cancel()
 		data, _, err := a.imageDownloads.do(ctx, func(ctx context.Context) ([]byte, string, error) {
 			return a.core.FetchImage(ctx, source, url, comicID, chapterID)
@@ -1943,6 +1945,9 @@ func (a *App) setMode(mode int) {
 		if a.busy == "search" {
 			a.busy = ""
 		}
+	}
+	if a.mode == 2 && mode != 2 {
+		a.shelfGen.next()
 	}
 	if a.mode != mode && (a.mode == 1 || a.mode == 3) {
 		a.cancelBrowseReadsLocked()

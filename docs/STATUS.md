@@ -2,6 +2,10 @@
 
 [English](STATUS.en.md) | 简体中文
 
+## 离开书架取消保留页HTTP（Windows，2026-11-04）
+
+书架保留页图片原先使用独立60秒超时，离开书架后下载继续。现在请求跟随书架代次，切换到其他模式时服务端观察到连接取消。定向race与七项工程检查通过。日志 `E:/Temp/nk-shelf-cancel/targeted.log`、`checks.log`。关闭阅读器本身不取消书架图片；尚未做新的Mac或安装版验收。
+
 ## 关闭评论窗口取消评论HTTP（Windows，2026-11-04）
 
 评论读取、点赞和发送原先使用独立60秒超时，关闭窗口后请求继续。现在同一次打开共享窗口生命周期，关闭时取消这些请求。真实loopback评论读取在关闭后由服务端观察到连接取消，Core调用返回错误。定向race与七项工程检查通过。日志 `E:/Temp/nk-comment-cancel/targeted-contract.log`、`checks.log`。尚未做新的Mac或安装版验收。

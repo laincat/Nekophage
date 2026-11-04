@@ -2,6 +2,10 @@
 
 English | [简体中文](STATUS.md)
 
+## Leaving the shelf cancels kept-page HTTP (Windows, 2026-11-04)
+
+Kept shelf-page images previously used an independent 60-second timeout and continued after leaving the shelf. Requests now follow the shelf generation, and switching modes makes the server observe connection cancellation. Targeted race tests and seven engineering checks passed. Logs: `E:/Temp/nk-shelf-cancel/targeted.log` and `checks.log`. Closing the reader itself does not cancel shelf images. No new Mac or installed-build acceptance is claimed.
+
 ## Closing comments cancels comment HTTP (Windows, 2026-11-04)
 
 Comment reads, likes and sends previously used independent 60-second timeouts and continued after the window closed. One opening now shares a window lifetime, and closing cancels those requests. A real loopback comment read had its connection cancelled and the Core call returned an error. Targeted race tests and seven engineering checks passed. Logs: `E:/Temp/nk-comment-cancel/targeted-contract.log` and `checks.log`. No new Mac or installed-build acceptance is claimed.
