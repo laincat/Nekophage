@@ -2,6 +2,12 @@
 
 [English](STATUS.en.md) | 简体中文
 
+## 图片镜像回退配置修复(2026-11-04)
+
+桌面图片请求在 `onLoadFailed` 返回备用配置后,旧逻辑只替换部分字段:省略method/data的备用地址会收到原POST与正文,而modifyImage始终沿用旧值。真实Core源脚本和loopback HTTP已复现:应为GET/空正文的请求仍是POST/original-request-body;应保持4×2的图被旧脚本旋转为2×4,新镜像的旋转则被忽略。
+
+现按新的ImageLoadingConfig完整替换请求,method缺省GET,正文和像素脚本可清空或替换,新onResponse仍在像素处理之前执行。两项回归与原像素处理用例通过race测试,完整 `bash scripts/check.sh` 七项也全部通过,日志 `E:/Temp/nk-image-fallback/full-check.log`;旧实现负向日志 `E:/Temp/nk-image-fallback/before.log`,修复后 `after.log`。这是Lead在Windows执行的真实Core/HTTP/PNG解码验证,不代表Mac或GUI重新验收。Core功能pin仍为3be57b5;已交付c545212包不包含本次修复。
+
 ## Mac包装窗口正常关闭与Core主线复验(2026-11-04)
 
 用户确认Laincat-Mini已解锁后,Orca Worker对已核验c545212/Core3be的0.2.7 arm64包做隔离验收:包SHA bb39921a…、二进制SHA d955c9ab…及ad-hoc严格签名复核通过,以独立 `-data-dir /tmp/nk-c545-close-only/data` 启动PID78539/窗口11481;原生关闭按钮一次AX点击后窗口消失、原进程退出码0,未发终止信号。独立资料目录前后无文件。原始日志 `/tmp/nk-c545-close-only/`,Lead回执 `E:/Temp/nk-c545-mac-transfer/normal-close-accepted.json`。这不代替Gatekeeper/公证、其他机器运行或完整包装媒体流程。

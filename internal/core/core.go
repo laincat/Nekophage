@@ -1327,12 +1327,15 @@ func (c *Core) doImage(ctx context.Context, key string, req ImageRequest) ([]byt
 		if ferr != nil || next.URL == "" {
 			return nil, "", err
 		}
-		req.URL, req.Headers, req.Handle, req.Callbacks = next.URL, next.Headers, next.Handle, next.Callbacks
+		// The callback returned a replacement config, not a patch. Omitted
+		// fields use fresh-request defaults; in particular, neither the old
+		// POST body nor its pixel script belongs to the next mirror.
+		req = ImageRequest{
+			URL: next.URL, Method: "GET", Headers: next.Headers, Body: []byte(next.Data),
+			Handle: next.Handle, Callbacks: next.Callbacks, ModifyImage: next.ModifyImage,
+		}
 		if next.Method != "" {
 			req.Method = strings.ToUpper(next.Method)
-		}
-		if next.Data != "" {
-			req.Body = []byte(next.Data)
 		}
 	}
 	return nil, "", lastErr

@@ -2,6 +2,12 @@
 
 English | [简体中文](STATUS.md)
 
+## Image mirror configuration replacement fix (2026-11-04)
+
+When `onLoadFailed` returned a mirror config, the desktop adapter replaced only some fields: a mirror omitting method/data inherited the old POST body, while modifyImage always retained its old value. Actual Core source scripts and loopback HTTP reproduced this: the expected GET/empty body remained POST/original-request-body; a 4×2 image was incorrectly rotated to 2×4 by the old script, while a new mirror's rotation was ignored.
+
+The adapter now replaces the complete ImageLoadingConfig request, defaults the method to GET, and clears or replaces the body and pixel script. The new onResponse still runs before pixel processing. Both regression cases and existing pixel-processing tests passed with the race detector; all seven checks in `bash scripts/check.sh` also passed, logged in `E:/Temp/nk-image-fallback/full-check.log`. Baseline failure log: `E:/Temp/nk-image-fallback/before.log`; fixed run: `after.log`. Lead executed actual Core/HTTP/PNG decoding on Windows, without claiming fresh Mac or GUI acceptance. The Core functional pin remains 3be57b5; the delivered c545212 packages do not contain this fix.
+
 ## Packaged Mac window closure and Core main revalidation (2026-11-04)
 
 After the user confirmed Laincat-Mini was unlocked, Orca Worker accepted an isolated instance of the verified c545212/Core 3be 0.2.7 arm64 package: archive SHA bb39921a…, binary SHA d955c9ab… and strict ad-hoc signature passed. PID 78539/window 11481 used isolated `-data-dir /tmp/nk-c545-close-only/data`; one AX click on the native close button removed the window and the original process exited 0 without a termination signal. Its isolated data directory contained no files before or after. Remote logs: `/tmp/nk-c545-close-only/`; Lead receipt: `E:/Temp/nk-c545-mac-transfer/normal-close-accepted.json`. This does not establish Gatekeeper/notarization, other-machine behavior or the full packaged media suite.
