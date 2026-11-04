@@ -12,6 +12,12 @@ The package contains the fix that stops a source's onLoginSuccess when the login
 
 0.2.12 adds the fix that stops a source's onLoginSuccess when the login window closes; the rest of the cancellation scope is unchanged from0.2.11. The following packaging and installation checks belong to this commit.
 
+## Windows0.2.13 local package (2026-11-04)
+
+3260ce8/Core25e5ca3 is packaged as0.2.13. ZIP22,260,035 bytes; installer19,311,580 bytes. CRC, individual hashes, embedded version/Core/commit and installed-versus-ZIP executable equality passed. Isolated installation showed the main window, closed natively with exit0, preserved profile data on uninstall, and exposed no automation endpoint.
+
+Core25e5ca3 is the published VeneraCat Core main line; all four CI jobs passed (Linux/Windows/macOS Go plus Apple xcframework and Swift smoke). Delivery:[0.2.13](../../deliveries/2026-11-04-nekophage-0213/README.en.md).
+
 ## Windows0.2.13 candidate (2026-11-04)
 
 The desktop Core pin moves to the published25e5ca3 (main, including the mobile index entry), and the real cancellation evidence for the webview login wait is included. All four Core main CI jobs passed. The following packaging and installation checks belong to this commit.
