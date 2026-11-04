@@ -12,6 +12,14 @@ The package contains the fix that stops a source's onLoginSuccess when the login
 
 0.2.12 adds the fix that stops a source's onLoginSuccess when the login window closes; the rest of the cancellation scope is unchanged from0.2.11. The following packaging and installation checks belong to this commit.
 
+## Service packages run from the command line (Windows, 2026-11-04)
+
+Core moves to `ec57f45` (tree `f382a2d3`), adding the service runtime and package loading: the `service` package parses a manifest, gates capabilities by permission and runs a module that exports `handle(method, payload)`. The desktop gains `-service call <package dir> <method> [payload JSON]` and `-service info <package dir>`: it prints the manifest, calls the method and prints JSON. The command line has no account store, so the `secrets` permission is not granted; `network` and `storage` are, and storage is kept per service in `services/<id>.json` under the data directory.
+
+A local fixture exercised it: `info` printed the manifest and its permissions, `ping` returned JSON, `read` fetched the body of a local HTTP fixture through the host, and `token` read back the value `store` had written. Regressions cover a normal call, the network being allowed and refused, storage kept per service, the command line refusing to read a secret, printing the manifest, and bad arguments. All four jobs of Core CI 41906638143 passed.
+
+Only the command line path is covered this round; the desktop interface entry, the account flow and the iOS side are not.
+
 ## Following Core 2380abd: service manifests and permissions (2026-11-04)
 
 Core main moves to `2380abd` (tree `6be6739f`), adding the `service` package: it validates a service manifest and intersects what the service asks for with what the host allows, rejecting unknown fields and permissions, and requiring `entry` to stay inside the package; no JavaScript is loaded this round. All four jobs of Core CI 41900200233 passed.

@@ -28,6 +28,7 @@ import (
 	"github.com/laincat/nekophage/internal/core"
 	"github.com/laincat/nekophage/internal/library"
 	"github.com/laincat/nekophage/internal/reader"
+	"github.com/laincat/nekophage/internal/servicecli"
 	"github.com/laincat/nekophage/internal/sourceapi"
 	"github.com/laincat/nekophage/internal/ui"
 	"github.com/laincat/veneracat-core/host"
@@ -59,6 +60,7 @@ func main() {
 	showVersion := flag.Bool("version", false, "print the build and exit")
 	dataDirOverride := flag.String("data-dir", "", "store application data in this directory")
 	collectionAction := flag.String("collection", "", "follow URL, list, refresh ID, or unfollow ID; print JSON without opening a window")
+	serviceAction := flag.String("service", "", "call a method of a service package, or print its manifest; print JSON without opening a window")
 	flag.Parse()
 	if *showVersion {
 		fmt.Fprintln(os.Stdout, buildInfo())
@@ -77,6 +79,15 @@ func main() {
 	dataDir, err := mygo.App.Path(mygo.PathUserData)
 	if err != nil {
 		log.Fatal(err)
+	}
+
+	if *serviceAction != "" {
+		ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt)
+		defer cancel()
+		if err := servicecli.RunCommand(ctx, *serviceAction, flag.Args(), dataDir, os.Stdout, "Nekophage/"+version); err != nil {
+			log.Fatalf("服务操作失败: %v", err)
+		}
+		return
 	}
 
 	if *collectionAction != "" {
