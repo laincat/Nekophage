@@ -2,6 +2,10 @@
 
 [English](STATUS.en.md) | 简体中文
 
+## 关闭评论窗口取消评论HTTP（Windows，2026-11-04）
+
+评论读取、点赞和发送原先使用独立60秒超时，关闭窗口后请求继续。现在同一次打开共享窗口生命周期，关闭时取消这些请求。真实loopback评论读取在关闭后由服务端观察到连接取消，Core调用返回错误。定向race与七项工程检查通过。日志 `E:/Temp/nk-comment-cancel/targeted-contract.log`、`checks.log`。尚未做新的Mac或安装版验收。
+
 ## 离开收藏与详情取消收藏HTTP（Windows，2026-11-04）
 
 收藏列表与详情页的收藏读写原先使用独立超时，离开后只丢弃返回结果。现在列表读取跟随收藏代次，详情页写入跟随详情代次；真实loopback服务观察到离开后连接取消。定向race与七项工程检查通过。日志 `E:/Temp/nk-favorite-cancel/targeted-fixed.log`、`checks.log`。尚未做新的Mac或安装版验收。

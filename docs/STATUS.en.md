@@ -2,6 +2,10 @@
 
 English | [简体中文](STATUS.md)
 
+## Closing comments cancels comment HTTP (Windows, 2026-11-04)
+
+Comment reads, likes and sends previously used independent 60-second timeouts and continued after the window closed. One opening now shares a window lifetime, and closing cancels those requests. A real loopback comment read had its connection cancelled and the Core call returned an error. Targeted race tests and seven engineering checks passed. Logs: `E:/Temp/nk-comment-cancel/targeted-contract.log` and `checks.log`. No new Mac or installed-build acceptance is claimed.
+
 ## Leaving favorites or details cancels favorite HTTP (Windows, 2026-11-04)
 
 Favorite list reads and detail writes previously used independent timeouts and only discarded late results. List reads now follow the favorites generation and detail writes follow the details generation. A real loopback server observed both connections cancel after leaving their views. Targeted race tests and seven engineering checks passed. Logs: `E:/Temp/nk-favorite-cancel/targeted-fixed.log` and `checks.log`. No new Mac or installed-build acceptance is claimed.

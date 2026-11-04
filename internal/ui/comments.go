@@ -3,6 +3,7 @@ package ui
 import (
 	"context"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/egoist/mygo"
@@ -44,6 +45,11 @@ type commentsState struct {
 	// every repaint would run a source call inside the render path.
 	canSend bool
 	canLike bool
+	// lifetime belongs to this window. Closing it stops reads and writes
+	// instead of leaving them on their own timeout.
+	lifetime context.Context
+	cancel   context.CancelFunc
+	mu       sync.Mutex
 }
 
 // openComments shows the thread, or focuses it when it is already open for this
@@ -66,7 +72,15 @@ func (a *App) openComments() {
 		Content: ui.View(func(ctx *ui.Context) { a.commentsView(ctx) }),
 	})
 	c.win, c.open = win, true
-	win.OnClosed(func() { c.open = false })
+	win.OnClosed(func() {
+		c.mu.Lock()
+		if c.cancel != nil {
+			c.cancel()
+			c.cancel = nil
+		}
+		c.mu.Unlock()
+		c.open = false
+	})
 	win.Show()
 	win.Focus()
 	a.loadComments(1)
@@ -95,7 +109,22 @@ func (a *App) CommentsForCheck() (count int, author, body, errText string) {
 	return count, author, body, a.comments.errText
 }
 
-// loadComments reads one page in the background.
+// commentsContext belongs to the currently open thread. Closing the window
+// cancels every read or write derived from it.
+func (a *App) commentsContext() (context.Context, context.CancelFunc) {
+	c := &a.comments
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if !c.open {
+		ctx, cancel := context.WithCancel(context.Background())
+		cancel()
+		return ctx, func() {}
+	}
+	if c.lifetime == nil {
+		c.lifetime, c.cancel = context.WithCancel(context.Background())
+	}
+	return context.WithCancel(c.lifetime)
+}
 func (a *App) loadComments(page int) {
 	c := &a.comments
 	if page < 1 {
@@ -107,7 +136,9 @@ func (a *App) loadComments(page int) {
 	a.mu.Unlock()
 	a.comments.win.Update(func() {})
 	go func() {
-		ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+		ctx, cancel := a.commentsContext()
+		defer cancel()
+		ctx, cancel = context.WithTimeout(ctx, 60*time.Second)
 		defer cancel()
 		res, err := a.core.Comments(ctx, key, id, sub, page, replyTo)
 		a.win.Update(func() {
@@ -161,7 +192,9 @@ func (a *App) likeComment(one core.Comment, isLike bool) {
 	a.mu.Unlock()
 	a.comments.win.Update(func() {})
 	go func() {
-		ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+		ctx, cancel := a.commentsContext()
+		defer cancel()
+		ctx, cancel = context.WithTimeout(ctx, 60*time.Second)
 		defer cancel()
 		err := a.core.LikeComment(ctx, key, id, sub, one.ID, isLike)
 		a.win.Update(func() {
@@ -192,7 +225,9 @@ func (a *App) sendComment() {
 	a.mu.Unlock()
 	a.comments.win.Update(func() {})
 	go func() {
-		ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+		ctx, cancel := a.commentsContext()
+		defer cancel()
+		ctx, cancel = context.WithTimeout(ctx, 60*time.Second)
 		defer cancel()
 		err := a.core.SendComment(ctx, key, id, sub, text, replyTo)
 		a.win.Update(func() {
