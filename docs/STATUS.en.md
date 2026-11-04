@@ -12,6 +12,12 @@ The package contains the fix that stops a source's onLoginSuccess when the login
 
 0.2.12 adds the fix that stops a source's onLoginSuccess when the login window closes; the rest of the cancellation scope is unchanged from0.2.11. The following packaging and installation checks belong to this commit.
 
+## Windows0.2.14 local package (2026-11-04)
+
+7550045/Coreb882bf9 is packaged as0.2.14. ZIP22,262,198 bytes; installer19,311,655 bytes. CRC, individual hashes, embedded version/Core/commit and installed-versus-ZIP executable equality passed. Isolated installation showed the main window, closed natively with exit0, preserved profile data on uninstall, and exposed no automation endpoint.
+
+Delivery:[0.2.14](../../deliveries/2026-11-04-nekophage-0214/README.en.md). A manual reproduction in a real login window, installed reader/video and Mac remain unverified.
+
 ## Windows0.2.14 candidate and the expired login handle (2026-11-04)
 
 Core now recognises an expired webview login handle: after the source is updated or removed while the login window is open, both `WebviewStatus` and `WebviewLoginDone` return a structured error instead of an unrelated throw and a silent success. The desktop wait ends immediately with a sentence naming the changed source, and so does the path where the login callback never ran.
