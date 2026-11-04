@@ -8,6 +8,8 @@
 
 现按新的ImageLoadingConfig完整替换请求,method缺省GET,正文和像素脚本可清空或替换,新onResponse仍在像素处理之前执行。两项回归与原像素处理用例通过race测试,完整 `bash scripts/check.sh` 七项也全部通过,日志 `E:/Temp/nk-image-fallback/full-check.log`;旧实现负向日志 `E:/Temp/nk-image-fallback/before.log`,修复后 `after.log`。这是Lead在Windows执行的真实Core/HTTP/PNG解码验证,不代表Mac或GUI重新验收。Core功能pin仍为3be57b5;旧c545212包不包含本次修复。修复提交0db2ead4381ad67c5e3075daaf261b76909e12bf已生成Windows ZIP与安装器,位于 `E:/Code/deliveries/2026-11-04-image-mirror-fix/README.md`;ZIP摘要/CRC/版本及隔离安装/卸载/资料保留均通过,新包GUI/媒体/Mac尚未复验。
 
+随后Lead在干净42b9465(功能修复0db2ead)/Core3be运行现有 `readercheck`:真实源脚本先发POST/旧正文得到503,再以GET/空正文且无旧请求头取备用地址。备用响应经onResponse反转和modifyImage旋转后,Windows WebView2实际解码1/1页,尺寸96×64→64×96。日志 `E:/Temp/nk-image-fallback/reader-688d774f/verify.log`,同目录receipt.json记录HTTP序列和二进制身份。这是开发阅读器路径,不计包内GUI、Mac或截图视觉通过。
+
 ## Mac包装窗口正常关闭与Core主线复验(2026-11-04)
 
 用户确认Laincat-Mini已解锁后,Orca Worker对已核验c545212/Core3be的0.2.7 arm64包做隔离验收:包SHA bb39921a…、二进制SHA d955c9ab…及ad-hoc严格签名复核通过,以独立 `-data-dir /tmp/nk-c545-close-only/data` 启动PID78539/窗口11481;原生关闭按钮一次AX点击后窗口消失、原进程退出码0,未发终止信号。独立资料目录前后无文件。原始日志 `/tmp/nk-c545-close-only/`,Lead回执 `E:/Temp/nk-c545-mac-transfer/normal-close-accepted.json`。这不代替Gatekeeper/公证、其他机器运行或完整包装媒体流程。
