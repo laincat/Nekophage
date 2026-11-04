@@ -12,6 +12,18 @@ The package contains the fix that stops a source's onLoginSuccess when the login
 
 0.2.12 adds the fix that stops a source's onLoginSuccess when the login window closes; the rest of the cancellation scope is unchanged from0.2.11. The following packaging and installation checks belong to this commit.
 
+## The service panel runs the methods a service offers (Windows, 2026-11-04)
+
+Core moves to `8b82378` (tree `06ac2e3a`) with `Runtime.Describe`: a service may export `describe()` to say what it can do, and the host draws buttons from it. The desktop adds a `方法` button per service (loaded on demand); when methods exist it lists one button each (title first, name otherwise), and pressing one runs `handle(name, payload)` and shows the truncated JSON result in place.
+
+Measured in the window with real UIA clicks: pressing `方法` produced `同步收藏` and `status`, and pressing `同步收藏` showed `{"ok":true,"synced":3}`.
+
+A diagnostic problem was fixed along the way: the artifact download used the declared byte count as the transport limit, so an artifact that grew failed as "response larger than the limit", which reads like a network problem. It now downloads up to the protocol ceiling and compares afterwards, reporting "does not match its declared size or digest". A regression covers it.
+
+The service host also moved into `services.Open` and `services.HostPackage`, so the command line and the window share the same bridge, storage and account grant instead of each writing their own.
+
+Boundary: a service without `describe()` still shows "该服务没有提供可运行的方法"; typing method arguments, expanding a result and cancelling a run are all still missing.
+
 ## Following Core d6b9f67: Core installs service packages (2026-11-04)
 
 Core main moves to `d6b9f67` (tree `c1495fdb`): installing, listing, reading and removing a service package now live in the `service` package, with `mobile` entry points for iOS. The desktop's `internal/services` shrank to a thin wrapper - the account file and its count - and the duplicate zip verification, file writing and index update are gone.

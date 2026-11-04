@@ -7,7 +7,10 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
+
+	"github.com/laincat/veneracat-core/subscription"
 
 	"github.com/laincat/nekophage/internal/core"
 	"github.com/laincat/nekophage/internal/store"
@@ -118,4 +121,35 @@ func (m *Manager) installForTest(document []byte, url string) error {
 	}
 	next[c.ID] = record{ID: c.ID, URL: url, Document: document}
 	return m.publish(next)
+}
+
+// An artifact that no longer matches its declared size must be reported as a
+// mismatch, not as a transport limit: the first points at the collection, the
+// second at the network.
+func TestArtifactReportsAGrownArtifactAsAMismatch(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte(strings.Repeat("x", 2048)))
+	}))
+	defer server.Close()
+
+	s, err := store.Open(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	m, err := Open(s, core.NewTransport(nil, "test", 0))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer m.Close()
+	// A snapshot that declares 512 bytes while the server now serves 2048.
+	entry := Entry{}
+	entry.ID = "grown"
+	entry.Artifact = &subscription.CollectionArtifact{URL: server.URL, Bytes: 512, SHA256: strings.Repeat("0", 64)}
+	_, err = m.Artifact(context.Background(), entry)
+	if err == nil {
+		t.Fatal("a grown artifact was accepted")
+	}
+	if !strings.Contains(err.Error(), "does not match its declared size or digest") {
+		t.Fatalf("error = %v", err)
+	}
 }

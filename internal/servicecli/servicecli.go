@@ -115,52 +115,32 @@ func info(dataDir, target string, out io.Writer) error {
 
 // call runs one method of a package and prints its result.
 func call(ctx context.Context, dir, method string, payload []byte, dataDir string, out io.Writer, userAgent string) error {
-	m, source, err := read(dataDir, dir)
-	if err != nil {
-		return err
-	}
-	store, err := openStorage(dataDir, m.ID)
-	if err != nil {
-		return err
-	}
-	// Every request a service makes goes through the bridge: scheme, host
-	// policy, redirects and response size are enforced there, not by whatever
-	// the plugin decided to call.
-	bridge := service.NewBridge(service.BridgePolicy{MaxBytes: maxFetchBytes, Timeout: requestTimeout})
-	host := service.Host{
-		Fetch:      bridge.Fetch,
-		StorageGet: store.Get,
-		StorageSet: store.Set,
-		Secret: func(ctx context.Context, key string) (string, error) {
-			accounts, err := services.OpenAccounts(dataDir, m.ID)
-			if err != nil {
-				return "", err
-			}
-			return accounts.Get(ctx, key)
-		},
-		Log: func(level, message string) {
-			fmt.Fprintf(os.Stderr, "%s: %s %s\n", m.ID, level, message)
-		},
-	}
-	// Secrets are granted only once the user has entered something for this
-	// service: a service that asks for them but was never given an account has
-	// nothing to read, and granting the permission would only widen the surface.
-	granted := []service.Permission{service.PermissionNetwork, service.PermissionStorage}
-	if accounts, err := services.OpenAccounts(dataDir, m.ID); err == nil {
-		if count, err := accounts.Count(); err == nil && count > 0 {
-			granted = append(granted, service.PermissionSecrets)
+	target := strings.TrimSpace(dir)
+	var rt *service.Runtime
+	var manifest *service.Manifest
+	var err error
+	if info, statErr := os.Stat(target); statErr == nil && info.IsDir() {
+		// A package directory on disk: read it, then host it the same way an
+		// installed one is hosted.
+		var source string
+		manifest, source, err = service.ReadPackage(target)
+		if err != nil {
+			return err
 		}
+		rt, err = services.HostPackage(ctx, dataDir, manifest, source)
+	} else {
+		rt, manifest, err = services.Open(ctx, dataDir, target, userAgent)
 	}
-	rt := service.NewRuntime(host, granted...)
-	defer rt.Close()
-	if err := rt.Load(ctx, m, source); err != nil {
+	if err != nil {
 		return err
 	}
+	defer rt.Close()
 	result, err := rt.Call(ctx, method, payload)
 	if err != nil {
 		return err
 	}
 	fmt.Fprintln(out, strings.TrimSpace(string(result)))
+	_ = manifest
 	return nil
 }
 

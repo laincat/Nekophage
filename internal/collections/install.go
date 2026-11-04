@@ -54,7 +54,10 @@ func (m *Manager) Artifact(ctx context.Context, entry Entry) ([]byte, error) {
 	if len(a.SHA256) != 64 {
 		return nil, errors.New("collections: artifact digest is malformed")
 	}
-	body, _, err := m.transport.Fetch(ctx, a.URL, a.Bytes)
+	// Fetch with the protocol's own ceiling, not the declared size: a snapshot
+	// whose artifact grew would otherwise fail as "response larger than the
+	// limit", which says nothing about the artifact being wrong.
+	body, _, err := m.transport.Fetch(ctx, a.URL, MaxArtifactBytes)
 	if err != nil {
 		return nil, err
 	}

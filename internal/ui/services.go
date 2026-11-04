@@ -12,6 +12,8 @@ import (
 	"github.com/egoist/mygo"
 	"github.com/egoist/mygo/ui"
 
+	"github.com/laincat/veneracat-core/service"
+
 	"github.com/laincat/nekophage/internal/services"
 )
 
@@ -27,6 +29,30 @@ type servicePanel struct {
 	busy     string
 	errText  string
 	notice   string
+	// methods is what each service said it offers, filled on demand.
+	methods map[string][]service.Method
+	// running names the "id/method" call in flight, result its last answer.
+	running string
+	result  map[string]string
+}
+
+// methodLabel is what a method button says: its title when it has one, its
+// name otherwise.
+func methodLabel(m service.Method) string {
+	if strings.TrimSpace(m.Title) != "" {
+		return m.Title
+	}
+	return m.Name
+}
+
+// shortResult trims a JSON answer to something a panel can show without
+// pushing everything else off the window.
+func shortResult(text string) string {
+	text = strings.Join(strings.Fields(text), " ")
+	if len(text) > 240 {
+		return text[:240] + "…"
+	}
+	return text
 }
 
 // refreshServices reads the installed services from the profile.
@@ -84,6 +110,7 @@ func (a *App) servicesSection(c *ui.Context, t *ui.Theme) {
 	}
 	for _, rec := range p.rows {
 		a.serviceRow(c, t, rec)
+		a.serviceMethods(c, t, rec)
 	}
 	a.serviceAccountEditor(c, t)
 }
@@ -97,6 +124,9 @@ func (a *App) serviceRow(c *ui.Context, t *ui.Theme, rec services.Record) {
 			ui.Text(c, rec.Name).SingleLine()
 			ui.Text(c, line).FontSize(11).TextColor(t.TextMuted).SingleLine()
 		}).Grow(1)
+		if ui.Button(c, "方法").Key("service-methods:" + id).Clicked() {
+			a.loadServiceMethods(id)
+		}
 		if ui.Button(c, "账号").Key("service-accounts:" + id).Clicked() {
 			a.mu.Lock()
 			a.svc.selected = id
@@ -130,6 +160,95 @@ func serviceLine(rec services.Record) string {
 		parts = append(parts, rec.Origin)
 	}
 	return strings.Join(parts, " · ")
+}
+
+// serviceMethods shows what a service said it offers, once it was asked.
+func (a *App) serviceMethods(c *ui.Context, t *ui.Theme, rec services.Record) {
+	p := &a.svc
+	methods, asked := p.methods[rec.ID]
+	if !asked {
+		return
+	}
+	if len(methods) == 0 {
+		ui.Text(c, "该服务没有提供可运行的方法。").Padding(0, 32, 6, 16).FontSize(11).TextColor(t.TextMuted)
+		return
+	}
+	ui.Row(c).Padding(0, 32, 6, 16).Gap(6).AlignItems(ui.Center).Children(func() {
+		for _, method := range methods {
+			key := rec.ID + "/" + method.Name
+			if p.running == key {
+				ui.Spinner(c)
+				continue
+			}
+			method := method
+			if ui.Button(c, methodLabel(method)).Key("service-run:" + key).Clicked() {
+				a.runServiceMethod(rec.ID, method.Name)
+			}
+		}
+		if result := p.result[rec.ID]; result != "" {
+			ui.Text(c, shortResult(result)).FontSize(11).TextColor(t.TextMuted).SingleLine().Grow(1)
+		}
+	})
+}
+
+// loadServiceMethods asks a service what it offers.
+func (a *App) loadServiceMethods(id string) {
+	a.mu.Lock()
+	a.svc.busy = "正在询问 " + id + "…"
+	a.mu.Unlock()
+	go func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+		rt, _, err := services.Open(ctx, a.core.DataDir(), id, "Nekophage")
+		var methods []service.Method
+		if err == nil {
+			methods, err = rt.Describe(ctx)
+			rt.Close()
+		}
+		a.manageWin.Update(func() {
+			a.svc.busy = ""
+			if a.svc.methods == nil {
+				a.svc.methods = map[string][]service.Method{}
+			}
+			if err != nil {
+				a.svc.errText = explain(err)
+				return
+			}
+			a.svc.errText = ""
+			a.svc.methods[id] = methods
+			a.svc.notice = ""
+		})
+	}()
+}
+
+// runServiceMethod runs one method and shows its answer.
+func (a *App) runServiceMethod(id, method string) {
+	key := id + "/" + method
+	a.mu.Lock()
+	a.svc.running = key
+	a.mu.Unlock()
+	go func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+		defer cancel()
+		rt, _, err := services.Open(ctx, a.core.DataDir(), id, "Nekophage")
+		var out []byte
+		if err == nil {
+			out, err = rt.Call(ctx, method, nil)
+			rt.Close()
+		}
+		a.manageWin.Update(func() {
+			a.svc.running = ""
+			if a.svc.result == nil {
+				a.svc.result = map[string]string{}
+			}
+			if err != nil {
+				a.svc.errText = explain(err)
+				return
+			}
+			a.svc.errText = ""
+			a.svc.result[id] = string(out)
+		})
+	}()
 }
 
 // serviceAccountEditor edits one account key of the selected service. Values

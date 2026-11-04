@@ -63,3 +63,20 @@ func TestServicePanelStatus(t *testing.T) {
 type errFake struct{}
 
 func (errFake) Error() string { return "boom" }
+
+// A method button says its title when the service gave one.
+func TestMethodLabelAndShortResult(t *testing.T) {
+	if got := methodLabel(service.Method{Name: "sync", Title: "同步"}); got != "同步" {
+		t.Errorf("label = %q", got)
+	}
+	if got := methodLabel(service.Method{Name: "sync"}); got != "sync" {
+		t.Errorf("label = %q", got)
+	}
+	long := strings.Repeat("x", 400)
+	if got := shortResult(long); len(got) > 260 || !strings.HasSuffix(got, "…") {
+		t.Errorf("shortResult kept %d bytes", len(got))
+	}
+	if got := shortResult("  {\"ok\":\n true}  "); got != `{"ok": true}` {
+		t.Errorf("shortResult = %q", got)
+	}
+}
