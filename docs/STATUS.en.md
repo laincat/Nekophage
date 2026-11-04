@@ -2,6 +2,10 @@
 
 English | [简体中文](STATUS.md)
 
+## WebView login follows source-management closure (Windows, 2026-11-04)
+
+"Sign in on the web" in source settings previously ran with a never-cancelled background context, so the login window and wait could continue after source management closed. The login window now ends with the source-management lifetime, and closing it cancels the wait. This cancellation has no separate real-HTTP reproduction; seven engineering checks only confirm no regression. Logs: `E:/Temp/nk-webview-cancel/gofmt.log`. No new Mac or installed-build acceptance is claimed.
+
 ## Closing a source dialog cancels its picture HTTP (Windows, 2026-11-04)
 
 The captcha/QR picture in a source input dialog previously used an independent 30-second timeout and continued after the dialog closed. Its request cancel function now runs when the window closes; a real loopback request had its connection stopped by the server. Targeted race tests and seven engineering checks passed. Logs: `E:/Temp/nk-dialog-cancel/targeted.log` and `checks.log`. No new Mac or installed-build acceptance is claimed.

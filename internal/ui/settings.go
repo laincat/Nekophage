@@ -551,8 +551,10 @@ func (a *App) webviewLogin(key string) {
 	a.mu.Unlock()
 	a.manageWin.Update(func() {})
 	go func() {
+		ctx, cancel := a.manageContext()
+		defer cancel()
 		login := browser.NewLoginWindow(a.core, a.lib.Jar(), key, core.ComicPartition(key))
-		stored, err := login.Run(context.Background())
+		stored, err := login.Run(ctx)
 		a.manageWin.Update(func() {
 			a.mu.Lock()
 			m.accountBusy = false
