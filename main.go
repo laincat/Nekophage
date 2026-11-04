@@ -17,11 +17,13 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"os/signal"
 	"runtime"
 	"runtime/debug"
 
 	"github.com/egoist/mygo"
 	"github.com/laincat/nekophage/internal/browser"
+	"github.com/laincat/nekophage/internal/collections"
 	"github.com/laincat/nekophage/internal/cookies"
 	"github.com/laincat/nekophage/internal/core"
 	"github.com/laincat/nekophage/internal/library"
@@ -56,6 +58,7 @@ func buildInfo() string {
 func main() {
 	showVersion := flag.Bool("version", false, "print the build and exit")
 	dataDirOverride := flag.String("data-dir", "", "store application data in this directory")
+	collectionAction := flag.String("collection", "", "follow URL, list, refresh ID, or unfollow ID; print JSON without opening a window")
 	flag.Parse()
 	if *showVersion {
 		fmt.Fprintln(os.Stdout, buildInfo())
@@ -74,6 +77,15 @@ func main() {
 	dataDir, err := mygo.App.Path(mygo.PathUserData)
 	if err != nil {
 		log.Fatal(err)
+	}
+
+	if *collectionAction != "" {
+		ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt)
+		defer cancel()
+		if err := collections.RunCommand(ctx, dataDir, *collectionAction, flag.Args(), os.Stdout, "Nekophage/"+version); err != nil {
+			log.Fatalf("合集操作失败: %v", err)
+		}
+		return
 	}
 
 	// The source UI handler exists before Core, because a source may call UI

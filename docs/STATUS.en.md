@@ -2,6 +2,14 @@
 
 English | [简体中文](STATUS.md)
 
+## Collection subscriptions and command entry point (Windows, 2026-11-04)
+
+Current source adds `-collection follow/list/refresh/unfollow`, reusing Core ccb6268 parsing and platform/capability matching with a separate profile collections.json. Subscription does not install entries or change plugins.json. Replacement refresh, unfollow and manager closure cancel older connections; fetch/persistence failures retain the previous snapshot. Implementation regressions reproduced and fixed HTML-description escape expansion preventing reopening and empty files being treated as fresh profiles.
+
+The Lead passed seven engineering checks (including full-repository race/vet) and actual Windows desktop-binary command acceptance. Five independent processes followed the real seven-entry collection, refreshed to0.1.1, listed offline after server shutdown, unfollowed and listed again. Only Plex matched current platform/capabilities; four designs remained visible. Only two manifest requests occurred, with no artifact requests or changes to installed-record bytes. Evidence: `E:/Temp/nk-collection-client/`; usage: [shared-source subscriptions](SOURCE-COLLECTIONS.en.md). The initial root-layout failure and combined-command tool timeout during building are retained; implementation moved into internal/collections and the final standalone build passed.
+
+This is current-source/Windows command evidence; the existing0.2.9 installer is unchanged. Mac commands, catalogue GUI, module execution, service plugins and actual entry installation remain unverified. One profile has a single process owner; concurrent cross-process write merging is not claimed. The existing Orca Worker's MyGo source-viewer candidate is a separate task with separate evidence.
+
 ## Windows0.2.9 new-Core package and installed media (2026-11-04)
 
 fe101db/Core ccb6268 is packaged as0.2.9. Seven engineering checks, ZIP CRC/file hashes/version, NSIS and actual isolated installation passed. A copy of earlier test data changed only fixture endpoint/source hash. Native search re-authenticated, then Continue Watching rendered English and the existing3.030709-second frame, with a pixel-identical video crop. Authenticated manifests returned200 without Range; media and English VTT returned206. UIA did not change subtitle selection; subsequent foreground Off input was refused by USER_INPUT_ACTIVE and not sent. New switching/Off/cross-process Off persistence is not accepted. Task-owned process cleanup is not normal closure. Uninstall and isolated/original profile-hash retention passed.
