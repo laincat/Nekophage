@@ -114,6 +114,7 @@ func (a *App) openManage() {
 		a.manageWin = mygo.NewWindow(mygo.WindowOptions{
 			Title: "源管理", Width: 860, Height: 720, Content: ui.View(a.manageView),
 		})
+		a.refreshServices()
 		a.manageWin.OnClosed(func() {
 			a.manage.mu.Lock()
 			if a.manage.cancel != nil {
@@ -200,6 +201,8 @@ func (a *App) manageView(c *ui.Context) {
 		}
 
 		a.settingsPanel(c, t)
+
+		a.servicesSection(c, t)
 
 		installed := a.lib.Sources()
 		ui.Textf(c, "已安装 %d 个源", len(installed)).Padding(8, 16).FontSize(13).Bold()

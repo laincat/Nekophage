@@ -168,6 +168,8 @@ type App struct {
 	aiWin  *mygo.Window
 	ai     aiState
 	manage manageState
+	// svc is the service-plugin panel inside the source manager.
+	svc servicePanel
 	// video is the video window and its player.
 	video          videoState
 	videoSearchGen generation

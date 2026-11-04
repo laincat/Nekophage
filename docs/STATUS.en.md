@@ -12,6 +12,14 @@ The package contains the fix that stops a source's onLoginSuccess when the login
 
 0.2.12 adds the fix that stops a source's onLoginSuccess when the login window closes; the rest of the cancellation scope is unchanged from0.2.11. The following packaging and installation checks belong to this commit.
 
+## A service panel in the source manager (Windows, 2026-11-04)
+
+The source manager gains a "服务插件" section: it lists each installed service with its name, id, version, the permissions its manifest asked for, how many account values exist and where it came from; each row has "账号" and "移除", and below them a service picker, account key/value inputs with "保存"/"删除", and "安装服务包…" for a zip. The value field renders as a password field, and the stored keys are listed by name only.
+
+Evidence: an isolated profile was seeded with one installed service (`demo-service`, permissions network,storage,secrets, one account value `user`), and `cmd/uicheck -settings` captured the source manager window at `E:/Temp/nk-service-ui/panel.png` (1084x721, 42,226 bytes).
+
+Boundary: this round proves the panel renders the real data; the buttons call the same `services`/`accounts` code the command line uses (covered by Go tests and the loopback fixture), but **the buttons were not clicked one by one**, and drag and drop, keyboard navigation and high DPI are not covered.
+
 ## Following Core f349e3d: a service reaches the network through a controlled bridge (2026-11-04)
 
 Core main moves to `f349e3d` (tree `1a84c653`): the new `service.Bridge` is the only way a service's `fetch` can go - HTTP and HTTPS only, every redirect hop re-checked, a 4 MiB response bound by default and no cookies by default. The desktop command line now sends requests through the bridge instead of calling the client transport directly.
