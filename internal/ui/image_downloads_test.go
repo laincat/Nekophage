@@ -3,6 +3,7 @@ package ui
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -10,7 +11,51 @@ import (
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"github.com/laincat/nekophage/internal/core"
 )
+
+func TestLeavingAViewStopsItsCoverHTTPRequest(t *testing.T) {
+	started, stopped, release := make(chan struct{}), make(chan struct{}), make(chan struct{})
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		close(started)
+		select {
+		case <-r.Context().Done():
+			close(stopped)
+		case <-release:
+			fmt.Fprint(w, "cover")
+		}
+	}))
+	defer server.Close()
+	defer close(release)
+	c, err := core.Open(core.Options{DataDir: t.TempDir(), AppVersion: "1.6.3"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer c.Close()
+	script := `class CoverCancel extends ComicSource {
+ name = "Cover cancellation"; key = "cover_cancel"; version = "1.0.0"
+ search = {load: async () => ({comics: [], maxPage: 1})}
+}`
+	if _, err = c.Install(context.Background(), script, "file", ""); err != nil {
+		t.Fatal(err)
+	}
+	a := &App{core: c, sourceKey: "cover_cancel", mode: 0, images: newImageCache()}
+	a.cover("cover_cancel", "comic", server.URL)
+	select {
+	case <-started:
+	case <-time.After(3 * time.Second):
+		t.Fatal("the cover request never reached the server")
+	}
+	a.mu.Lock()
+	a.searchGen.next()
+	a.mu.Unlock()
+	select {
+	case <-stopped:
+	case <-time.After(2 * time.Second):
+		t.Fatal("leaving the search kept its cover HTTP request running")
+	}
+}
 
 func TestImageDownloadsBoundHTTPAndCancelQueuedWork(t *testing.T) {
 	var active, peak, requests atomic.Int32

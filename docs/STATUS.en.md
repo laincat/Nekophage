@@ -2,6 +2,10 @@
 
 English | [简体中文](STATUS.md)
 
+## Leaving a view cancels its cover HTTP request (Windows, 2026-11-04)
+
+Cover requests previously used an independent 30-second context, so replacing search, details, browse or category left their HTTP running. A cover now uses the generation of the view that requested it; leaving or replacing that view makes the server observe connection cancellation. Completed cached covers remain, avoiding repeat downloads on return. Targeted race tests cover real loopback cancellation and the existing four-way concurrency/queued cancellation. Seven engineering checks then passed. Logs: `E:/Temp/nk-cover-cancel/targeted-initialized.log` and `gofmt.log`. No new Mac or installed-build acceptance is claimed.
+
 ## Current macOS Core313 combination acceptance (2026-11-04)
 
 The Orca Worker verified HEAD e887914, tree93a2d42, Core313951e and all239 file hashes in an isolated clone, then built the development app. The reader fixture decoded2/2 pages, first image320x1200, and restored scrollY1200. An actual window opened read-only source code from source management; all2789 characters matched, readOnly was present, writes did not alter content, and plugins.json hash was unchanged after close. HLS.js and native MP4 confirmed authentication, Range,320x180 frames and reopened positions. macOS WKWebView exposes no webkitAudioDecodedByteCount, so both counters were-1; decoded-audio bytes and speaker output are not accepted. Original logs: `/tmp/nk-mac-313-e887914/`. The temporary gist was deleted and reread404.

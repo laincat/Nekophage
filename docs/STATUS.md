@@ -2,6 +2,10 @@
 
 [English](STATUS.en.md) | 简体中文
 
+## 离开界面取消封面HTTP请求（Windows，2026-11-04）
+
+封面请求原先使用独立30秒context，搜索、详情、浏览或分类被新请求取代后，封面HTTP仍继续。现在封面请求绑定发起它的界面对应代次；离开或替换该界面时，服务端观察到连接取消。已完成并进入缓存的封面不清除，避免返回时重复下载。定向race覆盖真实loopback取消及既有四路并发/排队取消；随后七项工程检查通过。日志 `E:/Temp/nk-cover-cancel/targeted-initialized.log`、`gofmt.log`。尚未做新的Mac或安装版验收。
+
 ## macOS当前Core313组合定向验收（2026-11-04）
 
 Orca Worker在隔离副本核验HEAD e887914、tree93a2d42、Core313951e及239个文件摘要后，完成开发构建。阅读夹具2/2页解码、首图320x1200、scrollY1200重开通过。真实窗口从源管理打开只读源码，正文2789字符逐字一致，readOnly状态存在，写入不改变正文，关闭后plugins.json摘要不变。HLS.js与原生MP4均确认鉴权、Range、320x180画面及重开位置；但macOS WKWebView没有webkitAudioDecodedByteCount，HLS/MP4计数均为-1，因此音频解码字节和扬声器不通过。原日志 `/tmp/nk-mac-313-e887914/`。临时gist已删除并回读404。

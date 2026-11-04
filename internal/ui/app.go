@@ -1232,12 +1232,13 @@ func (a *App) cover(key, id, url string) {
 	name := key + "/" + id
 	a.mu.Lock()
 	start := a.images.want(name, url)
+	ticket := a.coverTicketLocked()
 	a.mu.Unlock()
 	if !start {
 		return
 	}
 	go func() {
-		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		ctx, cancel := context.WithTimeout(a.coverContext(ticket), 30*time.Second)
 		defer cancel()
 		data, ctype, err := a.imageDownloads.do(ctx, func(ctx context.Context) ([]byte, string, error) {
 			return a.core.FetchThumbnail(ctx, key, url, id)
@@ -1844,6 +1845,37 @@ func (a *App) categoryView(c *ui.Context, t *ui.Theme) {
 			})
 		}
 	})
+}
+
+// coverTicketLocked identifies the view that requested a cover. Callers hold App.mu.
+func (a *App) coverTicketLocked() int {
+	if a.open {
+		return a.detailGen.peek()
+	}
+	switch a.mode {
+	case 1:
+		return a.exploreGen.peek()
+	case 3:
+		return a.catGen.peek()
+	default:
+		return a.searchGen.peek()
+	}
+}
+
+func (a *App) coverContext(ticket int) context.Context {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	if a.open {
+		return a.detailGen.requestContext(ticket)
+	}
+	switch a.mode {
+	case 1:
+		return a.exploreGen.requestContext(ticket)
+	case 3:
+		return a.catGen.requestContext(ticket)
+	default:
+		return a.searchGen.requestContext(ticket)
+	}
 }
 
 // selectSourceLocked retires the old source's reads and cached declarations.
