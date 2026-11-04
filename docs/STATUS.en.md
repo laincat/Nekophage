@@ -12,6 +12,14 @@ The package contains the fix that stops a source's onLoginSuccess when the login
 
 0.2.12 adds the fix that stops a source's onLoginSuccess when the login window closes; the rest of the cancellation scope is unchanged from0.2.11. The following packaging and installation checks belong to this commit.
 
+## Windows 0.2.17 package and install acceptance (2026-11-04)
+
+Feature commit `d51e042`, Core `f349e3d`. The portable ZIP is 22,405,850 bytes with SHA-256 `0e5db636d7fdc7570a47e079014401732c9ebc4455be300a1e3a34f10f7c989e`; the installer is 19,438,473 bytes with SHA-256 `ee502547fa65b1ceb7c8ee90d3d166f323116882722e5770a41e3cde7f29790d`.
+
+This build brings the collection and service panels into the window. The packaging script verified the ZIP CRC, every unpacked file digest and the unpacked `-version`; an isolated install measured: installer exit 0, `-version` reporting `0.2.17` and Core `f349e3d`, the main window appearing and closing normally (exit 0), `-collection list` and `-service list` both exiting 0 in the installed build, and uninstall exiting 0 with the install directory removed.
+
+The three collection panel buttons were also pressed one by one on the development build: subscribe reported "已订阅", refresh reported "已刷新 probe-services", and unfollow reported "已取消订阅 probe-services" with the subscription list in `collections.json` empty afterwards. The build is unsigned and installs for the current user only.
+
 ## A collection panel in the source manager: subscribe, entries, install (Windows, 2026-11-04)
 
 The source manager gains a "统一源合集" section: a URL field with "订阅" at the top; each collection shows its name, id and URL with "刷新"/"取消订阅"; and each entry below lists its kind, status and declared key, with an incompatible entry stating which capability is missing and getting no install button. Installable entries (`comic-source.js`, `service.js`) have "安装".
