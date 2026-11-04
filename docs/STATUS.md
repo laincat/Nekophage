@@ -2,6 +2,12 @@
 
 [English](STATUS.en.md) | 简体中文
 
+## Windows 0.2.8 本地交付（2026-11-04）
+
+已构建包含bfc3484图片转换失败回退修复的0.2.8/1de7f996，Core仍3be57b5。Lead在Windows完成scripts/check.sh七项检查、ZIP CRC/逐文件摘要/版本、NSIS构建及实际隔离安装。安装版主窗口和控件可见，原生关闭按钮经UIA调用后窗口消失，进程已退出；没有捕获退出码。随后卸载移除安装目录，隔离资料的全部已有文件摘要保持不变。
+
+ZIP为21,567,833字节，安装器18,722,840字节；摘要、截图和回执在[交付目录](../../deliveries/2026-11-04-nekophage-028/README.md)，日志 `E:/Temp/nk-desktop-028/`。本轮未重跑包装阅读/媒体/字幕/跨进程续播，不提升旧包或Mac证据。包未签名、未公开发布，公开目的地仍待指定。
+
 ## 图片响应/像素处理失败的镜像契约(2026-11-04)
 
 对照[上游图片加载流程](https://github.com/venera-app/venera/blob/a0eba914f4c2a84ac1bc925adec2baabe920b9be/lib/network/images.dart)的同一重试范围,onResponse异常、非字节返回值和像素脚本异常都应交给onLoadFailed。旧桌面适配器在这些失败路径提前返回,备用地址没有被请求。真实Core脚本+loopback HTTP负向用例复现三项失败,无镜像时保留原错误的对照通过。
@@ -10,7 +16,7 @@
 
 Mac上的darwin/arm64定向回归也已完成:Worker在`c545212`加`0db2ead`两份受测文件的小型隔离工作区上,核验补丁和结果文件SHA后,运行`go test -race ./internal/core -run '^Test(ImageTransformFailuresFollowMirrors|ImageFallback|ModifyImage)' -count=1 -v`(7个顶层、11个叶子用例)、`go build ./...`与`scripts/check-core-pin.sh`,结果均通过,Core实际为3be57b5。原始日志在Mac `/tmp/nk-desktop-mirror-bfc-evidence/`,Windows回执 `E:/Temp/nk-image-error-contract/mac-receipt.json` 是Worker回传记录。
 
-这不是完整`bfc3484`树、GUI、媒体播放、包装或iOS验收;Windows与Mac都只证明这两个受测文件及其受限Core/HTTP/race路径。临时传输gist `b697850a8e126c1f659d070755ba21c9` 在Mac核验后已由Lead删除,认证重读404,日志 `E:/Temp/nk-image-error-contract/gist-cleanup.log`。当前交付包仍对应旧`0db2ead`,不自动包含本修复。
+这不是完整`bfc3484`树、GUI、媒体播放、包装或iOS验收;Windows与Mac都只证明这两个受测文件及其受限Core/HTTP/race路径。临时传输gist `b697850a8e126c1f659d070755ba21c9` 在Mac核验后已由Lead删除,认证重读404,日志 `E:/Temp/nk-image-error-contract/gist-cleanup.log`。该轮测试时交付包仍对应旧`0db2ead`；后续0.2.8/1de7f996已包含本修复，包装验收见本页顶部。
 
 这里只核对公开源码契约并实际运行本地Core/HTTP,没有运行官方App。本项是客户端底层适配修复,Core pin仍3be57b5;此前0db2ead交付包不包含它,尚未新增Mac或包装UI结果。
 

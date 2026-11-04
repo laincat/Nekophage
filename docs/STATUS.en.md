@@ -2,6 +2,12 @@
 
 English | [简体中文](STATUS.md)
 
+## Local Windows 0.2.8 delivery (2026-11-04)
+
+Built 0.2.8/1de7f996 with the bfc3484 image-transform failure fallback repair; Core remains 3be57b5. Lead completed all seven scripts/check.sh checks, ZIP CRC/file digests/version, NSIS build and actual isolated installation on Windows. The installed main window and controls appeared; UIA invocation of the native Close button removed the window and the process exited. Its exit code was not captured. Uninstall then removed the installation directory while preserving every existing isolated profile file digest.
+
+ZIP: 21,567,833 bytes; installer: 18,722,840 bytes. Digests, screenshot and receipt: [delivery directory](../../deliveries/2026-11-04-nekophage-028/README.en.md). Logs: `E:/Temp/nk-desktop-028/`. Packaged reading/media/subtitles/cross-process resume were not rerun; earlier package/Mac evidence retains its scope. The package is unsigned and not publicly released; the publication destination is still unspecified.
+
 ## Mirror handling after response/pixel-transform failures (2026-11-04)
 
 The [upstream image-loading flow](https://github.com/venera-app/venera/blob/a0eba914f4c2a84ac1bc925adec2baabe920b9be/lib/network/images.dart) includes onResponse exceptions, non-byte results and pixel-script errors within the same retry scope that invokes onLoadFailed. The desktop adapter returned early on these failure paths without requesting the mirror. Actual Core scripts with loopback HTTP reproduced three failures; the no-mirror control preserved its original error.
@@ -10,7 +16,7 @@ Single-response processing now lives in applyImageTransforms, with errors return
 
 A targeted darwin/arm64 regression also passed on Mac. In a small isolated workspace of `c545212` plus the two files tested at `0db2ead`, the Worker verified patch and result-file SHA-256 values, then ran `go test -race ./internal/core -run '^Test(ImageTransformFailuresFollowMirrors|ImageFallback|ModifyImage)' -count=1 -v` (7 top-level tests, 11 leaf cases), `go build ./...` and `scripts/check-core-pin.sh`. All passed with Core actually at 3be57b5. Original logs remain on Mac under `/tmp/nk-desktop-mirror-bfc-evidence/`; `E:/Temp/nk-image-error-contract/mac-receipt.json` is a Worker report, not a copy.
 
-This is not a full `bfc3484` tree, GUI, media, packaging or iOS acceptance. Windows and Mac both establish only these two tested files and their bounded Core/HTTP/race paths. After Mac verification, Lead deleted transfer gist `b697850a8e126c1f659d070755ba21c9`; authenticated reread returns 404, log `E:/Temp/nk-image-error-contract/gist-cleanup.log`. Current delivery packages still correspond to the earlier `0db2ead` and do not automatically include this repair.
+This is not a full `bfc3484` tree, GUI, media, packaging or iOS acceptance. Windows and Mac both establish only these two tested files and their bounded Core/HTTP/race paths. After Mac verification, Lead deleted transfer gist `b697850a8e126c1f659d070755ba21c9`; authenticated reread returns 404, log `E:/Temp/nk-image-error-contract/gist-cleanup.log`. At that regression, delivery packages still corresponded to `0db2ead`. Subsequent 0.2.8/1de7f996 includes the repair; see the scoped package acceptance above.
 
  This compares the public source contract and executes local Core/HTTP; the official App was not run. This is a client foundation fix, with Core still pinned to 3be57b5. Earlier 0db2ead packages do not contain it, and no new Mac or packaged-UI result is claimed.
 
