@@ -115,6 +115,7 @@ func (a *App) openManage() {
 			Title: "源管理", Width: 860, Height: 720, Content: ui.View(a.manageView),
 		})
 		a.refreshServices()
+		a.refreshCollections()
 		a.manageWin.OnClosed(func() {
 			a.manage.mu.Lock()
 			if a.manage.cancel != nil {
@@ -201,6 +202,8 @@ func (a *App) manageView(c *ui.Context) {
 		}
 
 		a.settingsPanel(c, t)
+
+		a.collectionsSection(c, t)
 
 		a.servicesSection(c, t)
 

@@ -12,6 +12,16 @@ The package contains the fix that stops a source's onLoginSuccess when the login
 
 0.2.12 adds the fix that stops a source's onLoginSuccess when the login window closes; the rest of the cancellation scope is unchanged from0.2.11. The following packaging and installation checks belong to this commit.
 
+## A collection panel in the source manager: subscribe, entries, install (Windows, 2026-11-04)
+
+The source manager gains a "统一源合集" section: a URL field with "订阅" at the top; each collection shows its name, id and URL with "刷新"/"取消订阅"; and each entry below lists its kind, status and declared key, with an incompatible entry stating which capability is missing and getting no install button. Installable entries (`comic-source.js`, `service.js`) have "安装".
+
+Installing now goes through one path, `collections.InstallEntry`, shared by the command line and the window: platform and capability checks, the digest, key rollback, and loading a service package before anything is written. An inconsistency was fixed along the way - the command line's `list` used a hard-coded capability list, so service entries showed as unsupported; both now use `Capabilities()`.
+
+Measured in the window (real UIA clicks, with `-hold` keeping it open): after subscribing to a loopback collection, pressing "安装" on the entry reported "已安装 demo-service", the service panel went from 0 to 1 with `demo-service · v1 · 权限 network,storage · collection:probe-services/demo-service`, and on disk `services/demo-service/` matched the `services.json` record with the digest the collection declared.
+
+Two failures along the way exercised the defences: with the server down the panel reported a connection error, and with different bytes served it reported that the artifact did not match its declared size or digest. Boundary: "订阅", "刷新" and "取消订阅" were only exercised against the local loopback for subscribing and showing the panel, not pressed one by one; Mac and iOS are not covered.
+
 ## A service panel in the source manager (Windows, 2026-11-04)
 
 The source manager gains a "服务插件" section: it lists each installed service with its name, id, version, the permissions its manifest asked for, how many account values exist and where it came from; each row has "账号" and "移除", and below them a service picker, account key/value inputs with "保存"/"删除", and "安装服务包…" for a zip. The value field renders as a password field, and the stored keys are listed by name only.

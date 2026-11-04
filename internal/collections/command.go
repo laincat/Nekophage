@@ -58,7 +58,7 @@ func RunCommand(ctx context.Context, dataDir, action string, args []string, out 
 	}
 	// These script hosts already exist. Theme/module/service and embedded
 	// Magpie-provider runtimes are not advertised by the desktop client.
-	views, err := manager.List(platform, []string{"comic-source.js", "video-source.js"})
+	views, err := manager.List(platform, Capabilities())
 	if err != nil {
 		return err
 	}

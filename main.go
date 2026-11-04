@@ -116,6 +116,9 @@ func main() {
 	}
 	defer c.Close()
 
+	// The collection panel tells servers which client this is.
+	ui.SetUserAgent("Nekophage/" + version + " (Core " + coreversion.String() + ")")
+
 	// The interface is Chinese throughout, so MyGo's built-in texts follow.
 	mygo.App.SetLanguages("zh-Hans")
 

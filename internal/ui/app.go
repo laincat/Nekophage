@@ -170,6 +170,8 @@ type App struct {
 	manage manageState
 	// svc is the service-plugin panel inside the source manager.
 	svc servicePanel
+	// cols is the shared-source collection panel beside it.
+	cols collectionPanel
 	// video is the video window and its player.
 	video          videoState
 	videoSearchGen generation
