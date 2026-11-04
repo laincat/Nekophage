@@ -2,6 +2,12 @@
 
 English | [简体中文](STATUS.md)
 
+## Windows0.2.11 local package (2026-11-04)
+
+633bea2/Core313951e is packaged as0.2.11. ZIP22,255,744 bytes; installer19,306,866 bytes. ZIP CRC, individual hashes, embedded version/Core/commit and installed-versus-ZIP executable equality passed. Isolated installation showed the main window, closed natively with exit0, and uninstall removed the directory while preserving profile data. Normal builds expose no automation endpoint.
+
+Real loopback covers leave-cancellation for covers, favorites, comments, shelf, filter follow-up, source-manager URL/index-entry installation and account login. WebView login, enable/remove, backup and file install are wired and engineering-checked only. The package is unsigned/unpublished; installed reader/video and Mac were not rerun. Delivery:[0.2.11](../../deliveries/2026-11-04-nekophage-0211/README.en.md).
+
 ## Windows0.2.11 candidate and request-cancellation scope (2026-11-04)
 
 Eleven commits after0.2.10 complete cancellation when leaving or closing a view: search, details, browse, category, favorites, comments, shelf, covers, filter follow-up, source-manager install/index/enable-remove/backup/settings/account, and source dialog pictures. Real loopback evidence separately covers covers, favorites, comments, shelf, filter follow-up, source-manager URL installation, index-entry installation and account login. WebView login, enable/remove, backup and file installation were wired and covered by engineering checks, without independent network reproduction.
