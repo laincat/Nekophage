@@ -12,6 +12,16 @@ The package contains the fix that stops a source's onLoginSuccess when the login
 
 0.2.12 adds the fix that stops a source's onLoginSuccess when the login window closes; the rest of the cancellation scope is unchanged from0.2.11. The following packaging and installation checks belong to this commit.
 
+## A signed image address is no longer rewritten (Windows, 2026-11-04)
+
+The live source patrol (`scripts/live-sources.sh`, 34 real sources) exposed a real problem: every chapter image of 再漫画 (zaimanhua) answered 403 with `check sign failed`.
+
+The cause was in the transport: before sending, it re-escaped the path. `url.Parse` turns `%2F` back into `/` and the Chinese text back into itself, and the uniform escaping wrote it out again - but the signature covers the original spelling, so the rewritten address no longer matched it. The fix: **a URL that already carries a valid escaped form keeps it as it is**, and only a URL without one, or with one that is no longer valid, is escaped here.
+
+After the fix the same address answers 200 with 165,307 bytes of `image/jpeg`, and zaimanhua goes from failing to passing in the live patrol. The regressions cover three things: a signed escaped path is kept unchanged, the server sees the same bytes the source handed over, and characters a request line cannot carry are still escaped as before.
+
+The patrol before the fix: of 34 sources, 18 passed, 13 failed and 3 need a server the user runs. The failures fall into three groups: the site blocking us or having changed (403, EOF, Cloudflare, HTML instead of data), an account being needed (picacg: "Not logged in"), and the site's own image protection (jcomic's `data-locked` addresses, manwaba's CDN serving bytes that are not a JPEG). The last group is a stated limitation and is not something this client works around.
+
 ## An idle service is unloaded (Windows, 2026-11-04)
 
 A resident service makes a second call cheap, but its runtime keeps memory too. The desktop now sweeps every minute: Core's `Supervisor.Sweep` unloads services idle for longer than the window (five minutes by default), and closing the window unloads them all. A regression covers that a service that was just used is not cleared away at once.

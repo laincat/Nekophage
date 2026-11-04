@@ -92,12 +92,23 @@ func NewTransport(jar *cookies.Jar, userAgent string, timeout time.Duration) *Tr
 // instead writes the raw byte, which servers answer with a protocol error.
 // Existing percent escapes are left alone, and the characters that structure
 // a URL stay as they are.
+//
+// A URL that already carries a valid escaped form keeps it exactly. The
+// escaped form is what the server signed: an image address with an escaped
+// slash and Chinese text in it has a signature over that spelling, and
+// re-escaping the decoded text turns "%2F" back into "/" and the server
+// answers "check sign failed".
 func escapeInvalid(u *url.URL) {
 	// The path is written from RawPath when it is set, so the escaped form
 	// goes there and Path keeps the plain text: setting Path to an escaped
 	// string would escape the percent signs again.
-	if escaped := escapeKeeping(u.Path, "/:@!$&'()*+,;=-._~%"); escaped != u.Path {
-		u.RawPath = escaped
+	//
+	// RawPath is only replaced when there is none, or when the one that came
+	// with the URL is not a valid encoding of the path.
+	if u.RawPath == "" || u.EscapedPath() != u.RawPath {
+		if escaped := escapeKeeping(u.Path, "/:@!$&'()*+,;=-._~%"); escaped != u.Path {
+			u.RawPath = escaped
+		}
 	}
 	u.RawQuery = escapeKeeping(u.RawQuery, "/?:@!$&'()*+,;=-._~%[]")
 }
