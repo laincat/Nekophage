@@ -106,7 +106,7 @@ type manageState struct {
 
 // openManage shows the window, creating it the first time.
 func (a *App) openManage() {
-	if a.manageWin == nil {
+	if a.manageWin == nil || a.manageWin.IsDestroyed() {
 		a.manageWin = mygo.NewWindow(mygo.WindowOptions{
 			Title: "源管理", Width: 860, Height: 720, Content: ui.View(a.manageView),
 		})
@@ -246,6 +246,11 @@ func (a *App) sourceRow(c *ui.Context, t *ui.Theme, rec plugin.Record) {
 		if rec.Type == plugin.TypeComic || rec.Type == plugin.TypeVideoJS {
 			if ui.Button(c, "设置").Clicked() {
 				a.openSourceSettings(key)
+			}
+		}
+		if rec.Type == plugin.TypeComic || rec.Type == plugin.TypeVideoJS || rec.Type == plugin.TypeKazumi {
+			if ui.Button(c, "查看源码").Key("source-code:" + key).Clicked() {
+				a.openSourceCode(key)
 			}
 		}
 		if a.manage.removing == key {

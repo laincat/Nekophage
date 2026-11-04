@@ -157,7 +157,8 @@ type App struct {
 	tagGen     generation
 	exploreGen generation
 
-	manageWin *mygo.Window
+	manageWin  *mygo.Window
+	sourceCode *sourceCodePanel
 	// comments is the open comment thread, if any.
 	comments commentsState
 	// logs is the 源日志 panel's window.
