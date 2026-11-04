@@ -2,6 +2,10 @@
 
 [English](STATUS.en.md) | 简体中文
 
+## 关闭源管理取消安装与订阅HTTP（Windows，2026-11-04）
+
+URL安装和订阅读取原先使用独立超时，关闭源管理后下载继续。现在两者从源管理窗口生命周期派生上下文，关闭时取消。真实loopback安装请求在取消后由服务端观察到连接停止。定向race与七项工程检查通过。日志 `E:/Temp/nk-manage-cancel/targeted.log`、`checks.log`。文件安装、启用/删除和备份路径尚未全部改接；尚未做新的Mac或安装版验收。
+
 ## 替换搜索取消筛选后续请求（Windows，2026-11-04）
 
 筛选读取原先使用独立超时，完成后可能用旧筛选再次搜索。现在读取跟随搜索代次，搜索被替换后旧结果既不写筛选状态，也不触发后续HTTP。定向race与七项工程检查通过。日志 `E:/Temp/nk-filter-cancel/targeted-followup.log`、`checks.log`。尚未做新的Mac或安装版验收。

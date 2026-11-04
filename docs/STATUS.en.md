@@ -2,6 +2,10 @@
 
 English | [简体中文](STATUS.md)
 
+## Closing source management cancels install and index HTTP (Windows, 2026-11-04)
+
+URL installation and index reads previously used independent timeouts and continued after source management closed. Both now derive their context from the window lifetime and are cancelled on close. A real loopback installation had its connection stopped after cancellation. Targeted race tests and seven engineering checks passed. Logs: `E:/Temp/nk-manage-cancel/targeted.log` and `checks.log`. File installation, enable/remove and backup paths are not all migrated yet. No new Mac or installed-build acceptance is claimed.
+
 ## Replacing a search cancels its filter follow-up (Windows, 2026-11-04)
 
 Filter loading previously used an independent timeout and could search again with stale filters. Loading now follows the search generation. After replacement, the old result neither writes filter state nor triggers follow-up HTTP. Targeted race tests and seven engineering checks passed. Logs: `E:/Temp/nk-filter-cancel/targeted-followup.log` and `checks.log`. No new Mac or installed-build acceptance is claimed.

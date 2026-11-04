@@ -7,6 +7,7 @@ import (
 	"log"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/egoist/mygo"
@@ -102,6 +103,9 @@ type manageState struct {
 	// The export half: where the file went, or why it did not.
 	backupErr    string
 	backupNotice string
+	lifetime     context.Context
+	cancel       context.CancelFunc
+	mu           sync.Mutex
 }
 
 // openManage shows the window, creating it the first time.
@@ -110,11 +114,36 @@ func (a *App) openManage() {
 		a.manageWin = mygo.NewWindow(mygo.WindowOptions{
 			Title: "源管理", Width: 860, Height: 720, Content: ui.View(a.manageView),
 		})
+		a.manageWin.OnClosed(func() {
+			a.manage.mu.Lock()
+			if a.manage.cancel != nil {
+				a.manage.cancel()
+				a.manage.lifetime, a.manage.cancel = nil, nil
+			}
+			a.manage.mu.Unlock()
+		})
 		a.manageWin.Show()
 		return
 	}
 	a.manageWin.Show()
 	a.manageWin.Focus()
+}
+
+// manageContext belongs to the open source manager. Closing it cancels
+// downloads and index reads derived from this context.
+func (a *App) manageContext() (context.Context, context.CancelFunc) {
+	m := &a.manage
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if a.manageWin == nil || a.manageWin.IsDestroyed() {
+		ctx, cancel := context.WithCancel(context.Background())
+		cancel()
+		return ctx, func() {}
+	}
+	if m.lifetime == nil {
+		m.lifetime, m.cancel = context.WithCancel(context.Background())
+	}
+	return context.WithCancel(m.lifetime)
 }
 
 func (a *App) manageView(c *ui.Context) {
@@ -281,7 +310,9 @@ func (a *App) installScript(rawURL string) {
 	typ := a.manage.installType()
 	a.manage.start("正在下载源文件…")
 	go func() {
-		ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
+		ctx, cancel := a.manageContext()
+		defer cancel()
+		ctx, cancel = context.WithTimeout(ctx, 120*time.Second)
 		defer cancel()
 		rec, err := a.lib.InstallTypedURL(ctx, typ, rawURL)
 		a.manageWin.Update(func() {
@@ -306,7 +337,9 @@ func (a *App) loadIndex(rawURL string) {
 	}
 	a.manage.start("正在读取订阅…")
 	go func() {
-		ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
+		ctx, cancel := a.manageContext()
+		defer cancel()
+		ctx, cancel = context.WithTimeout(ctx, 120*time.Second)
 		defer cancel()
 		idx, rows, err := a.lib.Index(ctx, rawURL)
 		a.manageWin.Update(func() {
