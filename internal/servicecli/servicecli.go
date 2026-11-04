@@ -20,6 +20,7 @@ import (
 	"github.com/laincat/veneracat-core/service"
 
 	"github.com/laincat/nekophage/internal/core"
+	"github.com/laincat/nekophage/internal/services"
 )
 
 // maxFetchBytes bounds one fetch a service makes.
@@ -30,22 +31,35 @@ func RunCommand(ctx context.Context, action string, args []string, dataDir strin
 	switch action {
 	case "call":
 		if len(args) < 2 || len(args) > 3 {
-			return errors.New("服务命令 call 需要 <包目录> <方法> [负载 JSON]")
+			return errors.New("服务命令 call 需要 <包目录或服务 ID> <方法> [负载 JSON]")
 		}
 		return call(ctx, args[0], args[1], payloadArg(args), dataDir, out, userAgent)
 	case "info":
 		if len(args) != 1 {
-			return errors.New("服务命令 info 需要 <包目录>")
+			return errors.New("服务命令 info 需要 <包目录或服务 ID>")
 		}
-		return info(args[0], out)
+		return info(dataDir, args[0], out)
+	case "list":
+		if len(args) != 0 {
+			return errors.New("服务命令 list 不需要参数")
+		}
+		return list(dataDir, out)
+	case "remove":
+		if len(args) != 1 {
+			return errors.New("服务命令 remove 需要 <服务 ID>")
+		}
+		if err := services.Remove(dataDir, args[0]); err != nil {
+			return err
+		}
+		return writeJSON(out, map[string]string{"removed": args[0]})
 	default:
-		return errors.New("服务命令须为 call 或 info")
+		return errors.New("服务命令须为 call、info、list 或 remove")
 	}
 }
 
 // info prints the manifest of a package without running it.
-func info(dir string, out io.Writer) error {
-	m, _, err := service.ReadPackage(dir)
+func info(dataDir, target string, out io.Writer) error {
+	m, _, err := read(dataDir, target)
 	if err != nil {
 		return err
 	}
@@ -61,7 +75,7 @@ func info(dir string, out io.Writer) error {
 
 // call runs one method of a package and prints its result.
 func call(ctx context.Context, dir, method string, payload []byte, dataDir string, out io.Writer, userAgent string) error {
-	m, source, err := service.ReadPackage(dir)
+	m, source, err := read(dataDir, dir)
 	if err != nil {
 		return err
 	}
@@ -91,6 +105,27 @@ func call(ctx context.Context, dir, method string, payload []byte, dataDir strin
 	}
 	fmt.Fprintln(out, strings.TrimSpace(string(result)))
 	return nil
+}
+
+// list prints the installed services.
+func list(dataDir string, out io.Writer) error {
+	all, err := services.List(dataDir)
+	if err != nil {
+		return err
+	}
+	if all == nil {
+		all = []services.Record{}
+	}
+	return writeJSON(out, all)
+}
+
+// read resolves a package: a directory when the argument is one, otherwise an
+// installed service by id.
+func read(dataDir, target string) (*service.Manifest, string, error) {
+	if info, err := os.Stat(target); err == nil && info.IsDir() {
+		return service.ReadPackage(target)
+	}
+	return services.Load(context.Background(), dataDir, target)
 }
 
 // payloadArg returns the request payload, or an empty JSON document.

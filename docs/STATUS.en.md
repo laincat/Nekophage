@@ -12,6 +12,14 @@ The package contains the fix that stops a source's onLoginSuccess when the login
 
 0.2.12 adds the fix that stops a source's onLoginSuccess when the login window closes; the rest of the cancellation scope is unchanged from0.2.11. The following packaging and installation checks belong to this commit.
 
+## Collections install service packages, callable from the command line (Windows, 2026-11-04)
+
+Core moves to `d62fbc7` (tree recorded in the publication receipt) and the `service` package gains `ReadPackageZip`: it reads the manifest and entry from a zip, bounds the bytes actually expanded, and refuses `../`, absolute paths and backslash names. The desktop wires `service.js` entries into `-collection install`: it downloads the zip, checks the declared digest, expands it into `services/<ID>/`, loads the package once before writing anything so a syntax error or an invalid manifest is refused before it reaches disk, and replaces a service of the same id as a whole. The install record lives in `services.json`.
+
+`-service` now supports `list`, `info`, `call` and `remove`, and its first argument is either an installed id or a package directory. A loopback collection exercised it: follow, install (the receipt carried id, version, origin and digest), list, `ping` returning JSON, a write followed by reading the same value back, three files on disk (`service.json`, `index.mjs`, `lib/helper.mjs`), and a call refused after `remove`.
+
+Only the command line is covered this round; the catalogue GUI, an interface entry and the account flow are not wired, and `video-source.js` is still refused explicitly.
+
 ## Service packages run from the command line (Windows, 2026-11-04)
 
 Core moves to `ec57f45` (tree `f382a2d3`), adding the service runtime and package loading: the `service` package parses a manifest, gates capabilities by permission and runs a module that exports `handle(method, payload)`. The desktop gains `-service call <package dir> <method> [payload JSON]` and `-service info <package dir>`: it prints the manifest, calls the method and prints JSON. The command line has no account store, so the `secrets` permission is not granted; `network` and `storage` are, and storage is kept per service in `services/<id>.json` under the data directory.

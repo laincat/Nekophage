@@ -12,6 +12,14 @@ f81dab6/Core313951e已打包为0.2.12。ZIP22,260,020字节、安装器19,310,82
 
 0.2.12在0.2.11之上包含关闭登录窗口即停止源onLoginSuccess的修复，其余取消范围不变。以下打包与安装核验以本提交为准。
 
+## 合集可安装服务包并在命令行调用（Windows，2026-11-04）
+
+Core 升到 `d62fbc7`（tree 见发布回执），`service` 包新增 `ReadPackageZip`：从 zip 读清单与入口、按实际解压字节兜上限、拒绝 `../`、绝对路径与反斜杠文件名。桌面端把 `service.js` 条目接进 `-collection install`：下载 zip、按声明摘要校验、解压到 `services/<ID>/`，安装前先加载一次，语法错误或清单非法都在落盘前拒绝，同名服务整体替换。安装记录在 `services.json`。
+
+`-service` 现在支持 `list`、`info`、`call`、`remove`，第一个参数既可以是已装服务 ID，也可以是磁盘上的包目录。本地 loopback 合集实测：follow → install（回执含 ID、版本、来源、摘要）→ list → ping 返回 JSON → 写入后再读回同一个值 → 磁盘上是 `service.json`、`index.mjs`、`lib/helper.mjs` 三个文件 → remove 后调用被拒绝。
+
+本轮只覆盖命令行；目录 GUI、图形界面的服务入口与账号流程仍未接入，`video-source.js` 仍明确拒绝。
+
 ## 服务包可在命令行运行（Windows，2026-11-04）
 
 Core 升到 `ec57f45`（tree `f382a2d3`），新增服务运行时与包加载：`service` 包能解析清单、按权限把关，并运行导出 `handle(method, payload)` 的模块。桌面端新增 `-service call <包目录> <方法> [负载 JSON]` 与 `-service info <包目录>`：先打印清单，再按方法调用，结果为 JSON。命令行没有账号存储，所以 `secrets` 权限不授予；`network` 与 `storage` 授予，存储按服务分别落在数据目录的 `services/<id>.json`。

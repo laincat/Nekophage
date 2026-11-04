@@ -9,6 +9,7 @@ import (
 
 	"github.com/laincat/nekophage/internal/core"
 	"github.com/laincat/nekophage/internal/library"
+	"github.com/laincat/nekophage/internal/services"
 	"github.com/laincat/veneracat-core/plugin"
 )
 
@@ -23,19 +24,31 @@ func installEntry(ctx context.Context, m *Manager, collectionID, entryID, dataDi
 	if platform == "darwin" {
 		platform = "macos"
 	}
-	entry, err := m.Entry(collectionID, entryID, platform, []string{"comic-source.js", "video-source.js"})
+	entry, err := m.Entry(collectionID, entryID, platform, []string{"comic-source.js", "video-source.js", "service.js"})
 	if err != nil {
 		return err
 	}
 	if !entry.Compatible {
 		return fmt.Errorf("合集条目 %s/%s 不支持当前平台,缺少 %v", collectionID, entryID, entry.Missing)
 	}
-	if entry.Kind != "comic-source.js" {
-		return fmt.Errorf("合集条目类型 %s 暂不支持", entry.Kind)
-	}
 	body, err := m.Artifact(ctx, entry)
 	if err != nil {
 		return err
+	}
+	if entry.Kind == "service.js" {
+		origin := "collection:" + collectionID + "/" + entryID
+		digest := ""
+		if entry.Artifact != nil {
+			digest = entry.Artifact.SHA256
+		}
+		rec, err := services.Install(ctx, dataDir, origin, digest, body)
+		if err != nil {
+			return err
+		}
+		return json.NewEncoder(out).Encode(rec)
+	}
+	if entry.Kind != "comic-source.js" {
+		return fmt.Errorf("合集条目类型 %s 暂不支持", entry.Kind)
 	}
 	c, err := core.Open(core.Options{DataDir: dataDir, AppVersion: "1.6.3", Locale: "zh_CN"})
 	if err != nil {

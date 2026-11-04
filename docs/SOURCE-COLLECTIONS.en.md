@@ -15,7 +15,7 @@ Nekophage -data-dir ./profile -collection refresh publisher.collection
 Nekophage -data-dir ./profile -collection unfollow publisher.collection
 ```
 
-`list` reads the local snapshot offline and retains subscriptions across processes. All entries remain visible; Core produces `compatible` and `missing`, so unsupported platforms, unknown capabilities and design entries are not discarded. macOS maps to platform `macos`; the desktop currently advertises only its existing `comic-source.js` and `video-source.js` hosts. Compatibility is neither authorization nor installation.
+`list` reads the local snapshot offline and retains subscriptions across processes. All entries remain visible; Core produces `compatible` and `missing`, so unsupported platforms, unknown capabilities and design entries are not discarded. macOS maps to platform `macos`; the desktop advertises `comic-source.js`, `video-source.js` and `service.js`. Compatibility is neither authorization nor installation.
 
 ## Storage and request behavior
 
@@ -31,4 +31,23 @@ As with other desktop profile data, this store currently has one process owner. 
 
 Tests use the real Core parser, client Transport and loopback HTTP for restoration, compatibility, preservation of installed records, profile isolation, failed refreshes, write-failure retries, connection cancellation/replacement, unfollow lifecycle, invalid snapshots and HTML-description round trips. The actual desktop build also exercises commands across processes against the shared-source project's seven-entry collection.
 
-This round adds no catalogue GUI, entry installer, module executor or service-plugin host. Existing source installation remains separate. A future catalogue GUI can reuse this Manager, with networking and parsing off the UI thread. Execution results and log locations are recorded in [STATUS](STATUS.en.md).
+## Installing entries
+
+`-collection install <collectionID> <entryID>` installs one entry, deciding platform and capability compatibility first and refusing with the missing capabilities listed.
+
+- `comic-source.js`: downloads text, checks the declared size and SHA-256, then installs it as a comic source. If the script registers a key other than the declared one, it is uninstalled again.
+- `service.js`: downloads a zip service package, checks the digest and expands it into `<data-dir>/services/<ID>/`. The package is loaded once before anything is written, so a syntax error or an invalid manifest is refused before it reaches disk. A service of the same id is replaced as a whole, leaving no files from the previous version. The install record lives in `<data-dir>/services.json`.
+- `video-source.js` and other kinds are still refused explicitly.
+
+The `-service` command uses an installed package:
+
+```sh
+Nekophage -data-dir ./profile -service list
+Nekophage -data-dir ./profile -service info demo-service
+Nekophage -data-dir ./profile -service call demo-service ping '{"a":1}'
+Nekophage -data-dir ./profile -service remove demo-service
+```
+
+The first argument of `call` is either an installed service id or a package directory. The command-line host grants `network` and `storage`, and does not grant `secrets` because it has no account store; storage is kept per service in `<data-dir>/services/<ID>.json`. The contract itself is Core's `docs/SERVICE-PLUGINS.md`.
+
+This round adds no catalogue GUI, and there is no interface entry or account flow for services. Existing source installation remains separate. A future catalogue GUI can reuse this Manager, with networking and parsing off the UI thread. Execution results and log locations are recorded in [STATUS](STATUS.en.md).

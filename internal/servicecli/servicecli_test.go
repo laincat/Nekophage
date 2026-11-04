@@ -1,6 +1,7 @@
 package servicecli
 
 import (
+	"archive/zip"
 	"bytes"
 	"context"
 	"encoding/json"
@@ -10,6 +11,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/laincat/nekophage/internal/services"
 )
 
 // writeService writes a service package into a temporary directory.
@@ -131,6 +134,65 @@ func TestInfoPrintsTheManifest(t *testing.T) {
 	if got["id"] != "demo" || got["kind"] != "service.js" {
 		t.Fatalf("info = %v", got)
 	}
+}
+
+// An installed service is called by its id, and listed by the command.
+func TestInstalledServiceIsCalledByID(t *testing.T) {
+	dir := writeService(t, manifestFor(""), "export function handle(method) { return { method: method }; }")
+	archive := zipPackage(t, map[string]string{
+		"service.json": manifestFor(""),
+		"index.mjs":    "export function handle(method) { return { method: method, from: 'installed' }; }",
+	})
+	data := t.TempDir()
+	rec, err := services.Install(context.Background(), data, "test", "", archive)
+	if err != nil {
+		t.Fatalf("install: %v", err)
+	}
+	if rec.ID != "demo" {
+		t.Fatalf("record = %+v", rec)
+	}
+	var out bytes.Buffer
+	if err := RunCommand(context.Background(), "list", nil, data, &out, "Nekophage/test"); err != nil {
+		t.Fatalf("list: %v", err)
+	}
+	if !strings.Contains(out.String(), "demo") {
+		t.Fatalf("list = %s", out.String())
+	}
+	out.Reset()
+	if err := RunCommand(context.Background(), "call", []string{"demo", "ping"}, data, &out, "Nekophage/test"); err != nil {
+		t.Fatalf("call: %v", err)
+	}
+	if !strings.Contains(out.String(), "installed") {
+		t.Fatalf("call = %s", out.String())
+	}
+	out.Reset()
+	if err := RunCommand(context.Background(), "remove", []string{"demo"}, data, &out, "Nekophage/test"); err != nil {
+		t.Fatalf("remove: %v", err)
+	}
+	if err := RunCommand(context.Background(), "call", []string{"demo", "ping"}, data, &out, "Nekophage/test"); err == nil {
+		t.Fatal("a removed service was still callable")
+	}
+	_ = dir
+}
+
+// zipPackage builds a service package archive.
+func zipPackage(t *testing.T, files map[string]string) []byte {
+	t.Helper()
+	var buf bytes.Buffer
+	w := zip.NewWriter(&buf)
+	for name, body := range files {
+		f, err := w.Create(name)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := f.Write([]byte(body)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := w.Close(); err != nil {
+		t.Fatal(err)
+	}
+	return buf.Bytes()
 }
 
 func TestUnknownActionAndArgumentsAreRefused(t *testing.T) {
