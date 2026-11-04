@@ -2,6 +2,10 @@
 
 [English](STATUS.en.md) | 简体中文
 
+## Core ccb6268 候选消费（未整合主线，2026-11-04）
+
+本分支候选1fbd2647使用Core ccb626825bc116dad3b3e9a082867fd22c09caf4，正式客户端主线和0.2.8交付包仍为3be57b5。Windows七项工程检查通过；现有readercheck在隔离资料中实际解码2/2页，重开恢复scrollY=1200。uicheck通过带Referer/Cookie鉴权的HLS/Range请求、320×180解码和页面进度落盘/重开2.011秒；音频解码18718字节，不代表扬声器。videocheck原生MP4播放、进度报告及1024字节Range206通过。这些是开发WebView路径，不是新安装包或Mac验收。Core Apple CI尚未有终态，日志 `E:/Temp/nk-core-source-release/`。
+
 ## Windows 0.2.8 本地交付（2026-11-04）
 
 已构建包含bfc3484图片转换失败回退修复的0.2.8/1de7f996，Core仍3be57b5。Lead在Windows完成scripts/check.sh七项检查、ZIP CRC/逐文件摘要/版本、NSIS构建及实际隔离安装。安装版主窗口和控件可见，原生关闭按钮经UIA调用后窗口消失，进程已退出；没有捕获退出码。随后卸载移除安装目录，隔离资料的全部已有文件摘要保持不变。

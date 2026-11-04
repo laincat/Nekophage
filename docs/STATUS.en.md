@@ -2,6 +2,10 @@
 
 English | [简体中文](STATUS.md)
 
+## Core ccb6268 consumer candidate (not integrated, 2026-11-04)
+
+Candidate 1fbd2647 consumes Core ccb626825bc116dad3b3e9a082867fd22c09caf4; client main and the delivered 0.2.8 package still use 3be57b5. All seven Windows engineering checks passed. Existing readercheck decoded 2/2 pages in isolation and restored scrollY=1200. uicheck passed Referer/Cookie-authenticated HLS/Range requests, 320x180 decoding and page-written/reopened progress at 2.011 seconds; 18718 decoded audio bytes do not establish speaker output. videocheck passed native MP4 playback/progress and a 1024-byte Range206 response. These are development WebView results, not new package or Mac acceptance. Core Apple CI is not terminal yet. Logs: `E:/Temp/nk-core-source-release/`.
+
 ## Local Windows 0.2.8 delivery (2026-11-04)
 
 Built 0.2.8/1de7f996 with the bfc3484 image-transform failure fallback repair; Core remains 3be57b5. Lead completed all seven scripts/check.sh checks, ZIP CRC/file digests/version, NSIS build and actual isolated installation on Windows. The installed main window and controls appeared; UIA invocation of the native Close button removed the window and the process exited. Its exit code was not captured. Uninstall then removed the installation directory while preserving every existing isolated profile file digest.
