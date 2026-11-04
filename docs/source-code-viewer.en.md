@@ -16,4 +16,10 @@ Known limits:
 
 - The snapshot is taken when the window opens and does not follow outside updates during that opening.
 - Closing the source manager does not close the source window; each closes on its own.
-- Only the local Mac development build and an isolated fixture source were verified. Installers, Windows, and composition-cancel with a real operating-system input method were not.
+- Prior Mac development-build results retain their earlier Core scope. Windows native-window results for the current combination follow below. System clipboard, real operating-system composition cancellation and installed-build source viewing remain unverified.
+
+## Windows native-window validation (2026-11-04)
+
+The Lead drove actual Windows windows through MyGo automation in an isolated2b38049/Core313951e e2e build. Comic JavaScript, video JavaScript and Kazumi JSON bodies exactly matched installed records. Explicit setValue, text input and Backspace could not modify the read-only content. Switching sources closed the previous viewer; closing and reopening source management retained and reused the same viewer.
+
+The actual source-manager URL-install path updated the comic from1.0.0 to2.0.0 through one loopback request. The open viewer retained1.0.0; closing and reopening showed2.0.0. Native WM_CLOSE shut down only task-owned windows, and both independent processes exited0. The second process restored the2.0.0 body, with other source bodies/types/enabled states preserved. Logs/screenshots: `E:/Temp/nk-source-viewer-windows/`. This used an e2e test build; release builds do not import the automation plugin. System clipboard, real IME and macOS windows with the new Core combination remain unverified; the Orca Worker's prior Mac results still belong to the earlierccb candidate.

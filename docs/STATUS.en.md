@@ -2,6 +2,12 @@
 
 English | [简体中文](STATUS.md)
 
+## Read-only source viewer integrated and verified in Windows windows (2026-11-04)
+
+The Orca Worker patch passed three transport SHA checks and all seven file hashes before commit2b38049. Dependencies are unchanged; automation imports require the e2e tag. Targeted race tests and seven engineering checks passed. The Lead then used actual Windows windows with Core313951e to verify three source bodies, rejected read-only writes, switching, manager close/reopen, GUI URL reinstall1.0.0→2.0.0, fixed snapshots and restoration in a new process. Both processes closed normally and exited0. See [source viewer](source-code-viewer.en.md) and `E:/Temp/nk-source-viewer-windows/`.
+
+Local package0.2.10 is being prepared with this feature, collection commands, persistence rollback and Core313 duplicate-key/index-identity repairs; e2e results do not establish installed-build acceptance. Earlier Macccb evidence is not promoted to this combination. Real IME and system clipboard remain unverified.
+
 ## Structured duplicate-key and index-identity fixes integrated (2026-11-04)
 
 An isolated worktree uses the Core duplicate-key candidate and errors.As(plugin.KeyExistsError) to select the key, replacing colon-based error-text parsing. Enabled comic/video sources updated from actual files to2.0.0, via URLs to3.0.0, and executed3.0.0 after a new runtime restored the saved records. Plain/forged errors cannot choose installed sources. Existing disabled updates, wrong-type rejection and failed-persistence rollback regressions remain intact. An additional regression reproduced an index naming A while its body selected installed B through generic-install fallback. New index installs now use Core InstallFromComicIndex to retain the declared identity; B runtime/disk records remain unchanged. Logs: index-before.log/consumer-identity.log.

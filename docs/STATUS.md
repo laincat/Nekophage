@@ -2,6 +2,12 @@
 
 [English](STATUS.en.md) | 简体中文
 
+## 只读源码查看已整合与Windows原生验证（2026-11-04）
+
+Orca Worker的补丁三层SHA与7个目标文件SHA核对后，已提交2b38049；依赖不变，测试自动化仅e2e标签导入。定向race和七项工程通过。Lead另在当前Core313951e实际Windows窗口验证三类源码正文、只读写入拒绝、换源、源管理关闭重开、GUI URL重装1.0.0→2.0.0、快照固定及新进程恢复，两进程均正常关窗退出0。详见[源码查看](source-code-viewer.md)及 `E:/Temp/nk-source-viewer-windows/`。
+
+当前准备0.2.10本地包，包含此功能、合集命令、更新写盘回滚及Core313重复键/索引身份修复；尚未以e2e结果替代安装版验收。Mac旧ccb证据不提升为当前组合，真实IME和系统剪贴板未验。
+
 ## 结构化重复键与索引身份修复已整合（2026-11-04）
 
 隔离worktree使用Core重复键修复候选，通过errors.As读取plugin.KeyExistsError.Key，移除按冒号拆错误文字的更新目标选择。启用漫画/视频源真实文件重装到2.0.0、URL更新到3.0.0、新运行时从磁盘恢复并执行3.0.0均通过；普通/伪造报错不能选择已安装源。既有禁用源更新、跨类型拒绝和写盘失败回滚回归保持。额外复现并修复索引指定A、正文声明已安装B时通用安装流程误更新B的问题：索引新装现在调用Core既有InstallFromComicIndex，保留索引声明的身份；负例中B的运行记录和磁盘均不变，日志index-before.log/consumer-identity.log。
