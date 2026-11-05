@@ -12,6 +12,12 @@ The package contains the fix that stops a source's onLoginSuccess when the login
 
 0.2.12 adds the fix that stops a source's onLoginSuccess when the login window closes; the rest of the cancellation scope is unchanged from0.2.11. The following packaging and installation checks belong to this commit.
 
+## Following Core 518f446: a busy service is left alone (Windows, 2026-11-04)
+
+Core moves to `518f446` (tree `a7f402cb`): a resident service counts the calls in flight, and both `Sweep` and LRU eviction skip busy ones. The desktop sweeps once a minute, so a call longer than the idle window used to have its runtime closed **mid-call**; at the resident cap it could also evict the one executing.
+
+All seven `scripts/check.sh` steps pass.
+
 ## Following Core 971146f: the challenge rule crosses the bridge whole (Windows, 2026-11-04)
 
 Core moves to `971146f` (tree `ba7d3620`): `hostBridge.Verify` now hands `sameHost` to the client too, and the clearance it returns accepts `query`. The desktop used to decide on markers and cookies alone, which left an edge challenge one condition short; all three groups now arrive in the challenge JSON.
