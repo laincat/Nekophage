@@ -12,6 +12,14 @@ The package contains the fix that stops a source's onLoginSuccess when the login
 
 0.2.12 adds the fix that stops a source's onLoginSuccess when the login window closes; the rest of the cancellation scope is unchanged from0.2.11. The following packaging and installation checks belong to this commit.
 
+## Following Core 0f1e7b8: the Cloudflare window no longer hangs (Windows, 2026-11-04)
+
+Core moves to `0f1e7b8` (tree `80b14e97`): the Cloudflare rule no longer waits for `/cdn-cgi/challenge-platform/` (ordinary pages of a protected zone carry that script) nor insists on `cf_clearance` (a browser Cloudflare never challenged has none); it is now "the interstitial markers are gone and the browser is back on the guarded host".
+
+Measured on 18漫画: the window sat on "请稍候…" for four minutes before, and ends in about four seconds now; that site's retry is still 403 (its WAF issues no clearance cookie) and the window says "源要求人机验证或拒绝了请求".
+
+All seven `scripts/check.sh` steps pass.
+
 ## Following Core 518f446: a busy service is left alone (Windows, 2026-11-04)
 
 Core moves to `518f446` (tree `a7f402cb`): a resident service counts the calls in flight, and both `Sweep` and LRU eviction skip busy ones. The desktop sweeps once a minute, so a call longer than the idle window used to have its runtime closed **mid-call**; at the resident cap it could also evict the one executing.
