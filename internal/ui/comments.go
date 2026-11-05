@@ -63,8 +63,12 @@ func (a *App) openComments() {
 		return
 	}
 	*c = commentsState{key: key, id: comic.ID, sub: a.detail.SubID, page: 1,
-		canSend: a.core.CanSendComment(context.Background(), key),
-		canLike: a.core.CanLikeComment(context.Background(), key)}
+		// Whether the source can post or vote is asked after the window exists:
+		// answering it means loading and compiling the source's script, which
+		// used to happen while the window was still being built, so the window
+		// waited for it with no lifetime to stop it.
+		canSend: false, canLike: false}
+	c.lifetime, c.cancel = context.WithCancel(context.Background())
 	win := mygo.NewWindow(mygo.WindowOptions{
 		Title:   "评论",
 		Width:   720,
@@ -72,6 +76,7 @@ func (a *App) openComments() {
 		Content: ui.View(func(ctx *ui.Context) { a.commentsView(ctx) }),
 	})
 	c.win, c.open = win, true
+	a.askCommentCapabilities()
 	win.OnClosed(func() {
 		c.mu.Lock()
 		if c.cancel != nil {
@@ -107,6 +112,31 @@ func (a *App) CommentsForCheck() (count int, author, body, errText string) {
 		author, body = a.comments.list[0].UserName, a.comments.list[0].Content
 	}
 	return count, author, body, a.comments.errText
+}
+
+// askCommentCapabilities asks Core whether this source posts and votes.
+//
+// It runs beside the window rather than inside opening it, because the answer
+// means compiling the source's script: doing that in the open path made the
+// window wait on the source. The question is asked under the thread's lifetime,
+// so closing the window drops it like any other read.
+func (a *App) askCommentCapabilities() {
+	c := &a.comments
+	key := c.key
+	go func() {
+		ctx, cancel := a.commentsContext()
+		defer cancel()
+		ctx, cancel = context.WithTimeout(ctx, 20*time.Second)
+		defer cancel()
+		send, like := a.core.CanSendComment(ctx, key), a.core.CanLikeComment(ctx, key)
+		a.mu.Lock()
+		c.canSend, c.canLike = send, like
+		win := c.win
+		a.mu.Unlock()
+		if win != nil {
+			win.Update(func() {})
+		}
+	}()
 }
 
 // commentsContext belongs to the currently open thread. Closing the window
