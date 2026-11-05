@@ -12,6 +12,21 @@ The package contains the fix that stops a source's onLoginSuccess when the login
 
 0.2.12 adds the fix that stops a source's onLoginSuccess when the login window closes; the rest of the cancellation scope is unchanged from0.2.11. The following packaging and installation checks belong to this commit.
 
+## A Host the source names now actually goes out (Windows, 2026-11-05)
+
+`internal/core/transport.go` copied every request header a source gave into `http.Request.Header`, but Go ignores `Header["Host"]` - it sends the URL's host. A source that dials address A yet asks for site B's virtual host (the `Host: mobileapp.comic-walker.com` shape) therefore always got A's answer.
+
+`Host` is now handled on its own: written to `req.Host` and removed from the header map. `Do` and `OpenStream` share the same `request()`, so both paths get it.
+
+Regressions:
+
+- `TestAHostHeaderReachesTheServer`: the server's `r.Host` is the name the source named; with the fix reverted the case fails (`the server was asked for "127.0.0.1:63453"`) and passes again once restored.
+- `TestWithoutAHostHeaderTheAddressIsTheHost`: without the header nothing changes, the address is still the host.
+
+**Boundary**: `comic_walker.js` still fails - the same request through `curl` from this machine is `403 text/html` as well, so that one is the site or the network, not this fix; whether iOS's `URLSessionTransport` honours a custom `Host` is not verified.
+
+All seven `scripts/check.sh` steps pass; the regression probes report 19 PASS / 0 FAIL / 1 SKIP.
+
 ## 0.2.22 (Windows, 2026-11-05)
 
 0.2.21 plus "a source dialog's picture lives and dies with the dialog": a close before the request means it is never sent, a close during it cancels at once.

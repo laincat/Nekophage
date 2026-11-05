@@ -188,6 +188,16 @@ func (t *Transport) request(ctx context.Context, r *host.Request) (*http.Request
 		if strings.EqualFold(k, "Cookie") {
 			continue
 		}
+		// A source that names Host means the site behind this address, the way
+		// curl's --resolve does: the API answers for that name, not for the
+		// address a client happens to dial. Go sends the URL's host unless the
+		// request's Host field is set, so copying the header alone would drop it.
+		if strings.EqualFold(k, "Host") {
+			if len(vs) > 0 {
+				req.Host = vs[0]
+			}
+			continue
+		}
 		for _, v := range vs {
 			req.Header.Add(k, v)
 		}

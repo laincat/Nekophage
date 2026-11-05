@@ -12,6 +12,21 @@ f81dab6/Core313951e已打包为0.2.12。ZIP22,260,020字节、安装器19,310,82
 
 0.2.12在0.2.11之上包含关闭登录窗口即停止源onLoginSuccess的修复，其余取消范围不变。以下打包与安装核验以本提交为准。
 
+## 源指定的 Host 现在真的发出去（Windows，2026-11-05）
+
+`internal/core/transport.go` 把源给的请求头逐条拷进 `http.Request.Header`，但 Go 不认 `Header["Host"]`——它只发 URL 的主机名。于是「把地址拨到 A、却要求站点 B 的虚拟主机」这种源（`Host: mobileapp.comic-walker.com` 的形状）永远拿到 A 的答案。
+
+现在 `Host` 被单独处理：写进 `req.Host` 并从头部表里移除，`Do` 与 `OpenStream` 共用同一个 `request()`，两条路径都生效。
+
+回归：
+
+- `TestAHostHeaderReachesTheServer`：服务端看到的 `r.Host` 是源指定的名字；把修复撤掉时该用例失败（`the server was asked for "127.0.0.1:63453"`），改回即通过。
+- `TestWithoutAHostHeaderTheAddressIsTheHost`：不设 `Host` 时行为不变，仍是地址本身。
+
+**边界**：`comic_walker.js` 仍失败——同一请求用 `curl` 直接从这台机器走也是 `403 text/html`，属站点/网络侧，不是本次修复的目标；iOS 的 `URLSessionTransport` 是否也尊重自定义 `Host` 尚未验证。
+
+`scripts/check.sh` 七项 PASS；回归探针 19 PASS / 0 FAIL / 1 SKIP。
+
 ## 0.2.22（Windows，2026-11-05）
 
 在 0.2.21 基础上带上「源对话框图片绑定对话框生命周期」：关在请求之前不发出，关在请求之中立即取消。
