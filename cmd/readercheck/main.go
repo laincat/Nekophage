@@ -171,9 +171,21 @@ func main() {
 			loaded := report("Array.from(document.images).filter(i => i.complete && i.naturalWidth > 0).length")
 			first := report("document.images.length && document.images[0].naturalWidth ? document.images[0].naturalWidth + 'x' + document.images[0].naturalHeight + ' ' + document.images[0].currentSrc.slice(0, 60) : ''")
 			log.Printf("page title=%v figures=%v images=%v decoded=%v first=%v", title, pages, total, loaded, first)
-			if data, err := win.CapturePage(); err == nil {
+			// The web view can capture its own page; the window only captures the
+			// native layer around it, which is why a reading screenshot used to
+			// come out blank with just the toolbar.
+			captured := false
+			if data, err := view.CapturePage(); err == nil && len(data) > 0 {
 				if err := os.WriteFile(*out, data, 0o644); err == nil {
-					log.Printf("window capture: %s (%d bytes; the web layer is not in it)", *out, len(data))
+					log.Printf("web capture: %s (%d bytes)", *out, len(data))
+					captured = true
+				}
+			}
+			if !captured {
+				if data, err := win.CapturePage(); err == nil {
+					if err := os.WriteFile(*out, data, 0o644); err == nil {
+						log.Printf("window capture: %s (%d bytes; the web layer may not be in it)", *out, len(data))
+					}
 				}
 			}
 			checked.Store(true)
