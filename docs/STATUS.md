@@ -12,6 +12,17 @@ f81dab6/Core313951e已打包为0.2.12。ZIP22,260,020字节、安装器19,310,82
 
 0.2.12在0.2.11之上包含关闭登录窗口即停止源onLoginSuccess的修复，其余取消范围不变。以下打包与安装核验以本提交为准。
 
+## MyGo 升到 0.7.4（Windows，2026-11-04）
+
+依赖从 `v0.7.3` 升到 `v0.7.4`。该版本修了几处与我们直接相关的行为：
+
+- Windows 用 WebView2 的 `PreferredColorScheme` 表达强制外观，页面不会再先看到系统的 `prefers-color-scheme`（阅读页与播放页都按这个媒体查询画深浅两套样式）
+- 安装器向导里的「桌面快捷方式」勾选框按其语言显示
+- `WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS` 与 `WEBVIEW2_USER_DATA_FOLDER` 按 WebView2 加载器的语义处理
+- 编辑器、滚动条、文本客户端若干修正
+
+验证：`go build ./...`、`go test ./...`、`go vet ./...` 全部通过；回归探针 **19 PASS / 0 FAIL / 1 SKIP**；`scripts/check.sh` 七项 PASS。
+
 ## 跟随 Core 0f1e7b8：Cloudflare 窗口不再卡死（Windows，2026-11-04）
 
 Core 升到 `0f1e7b8`（tree `80b14e97`）：Cloudflare 完成规则不再等 `/cdn-cgi/challenge-platform/`（受保护站点的普通页面也带这个脚本）也不再强制 `cf_clearance`（没被挑战过的浏览器没有它），改为「插页标记消失且回到被保护主机」。

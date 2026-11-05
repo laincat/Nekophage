@@ -3,7 +3,7 @@ module github.com/laincat/nekophage
 go 1.27.3
 
 require (
-	github.com/egoist/mygo v0.7.3
+	github.com/egoist/mygo v0.7.4
 	github.com/laincat/veneracat-core v0.0.0
 	modernc.org/sqlite v1.61.0
 )

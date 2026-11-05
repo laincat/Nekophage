@@ -12,6 +12,17 @@ The package contains the fix that stops a source's onLoginSuccess when the login
 
 0.2.12 adds the fix that stops a source's onLoginSuccess when the login window closes; the rest of the cancellation scope is unchanged from0.2.11. The following packaging and installation checks belong to this commit.
 
+## MyGo moves to 0.7.4 (Windows, 2026-11-04)
+
+The dependency goes from `v0.7.3` to `v0.7.4`. That release fixes several behaviours we depend on:
+
+- Windows expresses a forced appearance with WebView2's `PreferredColorScheme`, so a page no longer sees the system's `prefers-color-scheme` first (the reader and player pages both draw light and dark styles from that media query)
+- the installer wizard's desktop-shortcut checkbox follows the wizard's language
+- `WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS` and `WEBVIEW2_USER_DATA_FOLDER` follow the WebView2 loader's semantics
+- assorted editor, scroll bar and text client corrections
+
+Verified: `go build ./...`, `go test ./...` and `go vet ./...` all pass; the regression probes report **19 PASS / 0 FAIL / 1 SKIP**; all seven `scripts/check.sh` steps pass.
+
 ## Following Core 0f1e7b8: the Cloudflare window no longer hangs (Windows, 2026-11-04)
 
 Core moves to `0f1e7b8` (tree `80b14e97`): the Cloudflare rule no longer waits for `/cdn-cgi/challenge-platform/` (ordinary pages of a protected zone carry that script) nor insists on `cf_clearance` (a browser Cloudflare never challenged has none); it is now "the interstitial markers are gone and the browser is back on the guarded host".
