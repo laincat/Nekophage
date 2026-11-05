@@ -4,6 +4,18 @@ English | [简体中文](STATUS.md)
 
 
 
+
+### The reading page's pixel screenshot is now in hand (`15c1acd` plus tooling commit `f4375b0`, 2026-11-05)
+
+With `view.CapturePage()` (the WebView's own), the same fixture reran:
+
+- log: `web capture: …/07-reader-web-capture-patch.png (27557 bytes)` - `web capture:`, not `window capture:`
+- screenshot **27,557 bytes / 900x968**, SHA-256 `3298e61efc53c461a472d8f15cab4ae533a70523783d5186b34398424b3884fe`; the top bar reads 「Loopback Comic / 2 页 / 宽 窄 单页 左→右 收藏本页 自动接续:关」 with two comic pages below, not a blank body
+- the same run still reported `the reader rendered 2 of 2 pages` and `after reopening the chapter, scrollY=1200 saved=1200`
+
+**Attribution**: the app under test is `15c1acd`; only the capture tool changed (`f4375b0`, `cmd/readercheck`), and no product logic moved.
+
+**Correcting the previous round's account**: the failure was not the patch's `0o644` but my inline transcription of the base64 dropping characters (2957/2216 bytes, `git apply` reported `corrupt patch at line 46`). The authoritative gist decoded to 2960/2218 bytes with matching hashes and applied cleanly.
 ## The reading screenshot now uses the WebView's own capture (`f4375b0`, 2026-11-05)
 
 `cmd/readercheck` captured with `win.CapturePage()`, which is the **window's native layer**: the reader lives in a WebView inside its own window, so the shot had a toolbar, blank body and nothing else. mygo's `WebView` has its own `CapturePage()`; the tool now tries that first and falls back to the window capture, saying in the log which one it used (`web capture:` / `window capture:`).

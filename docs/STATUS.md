@@ -4,6 +4,18 @@
 
 
 
+
+### 阅读页像素截图已补（`15c1acd` + 工具提交 `f4375b0`，2026-11-05）
+
+改用 `view.CapturePage()`（WebView 自身）后，同一夹具下重跑：
+
+- 日志：`web capture: …/07-reader-web-capture-patch.png (27557 bytes)`——是 `web capture:`，不是 `window capture:`
+- 截图 **27,557 字节 / 900x968**，SHA-256 `3298e61efc53c461a472d8f15cab4ae533a70523783d5186b34398424b3884fe`；顶栏是「Loopback Comic / 2 页 / 宽 窄 单页 左→右 收藏本页 自动接续:关」，下面是两页漫画本体，不是白屏
+- 同次运行仍有 `the reader rendered 2 of 2 pages` 与 `after reopening the chapter, scrollY=1200 saved=1200`
+
+**归属**：被测 App 是 `15c1acd`，只换了截图工具（`f4375b0`，`cmd/readercheck`），产品逻辑未动。
+
+**更正上一轮的说法**：上轮失败不是补丁里 `0o644` 的问题，而是我内联转写 base64 时少了字符（2957/2216 字节，`git apply` 报 `corrupt patch at line 46`）。权威 gist 版本解出 2960/2218 字节、哈希一致、`git apply` 干净通过。
 ## 阅读页截图改用 WebView 自身捕获（`f4375b0`，2026-11-05）
 
 `cmd/readercheck` 原来用 `win.CapturePage()`，那是**窗口原生层**的截图：阅读视图在独立窗口的 WebView 里，于是拍出来只有标题栏和上下章按钮、正文白屏。mygo 的 `WebView` 自己有 `CapturePage()`，改为先试它、失败才退回窗口截图，并在日志里写明用了哪个（`web capture:` / `window capture:`）。
