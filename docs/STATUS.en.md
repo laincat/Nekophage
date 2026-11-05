@@ -12,6 +12,25 @@ The package contains the fix that stops a source's onLoginSuccess when the login
 
 0.2.12 adds the fix that stops a source's onLoginSuccess when the login window closes; the rest of the cancellation scope is unchanged from0.2.11. The following packaging and installation checks belong to this commit.
 
+## A source dialog's picture stops with the dialog, and a dialog closed before the fetch sends nothing (Windows, 2026-11-05)
+
+`ShowInputDialog`'s picture (a captcha, a QR code) is an address the source hands over and is downloaded after the dialog opens. Two holes in the old shape:
+
+- the download used `context.Background()` with a 30 second limit, **not tied to the dialog's lifetime**; it was cancelled only when the close callback read an already-written `picture.cancel`
+- the close callback and the fetch goroutine raced: a user closing the dialog before the download began found `cancel` still nil, cancelled nothing, and the request went out and ran its full 30 seconds with no window left
+
+The fix makes the dialog's own context exist before the window and always ends with it:
+
+- `newDialogPicture()` builds `lifetime` and `stop` immediately, and `close()` ends them unconditionally
+- `fetchDialogImage` derives its 30 second limit from `picture.lifetime`, so **a close before the request means it is never sent, and a close during it cancels at once**
+
+Regressions:
+
+- `TestClosingDialogStopsPictureHTTP` (existing): closing mid-download makes the server observe the connection stop
+- `TestClosingDialogBeforeTheFetchStartsSendsNothing` (new, through the real `fetchDialogImage`): the fetch is called after the close, and the server receives **no request at all**. Swapping `picture.lifetime` back to `context.Background()` fails the case after 30 seconds (`a closed dialog still sent its picture request to the source`); restoring it passes.
+
+`go test ./...` and `go vet ./...` both pass.
+
 ## 0.2.21 (Windows, 2026-11-05)
 
 Core `0f1e7b8` (the Cloudflare rule no longer waits for a marker that never leaves), MyGo `0.7.4` (WebView2 `PreferredColorScheme`, the installer shortcut checkbox's language, WebView2 environment variable semantics), and signed URLs kept byte for byte.

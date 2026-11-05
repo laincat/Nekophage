@@ -12,6 +12,25 @@ f81dab6/Core313951e已打包为0.2.12。ZIP22,260,020字节、安装器19,310,82
 
 0.2.12在0.2.11之上包含关闭登录窗口即停止源onLoginSuccess的修复，其余取消范围不变。以下打包与安装核验以本提交为准。
 
+## 源对话框图片：关窗即停，且关在请求之前也不会发出（Windows，2026-11-05）
+
+`ShowInputDialog` 的配图（验证码、二维码）是源自己给的地址，打开对话框后异步下载。原来的写法有两个洞：
+
+- 下载用的是 `context.Background()` + 30 秒超时，**不挂在对话框生命周期上**；只有当关闭回调读到一个已经写好的 `picture.cancel` 才会取消。
+- 关闭回调与下载 goroutine 之间有竞态：用户在下载开始前就关窗，`cancel` 还是 nil，回调什么也没取消，请求照样发出并跑满 30 秒——窗口已经没了。
+
+改法是让对话框自己的 context 先于窗口建立，关闭一定结束它：
+
+- `newDialogPicture()` 立即建 `lifetime` + `stop`，`close()` 无条件结束；
+- `fetchDialogImage` 从 `picture.lifetime` 派生 30 秒超时，因此**关在请求之前就不会发出，关在请求中途立即取消**。
+
+回归：
+
+- `TestClosingDialogStopsPictureHTTP`（既有）：下载途中关窗，服务端观察到连接停止；
+- `TestClosingDialogBeforeTheFetchStartsSendsNothing`（新增，走真实 `fetchDialogImage`）：关窗后才调用下载，服务端**一个请求都收不到**。把 `picture.lifetime` 换回 `context.Background()` 时该用例 30 秒后失败（`a closed dialog still sent its picture request to the source`），改回即通过。
+
+`go test ./...`、`go vet ./...` 全通过。
+
 ## 0.2.21（Windows，2026-11-05）
 
 Core `0f1e7b8`（Cloudflare 完成规则不再等不会消失的标记）、MyGo `0.7.4`（WebView2 `PreferredColorScheme`、安装器快捷方式语言、WebView2 环境变量语义）、签名 URL 原样保留。

@@ -193,7 +193,7 @@ func (h *JSHandler) ShowInputDialog(title, image string, validate func(string) s
 	// A source may hand over an image — a captcha, a QR code — and the field is
 	// useless without it. The bytes are fetched through the source's own
 	// thumbnail rules, so its headers and any image rewriting apply here too.
-	picture := &dialogPicture{}
+	picture := newDialogPicture()
 	if image != "" && h.app != nil {
 		picture.url = image
 	}
@@ -230,12 +230,7 @@ func (h *JSHandler) ShowInputDialog(title, image string, validate func(string) s
 			})
 		})
 	}, func() {
-		picture.mu.Lock()
-		cancel := picture.cancel
-		picture.mu.Unlock()
-		if cancel != nil {
-			cancel()
-		}
+		picture.close()
 		finish(nil)
 	})
 	// The picture arrives after the window is up, and the window has to be told
@@ -252,19 +247,18 @@ func (h *JSHandler) ShowInputDialog(title, image string, validate func(string) s
 // The bytes are kept by the handler rather than in the main window's image
 // cache: that cache is read by the main window's thread, and this one is
 // written here, so sharing it would be a race. The dialog decodes its own copy.
+//
+// The request lives inside the dialog's own context, made when the dialog was
+// made. A dialog the user closes before the fetch reaches the source therefore
+// stops it before it is sent, and one closed during the fetch cancels it — the
+// 30 second limit is the caller's, not the dialog's lifetime.
 func (h *JSHandler) fetchDialogImage(picture *dialogPicture, win *mygo.Window) {
 	if h.app == nil {
 		return
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	ctx, cancel := context.WithTimeout(picture.lifetime, 30*time.Second)
 	defer cancel()
-	picture.mu.Lock()
-	picture.cancel = cancel
-	picture.mu.Unlock()
 	data, _, err := h.app.core.FetchThumbnail(ctx, h.app.currentKey(), picture.url, "jsinput")
-	picture.mu.Lock()
-	picture.cancel = nil
-	picture.mu.Unlock()
 	if err == nil {
 		picture.set(data)
 	}
@@ -276,12 +270,32 @@ func (h *JSHandler) fetchDialogImage(picture *dialogPicture, win *mygo.Window) {
 // dialogPicture holds the image a source asked to show beside a field, and
 // decodes it once.
 type dialogPicture struct {
-	url    string
-	cancel context.CancelFunc
+	url string
+
+	// lifetime ends when the dialog closes, whether that happens before or
+	// during the download.
+	lifetime context.Context
+	stop     context.CancelFunc
 
 	mu      sync.Mutex
 	data    []byte
 	decoded ui.ImageSource
+}
+
+// newDialogPicture makes a picture whose downloads are bound to the dialog.
+// The context exists before the window does, so the close handler can always
+// end it and a fetch that starts afterwards is already cancelled.
+func newDialogPicture() *dialogPicture {
+	lifetime, stop := context.WithCancel(context.Background())
+	return &dialogPicture{lifetime: lifetime, stop: stop}
+}
+
+// close ends the dialog: a download still running is cancelled, and one about
+// to start is refused.
+func (p *dialogPicture) close() {
+	if p.stop != nil {
+		p.stop()
+	}
 }
 
 // set stores the downloaded bytes.
