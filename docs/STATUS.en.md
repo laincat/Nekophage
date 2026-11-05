@@ -2,6 +2,22 @@
 
 English | [简体中文](STATUS.md)
 
+
+## macOS reading mainline verified on the current pin (`15c1acd`, Core `2d1dd76`, 2026-11-05)
+
+Rebuilt on a Mac from a source bundle whose layers were hash-checked, and only the reading path was run:
+
+| Step | Result |
+| --- | --- |
+| `fetch-core.sh` / `check-core-pin.sh` | `Core: 2d1dd76`, `ok (2d1dd7653b96c5304c0822ff5cd882e64e4aba25)` |
+| `check.sh` | **7/7 PASS** (gofmt, core pin, go vet, go test -race, docs, partitions, capabilities) |
+| `go build` | exit 0, 38,444,818 bytes |
+| search then detail | `Loopback Comic`, `chapters=1` |
+| read, page, scroll | `the reader rendered 2 of 2 pages`, `first=320x1200`, `scrollY=3181`, `pct=55`; reopening the chapter gave `scrollY=1200 saved=1200` |
+| progress written | `shelf.json`: `source=loopback_pages`, `id=one`, `chapterIndex=0`, `page=2`, `percent=55` |
+| reopen after closing | the window shows 「共 1 章 · 上次读到 第 2 页 · 55%」 and 「继续阅读」 |
+
+**One item was not obtained**: a **pixel screenshot of the reading page**. The reader is a WebView in its own window, `Window.CapturePage()` captures only the native layer (the body comes out blank), and `screencapture -x` returned all black because the machine has no screen-recording permission. The reading evidence is therefore DOM and logs (2/2 pages decoded, dimensions, scroll position, restore after reopening); **no pixel-level pass is claimed**. Closing that gap needs either screen-recording permission for the machine or a debug tool that snapshots the `WKWebView`.
 ## Windows0.2.12 local package (2026-11-04)
 
 f81dab6/Core313951e is packaged as0.2.12. ZIP22,260,020 bytes; installer19,310,823 bytes. ZIP CRC, individual hashes, embedded version/Core/commit and installed-versus-ZIP executable equality passed. Isolated installation showed the main window, closed natively with exit0, preserved profile data on uninstall, and exposed no automation endpoint.

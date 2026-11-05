@@ -2,6 +2,22 @@
 
 [English](STATUS.en.md) | 简体中文
 
+
+## macOS 当前 pin 的阅读主线已验（`15c1acd`，Core `2d1dd76`，2026-11-05）
+
+用逐层哈希校验过的源码包在 Mac 上重建，只跑阅读主线：
+
+| 步 | 结果 |
+| --- | --- |
+| `fetch-core.sh` / `check-core-pin.sh` | `Core: 2d1dd76`，`ok (2d1dd7653b96c5304c0822ff5cd882e64e4aba25)` |
+| `check.sh` | **7/7 PASS**（gofmt、core pin、go vet、go test -race、docs、partitions、capabilities） |
+| `go build` | exit=0，38,444,818 字节 |
+| 搜索 → 详情 | `Loopback Comic`，`chapters=1` |
+| 阅读 → 翻页 → 滚动 | `the reader rendered 2 of 2 pages`、`first=320x1200`、`scrollY=3181`、`pct=55`；重开该章 `scrollY=1200 saved=1200` |
+| 进度写盘 | `shelf.json`：`source=loopback_pages`、`id=one`、`chapterIndex=0`、`page=2`、`percent=55` |
+| 关窗重开 | 界面显示「共 1 章 · 上次读到 第 2 页 · 55%」+「继续阅读」 |
+
+**未取得的一项**：阅读页的**像素截图**。阅读视图是独立窗口里的 WebView，`Window.CapturePage()` 只拍到原生层（正文白屏），`screencapture -x` 因本机没有屏幕录制权限得到全黑。阅读页现有证据是 DOM 与日志（2/2 页解码、尺寸、滚动位置、重开恢复），**不声称像素级通过**。要补这一项，需要给机器授予屏幕录制权限，或加一个用 `WKWebView` 快照的调试工具。
 ## Windows 0.2.12 本地包（2026-11-04）
 
 f81dab6/Core313951e已打包为0.2.12。ZIP22,260,020字节、安装器19,310,823字节；ZIP CRC、逐文件摘要、包内版本/Core/提交、安装后exe一致均通过。隔离安装主窗正常关闭退出0，卸载保留资料，普通构建无自动化端点。
