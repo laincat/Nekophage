@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"context"
 	"testing"
 
 	"github.com/laincat/nekophage/internal/magpie"
@@ -97,5 +98,31 @@ func TestTheTypedModelReachesTheRequest(t *testing.T) {
 	}
 	if got := settings.ModelFor(magpie.TaskSimple); got != "group/laincat" {
 		t.Errorf("tier simple = %q, want the typed default", got)
+	}
+}
+
+// Closing the AI window stops the request that window started. The context a
+// request gets must therefore come from the window's lifetime, and a request
+// started after the window closed (a fresh window) must not inherit it.
+func TestAIRequestsBelongToTheWindowLifetime(t *testing.T) {
+	a := &App{}
+	ctx, cancel := context.WithCancel(context.Background())
+	a.ai.lifetime, a.ai.stopLifetime = ctx, cancel
+
+	live, stop := a.aiContext(0)
+	defer stop()
+	if err := live.Err(); err != nil {
+		t.Fatalf("a request in an open window is already cancelled: %v", err)
+	}
+	cancel()
+	if err := live.Err(); err == nil {
+		t.Fatal("closing the window did not cancel the running request")
+	}
+	// The window is gone; the next one starts from a fresh lifetime.
+	a.ai.lifetime = nil
+	next, stopNext := a.aiContext(0)
+	defer stopNext()
+	if err := next.Err(); err != nil {
+		t.Fatalf("a fresh window inherited the closed one: %v", err)
 	}
 }

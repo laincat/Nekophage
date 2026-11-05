@@ -12,6 +12,14 @@ The package contains the fix that stops a source's onLoginSuccess when the login
 
 0.2.12 adds the fix that stops a source's onLoginSuccess when the login window closes; the rest of the cancellation scope is unchanged from0.2.11. The following packaging and installation checks belong to this commit.
 
+## The AI window's requests follow the window (Windows, 2026-11-04)
+
+The Magpie connection test, the model catalog read and the streamed answer each used `context.Background()`, so closing the AI window left them running for their full 20 seconds; and a window destroyed and reopened could still be written to by a leftover request. The AI window now has a lifetime context: closing it cancels those three kinds of request, reopening gets a fresh lifetime, and `停止` still cancels only the answer that is streaming.
+
+The same treatment went to the service panel: method discovery, method calls and saving or deleting an account value all derive from the source manager's lifetime, so closing the window cancels them, and a running method is interrupted by Core's supervisor.
+
+`TestAIRequestsBelongToTheWindowLifetime` covers "a request in an open window is not cancelled", "closing cancels the running request" and "a fresh window does not inherit the closed one's lifetime"; all seven `scripts/check.sh` steps pass.
+
 ## Windows 0.2.19: the signed-address fix (Windows, 2026-11-04)
 
 `0.2.19` (commit `125ba08`, Core `78826c8`) ships the signed-URL fix: sites such as 再漫画 that sign an escaped path saw every chapter image answer 403 `check sign failed`.

@@ -297,7 +297,9 @@ func (a *App) loadServiceMethods(id string) {
 	a.svc.busy = "正在询问 " + id + "…"
 	a.mu.Unlock()
 	go func() {
-		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		owner, done := a.manageContext()
+		defer done()
+		ctx, cancel := context.WithTimeout(owner, 30*time.Second)
 		defer cancel()
 		sup, err := a.serviceSupervisor()
 		var methods []service.Method
@@ -332,11 +334,15 @@ func (a *App) runServiceMethod(id, method string) {
 		a.svc.errText = payloadErr.Error()
 		return
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	// A method runs while the window is open, not for as long as the app runs:
+	// closing the panel cancels it, and the supervisor interrupts the script.
+	owner, done := a.manageContext()
+	ctx, cancel := context.WithTimeout(owner, 60*time.Second)
 	a.mu.Lock()
 	a.svc.cancel = cancel
 	a.mu.Unlock()
 	go func() {
+		defer done()
 		defer cancel()
 		sup, err := a.serviceSupervisor()
 		var out []byte
@@ -483,7 +489,9 @@ func (a *App) saveServiceAccount() {
 	go func() {
 		accounts, err := services.OpenAccounts(a.core.DataDir(), id)
 		if err == nil {
-			ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+			owner, done := a.manageContext()
+			defer done()
+			ctx, cancel := context.WithTimeout(owner, 20*time.Second)
 			defer cancel()
 			err = accounts.Set(ctx, key, value)
 		}
@@ -514,7 +522,9 @@ func (a *App) deleteServiceAccount() {
 	go func() {
 		accounts, err := services.OpenAccounts(a.core.DataDir(), id)
 		if err == nil {
-			ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+			owner, done := a.manageContext()
+			defer done()
+			ctx, cancel := context.WithTimeout(owner, 20*time.Second)
 			defer cancel()
 			err = accounts.Remove(ctx, key)
 		}

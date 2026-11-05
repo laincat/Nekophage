@@ -37,6 +37,11 @@ type aiState struct {
 	answer  string
 	running bool
 	cancel  context.CancelFunc
+	// lifetime ends when the AI window closes: the connection test, the model
+	// catalog and a running answer all belong to that window, not to the app.
+	// stopLifetime ends it; cancel stops only the running answer.
+	lifetime     context.Context
+	stopLifetime context.CancelFunc
 	// lastFlush throttles redraws: a stream that redraws the window for every
 	// token spends more time painting than the network does.
 	lastFlush time.Time
@@ -44,9 +49,25 @@ type aiState struct {
 
 // openAI shows the AI window, creating it once.
 func (a *App) openAI() {
-	if a.aiWin == nil {
+	if a.aiWin == nil || a.aiWin.IsDestroyed() {
 		a.aiWin = mygo.NewWindow(mygo.WindowOptions{
 			Title: "AI · 本机 Magpie", Width: 760, Height: 720, Content: ui.View(a.aiView),
+		})
+		a.mu.Lock()
+		a.ai.lifetime, a.ai.stopLifetime = context.WithCancel(context.Background())
+		a.mu.Unlock()
+		a.aiWin.OnClosed(func() {
+			a.mu.Lock()
+			if a.ai.stopLifetime != nil {
+				a.ai.stopLifetime()
+				a.ai.lifetime, a.ai.stopLifetime = nil, nil
+			}
+			if a.ai.cancel != nil {
+				a.ai.cancel()
+				a.ai.cancel = nil
+			}
+			a.ai.running = false
+			a.mu.Unlock()
 		})
 		a.aiWin.Show()
 		a.loadAISettings()
@@ -54,6 +75,31 @@ func (a *App) openAI() {
 	}
 	a.aiWin.Show()
 	a.aiWin.Focus()
+}
+
+// aiContext derives one request's context from the AI window's lifetime, so
+// closing the window stops a test, a catalog read or a streamed answer. The
+// caller must not hold a.mu: the parent is read under it.
+func (a *App) aiContext(timeout time.Duration) (context.Context, context.CancelFunc) {
+	a.mu.Lock()
+	parent := a.ai.lifetime
+	a.mu.Unlock()
+	return aiContextFrom(parent, timeout)
+}
+
+// aiContextLocked is aiContext for a caller that already holds a.mu.
+func aiContextLocked(lifetime context.Context, timeout time.Duration) (context.Context, context.CancelFunc) {
+	return aiContextFrom(lifetime, timeout)
+}
+
+func aiContextFrom(parent context.Context, timeout time.Duration) (context.Context, context.CancelFunc) {
+	if parent == nil {
+		parent = context.Background()
+	}
+	if timeout <= 0 {
+		return context.WithCancel(parent)
+	}
+	return context.WithTimeout(parent, timeout)
 }
 
 // loadAISettings reads the stored connection and fills the fields.
@@ -273,7 +319,7 @@ func (a *App) aiSaveAndTest() {
 			a.aiFinish("", err)
 			return
 		}
-		ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+		ctx, cancel := a.aiContext(20 * time.Second)
 		defer cancel()
 		message, err := session.Test(ctx)
 		if err != nil {
@@ -301,7 +347,7 @@ func (a *App) aiLoadModels() {
 			a.aiFinish("", nil)
 			return
 		}
-		ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+		ctx, cancel := a.aiContext(20 * time.Second)
 		defer cancel()
 		models, err := session.Models(ctx)
 		if err != nil {
@@ -345,7 +391,7 @@ func (a *App) aiSend() {
 		a.aiFinish("", err)
 		return
 	}
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := aiContextLocked(a.ai.lifetime, 0)
 	a.ai.running, a.ai.cancel = true, cancel
 	a.ai.answer, a.ai.errText = "", ""
 	a.ai.prompt = ""
