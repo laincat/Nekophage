@@ -27,6 +27,14 @@ Regressions:
 
 All seven `scripts/check.sh` steps pass; the regression probes report 19 PASS / 0 FAIL / 1 SKIP.
 
+## 0.2.24 (Windows, 2026-11-05)
+
+Carries "opening a comment thread no longer waits for the source": asking whether a source can post or vote means loading and compiling its script, which now happens after the window exists, capped at 20 seconds by the thread's own lifetime, so a slow source cannot hold the window.
+
+## A site-side limit: zaimanhua's detail endpoint (2026-11-05)
+
+Search answers normally (`errno:0`, with `id`), but the detail call for the same id is answered with `{"errno":2,"errmsg":"漫画不存在或已被删除"}` - `comic/detail/87297`, with `channel=android`, with and without `authorization`, with a `Referer`, and `comic/detailV2` / `comic/info` / `comic/87297` all say the same, while the page `https://www.zaimanhua.com/info/87297.html` returns 200 with the right title. The conclusion is that **the site changed its endpoint** (detail now wants a parameter a client cannot know, or was retired), not a Core or client gap; the script belongs to upstream `venera-configs` and was not edited.
+
 ## Opening a comment thread no longer waits for the source (`85ccee7`, 2026-11-05)
 
 Building the comments window asked two questions synchronously: can this source post, and can it vote. The answer means loading and compiling the source's script, and the call sat on `context.Background()`, so a slow source held the window shut with no lifetime able to stop it - the same shape as the dialog-picture case.

@@ -27,6 +27,14 @@ f81dab6/Core313951e已打包为0.2.12。ZIP22,260,020字节、安装器19,310,82
 
 `scripts/check.sh` 七项 PASS；回归探针 19 PASS / 0 FAIL / 1 SKIP。
 
+## 0.2.24（Windows，2026-11-05）
+
+带上「打开评论线程不再等源」：问「这源能不能发评论 / 点赞」要先加载并编译源脚本，现在放到窗口建好之后，用线程自己的 lifetime 加 20 秒上限，慢源不再卡住窗口。
+
+## 源侧限制：再漫画（zaimanhua）详情接口（2026-11-05）
+
+搜索能返回结果（`errno:0`，含 `id`），但同一个 id 请求详情时接口自己回 `{"errno":2,"errmsg":"漫画不存在或已被删除"}`——`comic/detail/87297`、带 `channel=android`、带/不带 `authorization`、带 `Referer`、`comic/detailV2`/`comic/info`/`comic/87297` 全部如此；同名网页 `https://www.zaimanhua.com/info/87297.html` 返回 200 且标题正确。结论：**站点侧接口变了**（详情需要客户端不知道的参数或已下线），不是 Core 或本客户端的缺口；脚本是上游 `venera-configs` 的，未改。
+
 ## 打开评论线程不再等源（`85ccee7`，2026-11-05）
 
 `openComments` 构造窗口时同步问两件事：这个源能不能发评论、能不能点赞。答案要先加载并编译源的脚本，而调用挂在 `context.Background()` 上——慢源会把窗口卡在打开这一步，且没有生命周期可以中断。这与对话框配图那次是同一类问题。
