@@ -27,6 +27,12 @@ f81dab6/Core313951e已打包为0.2.12。ZIP22,260,020字节、安装器19,310,82
 
 `scripts/check.sh` 七项 PASS；回归探针 19 PASS / 0 FAIL / 1 SKIP。
 
+## 0.2.25（Windows，2026-11-05）
+
+跟 Core pin `0f1e7b8` → `2d1dd76`：带上 `Host` 头契约、服务运行入口（`mobile.ServiceCall`）以及服务 fetch 请求补 `cookies` 字段的契约修复。桌面本身不调用服务运行，但 pin 落后会让两端对同一份 Core 行为给出不同答案。
+
+`scripts/check.sh` 七项 PASS；`scripts/desktop-probes.sh` 19 PASS / 0 FAIL / 1 SKIP；隔离目录安装验收 11 PASS / 0 FAIL。
+
 ## 0.2.24（Windows，2026-11-05）
 
 带上「打开评论线程不再等源」：问「这源能不能发评论 / 点赞」要先加载并编译源脚本，现在放到窗口建好之后，用线程自己的 lifetime 加 20 秒上限，慢源不再卡住窗口。

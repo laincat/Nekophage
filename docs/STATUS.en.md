@@ -27,6 +27,12 @@ Regressions:
 
 All seven `scripts/check.sh` steps pass; the regression probes report 19 PASS / 0 FAIL / 1 SKIP.
 
+## 0.2.25 (Windows, 2026-11-05)
+
+Moves the Core pin from `0f1e7b8` to `2d1dd76`: it carries the `Host` header contract, the service run entry (`mobile.ServiceCall`) and the fix that a service's fetch request includes `cookies`. The desktop does not run services itself, but a lagging pin makes the two clients disagree about the same Core behaviour.
+
+All seven `scripts/check.sh` steps pass; `scripts/desktop-probes.sh` reports 19 PASS / 0 FAIL / 1 SKIP; a clean-directory install passes 11 checks with 0 failures.
+
 ## 0.2.24 (Windows, 2026-11-05)
 
 Carries "opening a comment thread no longer waits for the source": asking whether a source can post or vote means loading and compiling its script, which now happens after the window exists, capped at 20 seconds by the thread's own lifetime, so a slow source cannot hold the window.
