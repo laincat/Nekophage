@@ -12,6 +12,12 @@ The package contains the fix that stops a source's onLoginSuccess when the login
 
 0.2.12 adds the fix that stops a source's onLoginSuccess when the login window closes; the rest of the cancellation scope is unchanged from0.2.11. The following packaging and installation checks belong to this commit.
 
+## 0.2.22 (Windows, 2026-11-05)
+
+0.2.21 plus "a source dialog's picture lives and dies with the dialog": a close before the request means it is never sent, a close during it cancels at once.
+
+A clean-directory install passes 11 checks; the regression probes report 19 PASS / 0 FAIL / 1 SKIP; all seven `scripts/check.sh` steps pass.
+
 ## A source dialog's picture stops with the dialog, and a dialog closed before the fetch sends nothing (Windows, 2026-11-05)
 
 `ShowInputDialog`'s picture (a captcha, a QR code) is an address the source hands over and is downloaded after the dialog opens. Two holes in the old shape:
