@@ -12,6 +12,12 @@ The package contains the fix that stops a source's onLoginSuccess when the login
 
 0.2.12 adds the fix that stops a source's onLoginSuccess when the login window closes; the rest of the cancellation scope is unchanged from0.2.11. The following packaging and installation checks belong to this commit.
 
+## Following Core 971146f: the challenge rule crosses the bridge whole (Windows, 2026-11-04)
+
+Core moves to `971146f` (tree `ba7d3620`): `hostBridge.Verify` now hands `sameHost` to the client too, and the clearance it returns accepts `query`. The desktop used to decide on markers and cookies alone, which left an edge challenge one condition short; all three groups now arrive in the challenge JSON.
+
+All seven `scripts/check.sh` steps pass.
+
 ## Windows 0.2.20: the verification-page fix ships (Windows, 2026-11-04)
 
 `0.2.20` (commit `fa14ebb`, Core `7ade130a`) ships the edge verification fix: sites like MangaDex no longer hand the challenge HTML to the source, and the verification window finishes on its own before the result appears.

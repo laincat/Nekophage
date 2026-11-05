@@ -12,6 +12,12 @@ f81dab6/Core313951e已打包为0.2.12。ZIP22,260,020字节、安装器19,310,82
 
 0.2.12在0.2.11之上包含关闭登录窗口即停止源onLoginSuccess的修复，其余取消范围不变。以下打包与安装核验以本提交为准。
 
+## 跟随 Core 971146f：挑战规则整体过桥（Windows，2026-11-04）
+
+Core 升到 `971146f`（tree `ba7d3620`）：`hostBridge.Verify` 现在把 `sameHost` 也送给客户端，返回的 clearance 接受 `query`。桌面端此前只按标记与 cookie 判定，边缘挑战会缺一组条件；现在挑战 JSON 的三组条件都齐。
+
+`scripts/check.sh` 七项 PASS。
+
 ## Windows 0.2.20：验证页修复随包发布（Windows，2026-11-04）
 
 `0.2.20`（commit `fa14ebb`，Core `7ade130a`）把边缘验证页修复发出去：MangaDex 这类站点不再把验证页 HTML 交给源，验证窗口自行完成后正常出结果。
