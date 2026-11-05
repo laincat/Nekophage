@@ -12,6 +12,12 @@ The package contains the fix that stops a source's onLoginSuccess when the login
 
 0.2.12 adds the fix that stops a source's onLoginSuccess when the login window closes; the rest of the cancellation scope is unchanged from0.2.11. The following packaging and installation checks belong to this commit.
 
+## 0.2.21 (Windows, 2026-11-05)
+
+Core `0f1e7b8` (the Cloudflare rule no longer waits for a marker that never leaves), MyGo `0.7.4` (WebView2 `PreferredColorScheme`, the installer shortcut checkbox's language, WebView2 environment variable semantics), and signed URLs kept byte for byte.
+
+A clean-directory install passes 11 checks; the regression probes report 19 PASS / 0 FAIL / 1 SKIP; all seven `scripts/check.sh` steps pass.
+
 ## MyGo moves to 0.7.4 (Windows, 2026-11-04)
 
 The dependency goes from `v0.7.3` to `v0.7.4`. That release fixes several behaviours we depend on:

@@ -12,6 +12,12 @@ f81dab6/Core313951e已打包为0.2.12。ZIP22,260,020字节、安装器19,310,82
 
 0.2.12在0.2.11之上包含关闭登录窗口即停止源onLoginSuccess的修复，其余取消范围不变。以下打包与安装核验以本提交为准。
 
+## 0.2.21（Windows，2026-11-05）
+
+Core `0f1e7b8`（Cloudflare 完成规则不再等不会消失的标记）、MyGo `0.7.4`（WebView2 `PreferredColorScheme`、安装器快捷方式语言、WebView2 环境变量语义）、签名 URL 原样保留。
+
+隔离目录安装验收 11 项通过；回归探针 19 PASS / 0 FAIL / 1 SKIP；`scripts/check.sh` 七项 PASS。
+
 ## MyGo 升到 0.7.4（Windows，2026-11-04）
 
 依赖从 `v0.7.3` 升到 `v0.7.4`。该版本修了几处与我们直接相关的行为：
