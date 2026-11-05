@@ -27,6 +27,12 @@ Regressions:
 
 All seven `scripts/check.sh` steps pass; the regression probes report 19 PASS / 0 FAIL / 1 SKIP.
 
+## 0.2.23 (Windows, 2026-11-05)
+
+Carries "a Host the source names now actually goes out": when a source points `Host` at another virtual host, the request now says so instead of sending the address's own name.
+
+A clean-directory install passes 11 checks; the regression probes report 19 PASS / 0 FAIL / 1 SKIP; all seven `scripts/check.sh` steps pass.
+
 ## 0.2.22 (Windows, 2026-11-05)
 
 0.2.21 plus "a source dialog's picture lives and dies with the dialog": a close before the request means it is never sent, a close during it cancels at once.
