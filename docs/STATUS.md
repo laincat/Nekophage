@@ -12,6 +12,12 @@ f81dab6/Core313951e已打包为0.2.12。ZIP22,260,020字节、安装器19,310,82
 
 0.2.12在0.2.11之上包含关闭登录窗口即停止源onLoginSuccess的修复，其余取消范围不变。以下打包与安装核验以本提交为准。
 
+## Windows 0.2.19：签名地址修复（Windows，2026-11-04）
+
+`0.2.19`（commit `125ba08`，Core `78826c8`）把签名 URL 修复发出去：再漫画这类把签名写在转义路径里的站点，章节图片此前全部 403 `check sign failed`。
+
+包：ZIP 22,440,474 字节（SHA-256 见交付回执），安装器 19,461,979 字节。隔离安装 11 项全过；`scripts/check.sh` 七项 PASS；回归探针 19 PASS / 0 FAIL / 1 SKIP。
+
 ## 签名图片地址不再被改写（Windows，2026-11-04）
 
 真实源巡检（`scripts/live-sources.sh`，34 个真实源）暴露出一个真问题：再漫画（zaimanhua）的章节图片全部 403，站点返回 `check sign failed`。

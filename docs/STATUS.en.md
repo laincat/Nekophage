@@ -12,6 +12,12 @@ The package contains the fix that stops a source's onLoginSuccess when the login
 
 0.2.12 adds the fix that stops a source's onLoginSuccess when the login window closes; the rest of the cancellation scope is unchanged from0.2.11. The following packaging and installation checks belong to this commit.
 
+## Windows 0.2.19: the signed-address fix (Windows, 2026-11-04)
+
+`0.2.19` (commit `125ba08`, Core `78826c8`) ships the signed-URL fix: sites such as 再漫画 that sign an escaped path saw every chapter image answer 403 `check sign failed`.
+
+Package: ZIP 22,440,474 bytes (SHA-256 in the delivery receipt), installer 19,461,979 bytes. The isolated install passes all eleven checks, `scripts/check.sh` passes its seven steps, and the regression probes report 19 PASS / 0 FAIL / 1 SKIP.
+
 ## A signed image address is no longer rewritten (Windows, 2026-11-04)
 
 The live source patrol (`scripts/live-sources.sh`, 34 real sources) exposed a real problem: every chapter image of 再漫画 (zaimanhua) answered 403 with `check sign failed`.
