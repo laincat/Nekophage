@@ -3,6 +3,12 @@
 English | [简体中文](STATUS.md)
 
 
+
+## The reading screenshot now uses the WebView's own capture (`f4375b0`, 2026-11-05)
+
+`cmd/readercheck` captured with `win.CapturePage()`, which is the **window's native layer**: the reader lives in a WebView inside its own window, so the shot had a toolbar, blank body and nothing else. mygo's `WebView` has its own `CapturePage()`; the tool now tries that first and falls back to the window capture, saying in the log which one it used (`web capture:` / `window capture:`).
+
+`go build ./cmd/readercheck`, `go vet` and all seven `scripts/check.sh` steps pass locally. The rerun and screenshot on the Mac are pending; until they arrive, the pixel-level reading evidence stays recorded as **not obtained**.
 ## macOS reading mainline verified on the current pin (`15c1acd`, Core `2d1dd76`, 2026-11-05)
 
 Rebuilt on a Mac from a source bundle whose layers were hash-checked, and only the reading path was run:

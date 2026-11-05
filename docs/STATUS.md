@@ -3,6 +3,12 @@
 [English](STATUS.en.md) | 简体中文
 
 
+
+## 阅读页截图改用 WebView 自身捕获（`f4375b0`，2026-11-05）
+
+`cmd/readercheck` 原来用 `win.CapturePage()`，那是**窗口原生层**的截图：阅读视图在独立窗口的 WebView 里，于是拍出来只有标题栏和上下章按钮、正文白屏。mygo 的 `WebView` 自己有 `CapturePage()`，改为先试它、失败才退回窗口截图，并在日志里写明用了哪个（`web capture:` / `window capture:`）。
+
+`go build ./cmd/readercheck`、`go vet`、`scripts/check.sh` 七项在本机通过。Mac 上的重跑与截图待回传；在拿到之前，阅读页的像素级证据仍记为**未取得**。
 ## macOS 当前 pin 的阅读主线已验（`15c1acd`，Core `2d1dd76`，2026-11-05）
 
 用逐层哈希校验过的源码包在 Mac 上重建，只跑阅读主线：
