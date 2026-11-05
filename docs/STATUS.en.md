@@ -12,6 +12,12 @@ The package contains the fix that stops a source's onLoginSuccess when the login
 
 0.2.12 adds the fix that stops a source's onLoginSuccess when the login window closes; the rest of the cancellation scope is unchanged from0.2.11. The following packaging and installation checks belong to this commit.
 
+## Windows 0.2.20: the verification-page fix ships (Windows, 2026-11-04)
+
+`0.2.20` (commit `fa14ebb`, Core `7ade130a`) ships the edge verification fix: sites like MangaDex no longer hand the challenge HTML to the source, and the verification window finishes on its own before the result appears.
+
+Package: ZIP 22,440,613 bytes (SHA-256 `3155c4aa...`), installer 19,464,552 bytes (SHA-256 `1a88687c...`). The isolated install passes all eleven checks, `scripts/check.sh` passes its seven steps, and the regression probes report 19 PASS / 0 FAIL / 1 SKIP.
+
 ## A verification page no longer reaches the source as HTML (Windows, 2026-11-04)
 
 Core moves to `7ade130a` (tree `790ad465`): the edge challenge page (the MangaDex shape) was not recognised at all, so its HTML went to the source, `JSON.parse` failed, and the window showed a network timeout or a syntax error. Both kinds now take the same path, and `host.Clearance.Query` carries the parameters the verification returned back to the retry.
