@@ -106,7 +106,7 @@ func (c *challenge) watch(ctx context.Context) (*host.Clearance, error) {
 		case <-c.done:
 			return nil, host.ErrChallengeDismissed
 		case <-ticker.C:
-			ua, cookies, ok := c.check()
+			ua, cookies, params, ok := c.check()
 			if !ok {
 				debugState(c)
 				continue
@@ -116,50 +116,67 @@ func (c *challenge) watch(ctx context.Context) (*host.Clearance, error) {
 				log.Printf("verify: partition %q, %d cookie(s) imported, jar now has %d for %s",
 					c.ch.Partition, len(cookies), len(c.jar.Get(c.ch.Partition, c.ch.URL)), c.ch.URL)
 			}
-			return &host.Clearance{UserAgent: ua, Cookies: cookies}, nil
+			// A challenge whose clearance is in the URL hands back parameters
+			// the retry must repeat; a cookie-based one hands back none.
+			return &host.Clearance{UserAgent: ua, Cookies: cookies, Query: params}, nil
 		}
 	}
 }
 
 // check evaluates the done rule and collects the browser's cookies.
-func (c *challenge) check() (string, []*http.Cookie, bool) {
+func (c *challenge) check() (string, []*http.Cookie, map[string]string, bool) {
 	page := c.web.Page()
 	raw, err := page.Eval("document.documentElement.outerHTML")
 	if err != nil {
-		return "", nil, false
+		return "", nil, nil, false
 	}
 	html, _ := raw.(string)
 	// A rule with nothing to check is never satisfied: an empty group means "no
 	// condition", not "vacuously true", so a rule written for a cookie-based
 	// challenge must not pass just because a URL-based one has no markers.
 	if c.ch.Done.Empty() {
-		return "", nil, false
+		return "", nil, nil, false
 	}
-	if len(c.ch.Done.RequiredQueryParams) > 0 {
+	var params map[string]string
+	if c.ch.Done.SameHost || len(c.ch.Done.RequiredQueryParams) > 0 {
 		rawURL, err := page.Eval("location.href")
 		if err != nil {
-			return "", nil, false
+			return "", nil, nil, false
 		}
 		href, _ := rawURL.(string)
 		u, err := url.Parse(href)
 		if err != nil {
-			return "", nil, false
+			return "", nil, nil, false
+		}
+		if c.ch.Done.SameHost {
+			// The challenge page lives on another host than the address it
+			// guards; being back on the guarded host is what says it finished.
+			// A window that has not loaded anything yet has an empty host, so
+			// this cannot pass before the first navigation.
+			want, err := url.Parse(c.ch.URL)
+			if err != nil || u.Host == "" || !strings.EqualFold(u.Host, want.Host) {
+				return "", nil, nil, false
+			}
 		}
 		q := u.Query()
 		for _, want := range c.ch.Done.RequiredQueryParams {
 			if want == "" || q.Get(want) == "" {
-				return "", nil, false
+				return "", nil, nil, false
 			}
+		}
+		params = map[string]string{}
+		for _, want := range c.ch.Done.RequiredQueryParams {
+			params[want] = q.Get(want)
 		}
 	}
 	for _, marker := range c.ch.Done.AbsentMarkers {
 		if marker != "" && strings.Contains(html, marker) {
-			return "", nil, false
+			return "", nil, nil, false
 		}
 	}
 	listed, err := mygo.Cookies.List(mygo.CookieFilter{URL: c.ch.URL})
 	if err != nil {
-		return "", nil, false
+		return "", nil, nil, false
 	}
 	names := make(map[string]*http.Cookie, len(listed))
 	for _, mc := range listed {
@@ -174,7 +191,7 @@ func (c *challenge) check() (string, []*http.Cookie, bool) {
 	for _, want := range c.ch.Done.RequiredCookies {
 		hc, ok := names[want]
 		if !ok {
-			return "", nil, false
+			return "", nil, nil, false
 		}
 		cookies = append(cookies, hc)
 	}
@@ -182,18 +199,18 @@ func (c *challenge) check() (string, []*http.Cookie, bool) {
 	// earned it, so the requests that follow must send this one.
 	rawUA, err := page.Eval("navigator.userAgent")
 	if err != nil {
-		return "", nil, false
+		return "", nil, nil, false
 	}
 	ua, _ := rawUA.(string)
 	if ua == "" {
-		return "", nil, false
+		return "", nil, nil, false
 	}
 	for _, hc := range names {
 		if !containsCookie(cookies, hc.Name) {
 			cookies = append(cookies, hc)
 		}
 	}
-	return ua, cookies, true
+	return ua, cookies, params, true
 }
 
 // debugState logs what the page shows while a challenge is pending, when

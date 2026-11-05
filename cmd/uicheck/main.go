@@ -21,6 +21,8 @@ import (
 	"time"
 
 	"github.com/egoist/mygo"
+	"github.com/laincat/nekophage/internal/browser"
+	"github.com/laincat/nekophage/internal/cookies"
 	"github.com/laincat/nekophage/internal/core"
 	"github.com/laincat/nekophage/internal/library"
 	"github.com/laincat/nekophage/internal/probesite"
@@ -28,6 +30,7 @@ import (
 	"github.com/laincat/nekophage/internal/sourceapi"
 	"github.com/laincat/nekophage/internal/ui"
 	"github.com/laincat/veneracat-core/comic/js"
+	"github.com/laincat/veneracat-core/host"
 	"github.com/laincat/veneracat-core/plugin"
 
 	_ "github.com/egoist/mygo/locales/zh-Hans"
@@ -110,7 +113,10 @@ func main() {
 	// dialog the source opens takes its first action instead of waiting.
 	jsui := ui.NewJSHandler()
 	jsui.SetAutoConfirm(!*dialogShot)
-	c, err := core.Open(core.Options{DataDir: dataDir, AppVersion: sourceapi.Level, Locale: "zh_CN", UI: jsui})
+	c, err := core.Open(core.Options{DataDir: dataDir, AppVersion: sourceapi.Level, Locale: "zh_CN", UI: jsui,
+		// Like the app: a site that answers with a challenge gets a window,
+		// so a probe that needs one is testing the path a user gets.
+		VerifierFactory: func(jar *cookies.Jar) host.Verifier { return browser.NewVerifier(jar) }})
 	if err != nil {
 		log.Fatal(err)
 	}

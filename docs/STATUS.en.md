@@ -12,6 +12,14 @@ The package contains the fix that stops a source's onLoginSuccess when the login
 
 0.2.12 adds the fix that stops a source's onLoginSuccess when the login window closes; the rest of the cancellation scope is unchanged from0.2.11. The following packaging and installation checks belong to this commit.
 
+## A verification page no longer reaches the source as HTML (Windows, 2026-11-04)
+
+Core moves to `7ade130a` (tree `790ad465`): the edge challenge page (the MangaDex shape) was not recognised at all, so its HTML went to the source, `JSON.parse` failed, and the window showed a network timeout or a syntax error. Both kinds now take the same path, and `host.Clearance.Query` carries the parameters the verification returned back to the retry.
+
+The desktop verification window honours the `SameHost` completion rule and hands the parameters back to Core when it finishes.
+
+**Real evidence**: MangaDex search for `one piece` - the verification window completed on its own, imported one cookie, and the window showed eight comics with real covers (a 482,532-byte screenshot, 5,226 colours, 1084x721). Log `E:/Temp/nk-mangadex-live3/run.log`, screenshot `shot.png`.
+
 ## The AI window's requests follow the window (Windows, 2026-11-04)
 
 The Magpie connection test, the model catalog read and the streamed answer each used `context.Background()`, so closing the AI window left them running for their full 20 seconds; and a window destroyed and reopened could still be written to by a leftover request. The AI window now has a lifetime context: closing it cancels those three kinds of request, reopening gets a fresh lifetime, and `停止` still cancels only the answer that is streaming.
