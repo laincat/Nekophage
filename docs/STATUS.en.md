@@ -27,6 +27,16 @@ Regressions:
 
 All seven `scripts/check.sh` steps pass; the regression probes report 19 PASS / 0 FAIL / 1 SKIP.
 
+## Opening a comment thread no longer waits for the source (`85ccee7`, 2026-11-05)
+
+Building the comments window asked two questions synchronously: can this source post, and can it vote. The answer means loading and compiling the source's script, and the call sat on `context.Background()`, so a slow source held the window shut with no lifetime able to stop it - the same shape as the dialog-picture case.
+
+The question now runs after the window exists (`askCommentCapabilities`): it derives a 20-second cap from the thread's own `lifetime` and repaints when the answer arrives. The window appears at once and the capability buttons light up afterwards.
+
+Regression `TestOpeningAThreadDoesNotWaitForTheSource`: the source's `comic` getter spins for 700 ms, the question must return within 200 ms, and the ability must still arrive; inlining the same code made it fail with `asking whether a source can post took 1.399668s in the open path`. `TestASourceWithoutCommentMethodsCannotPost` pins "no comment methods means it cannot".
+
+**The rest of the `context.Background()` audit**: `generation.go`'s `requestContext` is not a defect - it lives per generation and every call site adds a 60-90 second cap (six in `app.go`); `magpie.go`'s `parent == nil` fallback also always has a timeout; `jsui.go` and `manage.go` create their lifetime while building the window. Only `comments.go` left a source call outside any lifetime.
+
 ## 0.2.23 (Windows, 2026-11-05)
 
 Carries "a Host the source names now actually goes out": when a source points `Host` at another virtual host, the request now says so instead of sending the address's own name.

@@ -27,6 +27,16 @@ f81dab6/Core313951e已打包为0.2.12。ZIP22,260,020字节、安装器19,310,82
 
 `scripts/check.sh` 七项 PASS；回归探针 19 PASS / 0 FAIL / 1 SKIP。
 
+## 打开评论线程不再等源（`85ccee7`，2026-11-05）
+
+`openComments` 构造窗口时同步问两件事：这个源能不能发评论、能不能点赞。答案要先加载并编译源的脚本，而调用挂在 `context.Background()` 上——慢源会把窗口卡在打开这一步，且没有生命周期可以中断。这与对话框配图那次是同一类问题。
+
+改成窗口建好后再问（`askCommentCapabilities`）：用线程自己的 `lifetime` 派生 20 秒上限，答案到了再重绘。窗口立刻出现，能力按钮随后亮起。
+
+回归 `TestOpeningAThreadDoesNotWaitForTheSource`：源的 `comic` getter 空转 700ms，问能力必须 200ms 内返回、且最终仍得知可发评论；负控把同一段代码内联后用例失败，原文 `asking whether a source can post took 1.399668s in the open path`。另有 `TestASourceWithoutCommentMethodsCannotPost` 钉住「没有评论方法就是不能」。
+
+**剩余 `context.Background()` 审计结论**：`generation.go` 的 `requestContext` 不是缺陷——它按 generation 存活，每个调用点都再套 60–90 秒上限（`app.go` 六处）；`magpie.go` 的 `parent == nil` 兜底同样总有超时；`jsui.go`/`manage.go` 在建窗口时就建立了 lifetime。只有 `comments.go` 这一处把源调用留在了生命周期之外。
+
 ## 0.2.23（Windows，2026-11-05）
 
 带上「源指定的 Host 真的发出去」：源用 `Host` 指向另一台虚拟主机时，请求现在会照它发，而不是发地址自己的名字。
