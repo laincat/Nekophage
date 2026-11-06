@@ -16,6 +16,17 @@ With `view.CapturePage()` (the WebView's own), the same fixture reran:
 **Attribution**: the app under test is `15c1acd`; only the capture tool changed (`f4375b0`, `cmd/readercheck`), and no product logic moved.
 
 **Correcting the previous round's account**: the failure was not the patch's `0o644` but my inline transcription of the base64 dropping characters (2957/2216 bytes, `git apply` reported `corrupt patch at line 46`). The authoritative gist decoded to 2960/2218 bytes with matching hashes and applied cleanly.
+
+## Relicensed to LGPL-3.0-or-later, dependencies moved to their latest (2026-11-06)
+
+The repository was GPL-3.0. It is now **LGPL-3.0-or-later with the App Store / DRM Exception**, the same terms the playback engine AetherEngine uses:
+
+- `LICENSE` is this project's LGPL-3.0 text plus the exception (distribution of a statically linked binary through the App Store, TestFlight and similar platforms is permitted, and the platform's re-signing, DRM or ban on user re-linking does not breach the licence); the GPL-3.0 text LGPL incorporates is in `COPYING`
+- the exception covers the binary distribution path only and changes no source obligation: the corresponding source is still in the public upstream repository, and recipients keep every right GPL-3.0 / LGPL-3.0 grants them
+
+Why the exception: on iOS the app and Core are statically linked, and App Store terms forbid both user re-linking and third-party re-signing - exactly what LGPL sections 4-6 require. Without the exception LGPL contradicts itself on iOS. AetherEngine already solved this with the same clauses, so we match it.
+
+Dependencies at this round's latest: mygo `v0.7.4` -> `v0.7.5-0.20261106015623-26602642` (main development build), `modernc.org/sqlite` 1.61.1, `libc` 1.80.1, `golang.org/x/image` 0.47.0, `purego` 0.11.3, moejs to `df42231` with Core; Core pin `2d1dd76` -> `d9a1851`; `check.sh` 7/7.
 ## The reading screenshot now uses the WebView's own capture (`f4375b0`, 2026-11-05)
 
 `cmd/readercheck` captured with `win.CapturePage()`, which is the **window's native layer**: the reader lives in a WebView inside its own window, so the shot had a toolbar, blank body and nothing else. mygo's `WebView` has its own `CapturePage()`; the tool now tries that first and falls back to the window capture, saying in the log which one it used (`web capture:` / `window capture:`).

@@ -16,6 +16,17 @@
 **归属**：被测 App 是 `15c1acd`，只换了截图工具（`f4375b0`，`cmd/readercheck`），产品逻辑未动。
 
 **更正上一轮的说法**：上轮失败不是补丁里 `0o644` 的问题，而是我内联转写 base64 时少了字符（2957/2216 字节，`git apply` 报 `corrupt patch at line 46`）。权威 gist 版本解出 2960/2218 字节、哈希一致、`git apply` 干净通过。
+
+## 许可证改为 LGPL-3.0-or-later 并跟 AetherEngine 的最新依赖（2026-11-06）
+
+此前仓库是 GPL-3.0。现在改为 **LGPL-3.0-or-later 附 App Store / DRM 例外**，条款与播放引擎 AetherEngine 用的同一套：
+
+- `LICENSE` 是本项目的 LGPL-3.0 全文加例外（允许通过 App Store / TestFlight 等平台分发静态链接的二进制，且不因平台的再签名、DRM 或禁止用户重链接而违约），LGPL 引用的 GPL-3.0 全文在 `COPYING`
+- 例外只覆盖二进制分发路径，不改变源码义务：对应源码仍在上游公开仓库，接收方保留 GPL-3.0 / LGPL-3.0 下的全部权利
+
+为什么需要例外：iOS 上 App 与 Core 是静态链接，App Store 的分发条款既不允许用户重链接，也限制再签名，而 LGPL 的 4—6 节恰恰要求这些。没有例外，LGPL 在 iOS 上自相矛盾。AetherEngine 已经用同一套条款解决了这件事，直接对齐。
+
+依赖同步到本轮最新：mygo `v0.7.4` → `v0.7.5-0.20261106015623-26602642`（main 的开发版），`modernc.org/sqlite` 1.61.1、`libc` 1.80.1、`golang.org/x/image` 0.47.0、`purego` 0.11.3，moejs 随 Core 到 `df42231`；Core pin `2d1dd76` → `d9a1851`；`check.sh` 7/7。
 ## 阅读页截图改用 WebView 自身捕获（`f4375b0`，2026-11-05）
 
 `cmd/readercheck` 原来用 `win.CapturePage()`，那是**窗口原生层**的截图：阅读视图在独立窗口的 WebView 里，于是拍出来只有标题栏和上下章按钮、正文白屏。mygo 的 `WebView` 自己有 `CapturePage()`，改为先试它、失败才退回窗口截图，并在日志里写明用了哪个（`web capture:` / `window capture:`）。
