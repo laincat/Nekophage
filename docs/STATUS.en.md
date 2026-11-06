@@ -17,6 +17,12 @@ With `view.CapturePage()` (the WebView's own), the same fixture reran:
 
 **Correcting the previous round's account**: the failure was not the patch's `0o644` but my inline transcription of the base64 dropping characters (2957/2216 bytes, `git apply` reported `corrupt patch at line 46`). The authoritative gist decoded to 2960/2218 bytes with matching hashes and applied cleanly.
 
+
+## 0.2.26: LGPL, latest dependencies and Core `d9a1851` shipped together (2026-11-06)
+
+No new features: this version packages this round's licence and dependency changes into an installable build. The licence is LGPL-3.0-or-later with the App Store / DRM Exception (`LICENSE` and `COPYING` both go into the ZIP and the install directory); mygo follows main's development build `26602642`; sqlite/libc/x/image/purego are at their latest; the Core pin moves `2d1dd76` -> `d9a1851` (moejs at main `df42231`).
+
+The window probes ran on the same tree: `scripts/desktop-probes.sh` **19 PASS / 0 FAIL / 1 SKIP** (official-source callbacks need `NK_OFFICIAL_SRC`), log `E:/Temp/nk-probes-lgpl.log`. Packaging and the isolated install check are in the delivery directory below.
 ## Relicensed to LGPL-3.0-or-later, dependencies moved to their latest (2026-11-06)
 
 The repository was GPL-3.0. It is now **LGPL-3.0-or-later with the App Store / DRM Exception**, the exception clauses are the same ones the playback engine AetherEngine uses (the engine states v3 only; this project additionally says "or any later version"):

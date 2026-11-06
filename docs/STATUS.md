@@ -17,6 +17,12 @@
 
 **更正上一轮的说法**：上轮失败不是补丁里 `0o644` 的问题，而是我内联转写 base64 时少了字符（2957/2216 字节，`git apply` 报 `corrupt patch at line 46`）。权威 gist 版本解出 2960/2218 字节、哈希一致、`git apply` 干净通过。
 
+
+## 0.2.26：LGPL、最新依赖与 Core `d9a1851` 一起发出（2026-11-06）
+
+这一版不加功能，只把本轮的许可与依赖变化打成可安装的包：许可证改为 LGPL-3.0-or-later 附 App Store / DRM 例外（`LICENSE` + `COPYING` 都进 ZIP 与安装目录）；mygo 跟到 main 开发版 `26602642`，sqlite/libc/x/image/purego 升到最新；Core pin `2d1dd76` → `d9a1851`（moejs 跟 main 的 `df42231`）。
+
+窗口探针在同一棵树上全跑：`scripts/desktop-probes.sh` **19 PASS / 0 FAIL / 1 SKIP**（官方源回调需 `NK_OFFICIAL_SRC`），日志 `E:/Temp/nk-probes-lgpl.log`。打包与隔离安装验收见下方交付目录。
 ## 许可证改为 LGPL-3.0-or-later 并跟 AetherEngine 的最新依赖（2026-11-06）
 
 此前仓库是 GPL-3.0。现在改为 **LGPL-3.0-or-later 附 App Store / DRM 例外**，例外条款与播放引擎 AetherEngine 用的同一套（引擎自己声明 v3-only，我们这一份额外写明「或任何更新版本」）：
