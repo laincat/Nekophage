@@ -6,7 +6,7 @@
 set -eu
 cd "$(dirname "$0")/.."
 
-ROOT_ALLOWED="main.go main_test.go corestamp.go cmd .git .gitattributes .gitignore AGENTS.md AGENTS.en.md LICENSE README.md README.en.md go.mod go.sum go.work go.work.sum docs internal scripts build Nekophage.app dist"
+ROOT_ALLOWED="main.go main_test.go corestamp.go cmd .git .gitattributes .gitignore AGENTS.md AGENTS.en.md LICENSE COPYING README.md README.en.md go.mod go.sum go.work go.work.sum docs internal scripts build Nekophage.app dist"
 
 fail=0
 err() { printf 'check-docs: %s\n' "$*" >&2; fail=1; }

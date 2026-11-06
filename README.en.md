@@ -7,7 +7,7 @@ English | [简体中文](README.md)
   <img src="docs/assets/brand/nekophage-logo.png" alt="Nekophage" width="720">
 </picture>
 
-The desktop companion of Nekularity: read comics and play videos from Venera-compatible sources. Extension authoring and publishing come later. Written in Go, with an interface [MyGo](https://github.com/egoist/mygo) draws; licensed GPL-3.0-or-later.
+The desktop companion of Nekularity: read comics and play videos from Venera-compatible sources. Extension authoring and publishing come later. Written in Go, with an interface [MyGo](https://github.com/egoist/mygo) draws; licensed LGPL-3.0-or-later with the App Store / DRM Exception.
 
 Logic comes from [VeneraCat Core](https://github.com/laincat/VeneraCat-Core), compiled into the same executable: no FFI, no cgo, no separate Core process.
 
@@ -69,4 +69,4 @@ How the real-source and manual checks are run is in [docs/STATUS.en.md](docs/STA
 
 ## Licence
 
-GPL-3.0-or-later; see [LICENSE](LICENSE).
+LGPL-3.0-or-later with the App Store / DRM Exception; see [LICENSE](LICENSE). The GPL-3.0 text it incorporates is in [COPYING](COPYING).

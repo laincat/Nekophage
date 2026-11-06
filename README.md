@@ -7,7 +7,7 @@
   <img src="docs/assets/brand/nekophage-logo.png" alt="Nekophage" width="720">
 </picture>
 
-Nekularity 的桌面端:用 Venera 兼容的源阅读漫画和播放视频;扩展的制作分发后置。Go 编写,界面由 [MyGo](https://github.com/egoist/mygo) 绘制,许可证 GPL-3.0-or-later。
+Nekularity 的桌面端:用 Venera 兼容的源阅读漫画和播放视频;扩展的制作分发后置。Go 编写,界面由 [MyGo](https://github.com/egoist/mygo) 绘制,许可证 LGPL-3.0-or-later(附 App Store / DRM 例外)。
 
 业务逻辑来自 [VeneraCat Core](https://github.com/laincat/VeneraCat-Core),直接编译进同一个可执行文件:不需要 FFI,不需要 cgo,也不需要单独的 Core 进程。
 
@@ -69,4 +69,4 @@ macOS 可用 `go build -o build/Nekophage .` 构建本机程序。Windows 打包
 
 ## 许可证
 
-GPL-3.0-or-later,见 [LICENSE](LICENSE)。
+LGPL-3.0-or-later,附 App Store / DRM 例外,见 [LICENSE](LICENSE);LGPL 引用的 GPL-3.0 全文见 [COPYING](COPYING)。
