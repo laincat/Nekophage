@@ -19,13 +19,13 @@ With `view.CapturePage()` (the WebView's own), the same fixture reran:
 
 ## Relicensed to LGPL-3.0-or-later, dependencies moved to their latest (2026-11-06)
 
-The repository was GPL-3.0. It is now **LGPL-3.0-or-later with the App Store / DRM Exception**, the same terms the playback engine AetherEngine uses:
+The repository was GPL-3.0. It is now **LGPL-3.0-or-later with the App Store / DRM Exception**, the exception clauses are the same ones the playback engine AetherEngine uses (the engine states v3 only; this project additionally says "or any later version"):
 
 - `LICENSE` is this project's LGPL-3.0 text plus the exception (distribution of a statically linked binary through the App Store, TestFlight and similar platforms is permitted, and the platform's re-signing, DRM or ban on user re-linking does not breach the licence); the GPL-3.0 text LGPL incorporates is in `COPYING`
 - the exception covers the binary distribution path only and changes no source obligation: the corresponding source is still in the public upstream repository, and recipients keep every right GPL-3.0 / LGPL-3.0 grants them
 - **Static linking and what LGPL asks for**: the Swift client compiles Core into an xcframework and the Go desktop compiles it into one executable, so both are statically linked. LGPL sections 4-6 ask that a recipient be able to relink against a changed library; on iOS the App Store exception above covers that. The desktop has no realistic "the user relinks it" path, and the workable answer is **take the source and build it** (the repository is public and `scripts/fetch-core.sh` plus `scripts/package-windows.py` are that path). This is recorded as it is, not claimed as dynamic replacement in the browser sense.
 
-Why the exception: on iOS the app and Core are statically linked, and App Store terms forbid both user re-linking and third-party re-signing - exactly what LGPL sections 4-6 require. Without the exception LGPL contradicts itself on iOS. AetherEngine already solved this with the same clauses, so we match it.
+Why the exception: on iOS the app and Core are statically linked, and App Store terms forbid both user re-linking and third-party re-signing - exactly what LGPL sections 4-6 require. Without the exception LGPL contradicts itself on iOS. AetherEngine already solved this with the same exception, so we match it; it states v3 only, while our grant adds "or any later version".
 
 Dependencies at this round's latest: mygo `v0.7.4` -> `v0.7.5-0.20261106015623-26602642` (main development build), `modernc.org/sqlite` 1.61.1, `libc` 1.80.1, `golang.org/x/image` 0.47.0, `purego` 0.11.3, moejs to `df42231` with Core; Core pin `2d1dd76` -> `d9a1851`; `check.sh` 7/7.
 ## The reading screenshot now uses the WebView's own capture (`f4375b0`, 2026-11-05)
