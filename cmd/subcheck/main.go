@@ -45,6 +45,8 @@ type pageState struct {
 	Time          float64  `json:"time"`
 	Seeking       bool     `json:"seeking"`
 	ShowingTracks int      `json:"showingTracks"`
+	Languages     []string `json:"languages"`
+	HLSTracks     []string `json:"hlsTracks"`
 }
 
 const stateScript = `(() => {
@@ -72,6 +74,8 @@ const stateScript = `(() => {
     videoWidth: v.videoWidth,
     time: v.currentTime,
     seeking: v.seeking,
+    languages: Array.from(navigator.languages || [navigator.language || '']),
+    hlsTracks: (typeof hls !== 'undefined' && hls && hls.subtitleTracks) ? hls.subtitleTracks.map(function (t) { return (t.name || '') + '/' + (t.lang || '') + '/' + (t.default ? 'D' : ''); }) : [],
     hls: typeof Hls !== 'undefined' ? Hls.version : 'absent'
   });
 })()`
@@ -96,6 +100,8 @@ func main() {
 	text := flag.String("text", "Subtitle rendering proof", "expected active cue text (ignored for 关闭)")
 	baselineText := flag.String("baseline-text", "", "optional active cue text required before changing the selection")
 	baselineOff := flag.Bool("baseline-off", false, "require a previously saved off choice to be restored before changing the selection")
+	langs := flag.String("langs", "", "comma-separated reader languages to pass instead of the system's (e.g. en-US or zh-Hant-TW)")
+	baselineSelected := flag.String("baseline-selected", "", "optional option label that must be selected before changing the selection (the default the page picked)")
 	out := flag.String("out", "", "where to write the final window capture")
 	wait := flag.Duration("wait", 25*time.Second, "how long the page may take to load")
 	flag.Parse()
@@ -194,6 +200,13 @@ func main() {
 		}
 		return player.Subtitle{Off: choice.Off, Name: choice.Name, Language: choice.Language}, true
 	}
+	// The same languages hook internal/ui/video.go installs; -langs replaces
+	// the system list so a check can name the reader's languages itself.
+	server.Languages = mygo.App.PreferredLanguages
+	if *langs != "" {
+		list := strings.Split(*langs, ",")
+		server.Languages = func() []string { return list }
+	}
 	server.OnSubtitle = func(m player.Meta, choice player.Subtitle) {
 		if _, err := records.SetVideoSubtitle(m.Source, m.ItemID, m.EpisodeID,
 			&shelf.VideoSubtitle{Off: choice.Off, Name: choice.Name, Language: choice.Language}); err != nil {
@@ -252,7 +265,8 @@ func main() {
 			if *baselineOff {
 				return s.Selected == "关闭" && s.Value == "-1" && s.ShowingTracks == 0 && s.ShowingText == ""
 			}
-			return s.ShowingTracks > 0 && s.ShowingText != "" && (*baselineText == "" || strings.Contains(s.ShowingText, *baselineText))
+			return s.ShowingTracks > 0 && s.ShowingText != "" && (*baselineText == "" || strings.Contains(s.ShowingText, *baselineText)) &&
+				(*baselineSelected == "" || s.Selected == *baselineSelected)
 		}
 		deadline := time.Now().Add(*wait)
 		var before pageState
@@ -273,6 +287,7 @@ func main() {
 			}
 			time.Sleep(500 * time.Millisecond)
 		}
+		log.Printf("page languages=%v hls tracks=%v", before.Languages, before.HLSTracks)
 		log.Printf("before: options=%v selected=%q hidden=%v hls=%s active=%q offBaseline=%t stable=%d width=%d time=%.3f", before.Options, before.Selected, before.Hidden, before.HLS, before.ShowingText, *baselineOff, stable, before.VideoWidth, before.Time)
 		if stable < 2 {
 			checkErr = fmt.Errorf("the fixture never reached the requested decoded subtitle baseline (off=%t): %+v", *baselineOff, before)

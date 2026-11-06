@@ -298,6 +298,9 @@ func (a *App) openPlayer(play *video.Play, meta player.Meta, title string, start
 		// so reopening the episode restores the track the viewer picked.
 		server.Subtitle = a.savedVideoSubtitle
 		server.OnSubtitle = a.saveVideoSubtitle
+		// With nothing saved for an episode, its subtitle follows the
+		// system's language order, the way the iOS client chooses.
+		server.Languages = mygo.App.PreferredLanguages
 		a.mu.Lock()
 		a.playerSrv = server
 		a.mu.Unlock()

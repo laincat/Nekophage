@@ -4,6 +4,19 @@
 
 Updated 2026-11-02. The roadmap now implements route A (WebView and media proxy). Other options remain as tradeoff background; the verification record below states actual progress and limits.
 
+**The default subtitle follows the system language (2026-11-07)**: with no saved choice for the episode, the page picks a track by the **system's language order** rather than the manifest's `DEFAULT=YES`, which is the source's guess for everyone. Tags are compared as ISO 639 languages; Chinese keeps its script (`zh-Hans`/`zh-Hant`), the two scripts do not match each other, and an unscripted `zh` is accepted for either. The system list reaches the page in its URL (`langs`, from `mygo.App.PreferredLanguages()`) because a WebView's `navigator.languages` is the app's interface language, not the reader's (measured here: `en-US` on a `zh-CN` system). A language or \"off\" chosen in the player still wins and is still saved per episode; the menu gained \"跟随系统语言\" to give the default back to the system.
+
+Verified on a real WebView2 with HLS.js 1.7.4, one language order at a time (`cmd/subcheck -langs ...`; 320×180 view, paused at 1.000 s, reading `activeCues` text rather than a track name):
+
+| Language order | Picked on first open | Active cue | Re-pick and reopen |
+| --- | --- | --- | --- |
+| system `zh-CN` | 中文 | `字幕渲染检查 第0段字幕` | pick English → reopen `Subtitle rendering proof` |
+| `en-US` | English | `Subtitle rendering proof` | pick 中文 → reopen `字幕渲染检查 第0段字幕` |
+| `zh-Hant-TW,en` | 中文 (the fixture tags `zh`, accepted by either script) | `字幕渲染检查 第0段字幕` | pick 关闭 → reopen with no cue |
+| `fr-FR` (no match) | 中文 (falls back to the manifest default) | `字幕渲染检查 第0段字幕` | pick English → reopen `Subtitle rendering proof` |
+
+`sh scripts/desktop-probes.sh` is 19/19 PASS and `go test ./internal/player/... ./internal/ui/...` passes; logs in `E:/Temp/nk-sublang/` (one `before/stored/reopened` line per case, with screenshots). Boundaries: verified on Windows WebView2, not re-run on macOS WKWebView; the default being re-picked after an `EXT-X-MEDIA` variant-group refresh is not covered.
+
 ## Implementation progress (2026-11-02)
 
 The client media transport and `internal/player.MediaProxy` are implemented: they use the Core provider's search/detail/play declarations, share source cookie and redirect policy, stream media and use Core HLS rewriting to route child playlists, keys, initialization fragments and segments through proxy resources. Loopback cases verify relative paths after redirects, Referer, Range/206, data before response completion and upstream HTTP cancellation on session close.

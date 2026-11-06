@@ -12,6 +12,19 @@
 
 已移除探针残留的手工 `3s` 进度 POST,失败改为非零退出;保存和续播使用同一个完成判断,保留小数秒。普通源管理已接类型选择、文件/URL 安装与持久化,真实 Windows 原生 UI 安装后关闭/重启仍能选择视频源,恢复后的 HLS 播放通过。视频搜索/分页、详情和播放准备已分代取消,慢 HTTP 的真实断连与下一次读取成功有竞态测试,迟到播放地址在主线程再次判定归属;HLS 会话改为优先内置 HLS.js(原生 HLS 会丢掉 `EXT-X-MEDIA` 字幕组,实测不请求字幕清单),回退原生路径仅作兜底且无字幕;默认路径的字幕选择、活动文本与中文窗口叠加已验证;0.2.4 安装包中的字幕选择框已完成真实操作验收:在同一暂停画面上选 English 后英文可见、选关闭后消失、再选中文后恢复,回执 `E:/Temp/desktop-subtitle-language-024-receipt.json`。字幕选择已独立存入书架并跨播放器重开恢复(`cmd/subcheck`,真实 WebView2),见 STATUS;PiP、字幕样式、变体组刷新后的选择、macOS 与真实在线站点仍待验证;音轨只验证到解码字节计数,未验证扬声器实际输出。嗅探、DRM 和 DASH 明确不支持。
 
+**默认字幕跟系统语言(2026-11-07)**:没有为该集保存过选择时,页面按**系统语言顺序**挑字幕轨,而不是直接采用清单里的 `DEFAULT=YES`——后者是源对所有用户的猜测。语言标签只比较 ISO 639 语言;中文保留文字系统(`zh-Hans`/`zh-Hant`),同一语言不同文字系统不互相匹配,未写文字系统的 `zh` 对两者都接受。系统语言由 Go 侧传进播放页 URL(`langs` 参数,取自 `mygo.App.PreferredLanguages()`),因为 WebView 的 `navigator.languages` 是本应用界面语言而不是读者语言(本机实测返回 `en-US`,系统是 `zh-CN`)。播放器里选过的语言或"关闭"仍是更高的优先级,并照旧按集保存;菜单里新增"跟随系统语言"把默认还给系统。
+
+真实 WebView2 + HLS.js 1.7.4 上按语言顺序逐一验证(`cmd/subcheck -langs ...`,视图 320×180、暂停在 1.000 秒、读 `activeCues` 文本而不是轨道名):
+
+| 语言顺序 | 首开选中 | 活动字幕 | 再选并重开 |
+| --- | --- | --- | --- |
+| 系统 `zh-CN` | 中文 | `字幕渲染检查 第0段字幕` | 选 English → 重开 `Subtitle rendering proof` |
+| `en-US` | English | `Subtitle rendering proof` | 选 中文 → 重开 `字幕渲染检查 第0段字幕` |
+| `zh-Hant-TW,en` | 中文(夹具标 `zh`,两种文字系统都接受) | `字幕渲染检查 第0段字幕` | 选 关闭 → 重开无字幕 |
+| `fr-FR`(无匹配) | 中文(退回清单默认) | `字幕渲染检查 第0段字幕` | 选 English → 重开 `Subtitle rendering proof` |
+
+`sh scripts/desktop-probes.sh` 19/19 PASS,`go test ./internal/player/... ./internal/ui/...` 通过;日志 `E:/Temp/nk-sublang/`(每例的 `before/stored/reopened` 各一行,截图同目录)。边界:Windows WebView2 上验证,未在 macOS WKWebView 重跑;未覆盖带 `EXT-X-MEDIA` 变体组刷新后的默认重选。
+
 ## 现在已有的东西
 
 Core 侧(已实现并有测试):

@@ -68,6 +68,12 @@ type Server struct {
 	// OnSubtitle receives a choice the viewer made. It runs on the HTTP
 	// goroutine.
 	OnSubtitle func(Meta, Subtitle)
+	// Languages returns the viewer's languages, most preferred first, which
+	// the page uses to pick a subtitle when nothing was saved for the episode.
+	// The system's list (mygo.App.PreferredLanguages) is the right source: a
+	// WebView's navigator.languages follows the app's interface language, not
+	// the reader's. Nil leaves the page on the manifest default.
+	Languages func() []string
 
 	mu       sync.Mutex
 	closed   bool
@@ -148,6 +154,11 @@ func (s *Session) URL(title string, start float64) string {
 	query.Set("format", string(s.format))
 	if start > 0 && !math.IsNaN(start) && !math.IsInf(start, 0) {
 		query.Set("start", strconv.FormatFloat(start, 'f', -1, 64))
+	}
+	if s.server.Languages != nil {
+		if langs := s.server.Languages(); len(langs) > 0 {
+			query.Set("langs", strings.Join(langs, ","))
+		}
 	}
 	return "http://" + s.server.ln.Addr().String() + "/s/" + s.token + "/play?" + query.Encode()
 }
