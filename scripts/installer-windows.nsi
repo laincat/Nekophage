@@ -91,6 +91,7 @@ Section "Uninstall"
   ${EndIf}
   Delete "$INSTDIR\Nekophage.exe"
   Delete "$INSTDIR\LICENSE"
+  Delete "$INSTDIR\COPYING"
   Delete "$INSTDIR\BUILD-INFO.txt"
   Delete "$INSTDIR\README.zh.txt"
   Delete "$INSTDIR\README.en.txt"

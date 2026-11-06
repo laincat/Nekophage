@@ -62,7 +62,7 @@ cat > "$app/Contents/Info.plist" <<PLIST
 </plist>
 PLIST
 
-cp LICENSE "$app/Contents/Resources/LICENSE"
+cp LICENSE COPYING "$app/Contents/Resources/"
 plutil -lint "$app/Contents/Info.plist" >/dev/null
 
 if [ "$sign" = 1 ]; then

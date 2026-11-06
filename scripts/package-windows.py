@@ -48,6 +48,9 @@ def main():
         if f"commit {revision}" not in info:
             raise RuntimeError("the binary does not report the checked-out commit")
         (stage / "LICENSE").write_bytes((ROOT / "LICENSE").read_bytes())
+        # LICENSE references the LGPL's incorporated GPL text, and
+        # LGPL 4(b) requires that text to travel with the binary.
+        (stage / "COPYING").write_bytes((ROOT / "COPYING").read_bytes())
         assets = ROOT / "internal" / "player" / "assets"
         for source, name in [
             ("HLS-LICENSE.txt", "HLS-LICENSE.txt"),
