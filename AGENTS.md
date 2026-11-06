@@ -14,6 +14,7 @@
 - 源不可信:不把源的 HTML 加载进主界面,只进阅读器和验证窗口。
 - JSON 保持原文:源数据的值是 Core 给的字节,不重新编码;章节等需要顺序的对象用文档顺序解析,不排序。
 - 不要从 AGPL 项目(Animeko、AnimeFlow)或没有许可证的项目(AniCh)复制代码。参考 Magpie(MIT)、MyGo(MIT)时按行为重写。
+- 许可证是 **LGPL-3.0-or-later 附 App Store / DRM 例外**(见 `LICENSE`,GPL-3.0 全文在 `COPYING`)。新文件沿用同一许可;引入新依赖前先看它的许可证能否并进来。
 
 ## 仓库约定
 
