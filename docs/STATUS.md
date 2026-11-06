@@ -22,7 +22,7 @@
 
 这一版不加功能，只把本轮的许可与依赖变化打成可安装的包：许可证改为 LGPL-3.0-or-later 附 App Store / DRM 例外（`LICENSE` + `COPYING` 都进 ZIP 与安装目录）；mygo 跟到 main 开发版 `26602642`，sqlite/libc/x/image/purego 升到最新；Core pin `2d1dd76` → `d9a1851`（moejs 跟 main 的 `df42231`）。
 
-窗口探针在同一棵树上全跑：`scripts/desktop-probes.sh` **19 PASS / 0 FAIL / 1 SKIP**（官方源回调需 `NK_OFFICIAL_SRC`），日志 `E:/Temp/nk-probes-lgpl.log`。打包与隔离安装验收见下方交付目录。
+窗口探针在版本号提交前的 `f56d2a3` 上全跑（与 `46da5b8` 只差版本常量与文档）：`scripts/desktop-probes.sh` **19 PASS / 0 FAIL / 1 SKIP**（官方源回调需 `NK_OFFICIAL_SRC`），日志 `E:/Temp/nk-probes-lgpl.log`。打包与隔离安装在 `46da5b8` 上：ZIP 22,997,956 字节、安装器 19,910,306 字节，隔离安装 **14 PASS / 0 FAIL**（含安装目录 LICENSE 为 LGPL、COPYING 在），交付 `E:/Code/deliveries/2026-11-06-nekophage-0.2.26/`。
 ## 许可证改为 LGPL-3.0-or-later 并跟 AetherEngine 的最新依赖（2026-11-06）
 
 此前仓库是 GPL-3.0。现在改为 **LGPL-3.0-or-later 附 App Store / DRM 例外**，例外条款与播放引擎 AetherEngine 用的同一套（引擎自己声明 v3-only，我们这一份额外写明「或任何更新版本」）：
