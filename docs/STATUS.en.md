@@ -18,6 +18,18 @@ With `view.CapturePage()` (the WebView's own), the same fixture reran:
 **Correcting the previous round's account**: the failure was not the patch's `0o644` but my inline transcription of the base64 dropping characters (2957/2216 bytes, `git apply` reported `corrupt patch at line 46`). The authoritative gist decoded to 2960/2218 bytes with matching hashes and applied cleanly.
 
 
+## 0.2.27: Windows ZIP / installer built and verified in isolation (2026-11-07)
+
+A runnable **0.2.27** build from `3ad0459` (system-language default subtitles); the Core pin stays `d9a1851`:
+
+- ZIP `Nekophage-0.2.27-windows-amd64-3ad0459.zip`, **23,001,884 bytes**, SHA-256 `42a3af0192271af2475241aff7154938ae6c9197755e259884c3addfa548f68a`; `scripts/package-windows.py` prints `PASS Windows build, ZIP CRC, unpacked checksums and executable -version`.
+- Installer `Nekophage-0.2.27-windows-amd64-3ad0459-setup.exe`, **19,910,626 bytes**, SHA-256 `926daf262ec3222095b5a7fcd4f3af212d0845d7b4ee405232dfa283f7e5685e`.
+- **Isolated install: 14 PASS / 0 FAIL** (`E:/Temp/nk-0227/verify.log`): ZIP CRC, LICENSE+COPYING, version and Core markers, CLI service list, silent install, LGPL licence, main window, native close exits 0, silent uninstall, profile survives.
+- `go test ./internal/player/... ./internal/ui/...` passes; `E:/Temp/nk-0227-tests.log`.
+- Delivery: `E:/Code/deliveries/2026-11-07-nekophage-0.2.27/`.
+
+**Boundaries**: this repository has no Git remote and no public release destination, so the artifacts are local only. This is a Windows artifact, not macOS or a device test. The system-language subtitle default was verified earlier with `cmd/subcheck -langs` against a real WebView2 + HLS.js for `zh-CN`, `en-US`, `zh-Hant-TW,en` and `fr-FR`; that browser probe was not repeated this round.
+
 ## 0.2.26: LGPL, latest dependencies and Core `d9a1851` shipped together (2026-11-06)
 
 No new features: this version packages this round's licence and dependency changes into an installable build. The licence is LGPL-3.0-or-later with the App Store / DRM Exception (`LICENSE` and `COPYING` both go into the ZIP and the install directory); mygo follows main's development build `26602642`; sqlite/libc/x/image/purego are at their latest; the Core pin moves `2d1dd76` -> `d9a1851` (moejs at main `df42231`).

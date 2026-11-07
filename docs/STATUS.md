@@ -18,6 +18,18 @@
 **更正上一轮的说法**：上轮失败不是补丁里 `0o644` 的问题，而是我内联转写 base64 时少了字符（2957/2216 字节，`git apply` 报 `corrupt patch at line 46`）。权威 gist 版本解出 2960/2218 字节、哈希一致、`git apply` 干净通过。
 
 
+## 0.2.27：Windows ZIP / 安装包已构建并隔离验证（2026-11-07）
+
+`3ad0459`（默认字幕跟系统语言）之后打出的 **0.2.27** 可运行产物，Core pin 仍是 `d9a1851`：
+
+- ZIP `Nekophage-0.2.27-windows-amd64-3ad0459.zip`，**23,001,884 字节**，SHA-256 `42a3af0192271af2475241aff7154938ae6c9197755e259884c3addfa548f68a`；`scripts/package-windows.py` 输出 `PASS Windows build, ZIP CRC, unpacked checksums and executable -version`。
+- 安装包 `Nekophage-0.2.27-windows-amd64-3ad0459-setup.exe`，**19,910,626 字节**，SHA-256 `926daf262ec3222095b5a7fcd4f3af212d0845d7b4ee405232dfa283f7e5685e`。
+- **隔离安装 14 PASS / 0 FAIL**（`E:/Temp/nk-0227/verify.log`）：ZIP CRC / LICENSE+COPYING / 版本与 Core marker / CLI 服务列表 / 静默安装 / LGPL 许可证 / 主窗口出现 / 原生关闭退出 0 / 静默卸载 / 用户资料保留。
+- `go test ./internal/player/... ./internal/ui/...` 通过；`E:/Temp/nk-0227-tests.log`。
+- 交付目录 `E:/Code/deliveries/2026-11-07-nekophage-0.2.27/`。
+
+**边界**：仓库没有 Git remote，公开发布目的地未指定，产物只在本机；这是 Windows 产物，不等于 macOS 或真机验证；默认字幕的系统语言选择此前由 `cmd/subcheck -langs` 在真实 WebView2 + HLS.js 验证（`zh-CN`、`en-US`、`zh-Hant-TW,en`、`fr-FR`），本轮未重复跑浏览器探针。
+
 ## 0.2.26：LGPL、最新依赖与 Core `d9a1851` 一起发出（2026-11-06）
 
 这一版不加功能，只把本轮的许可与依赖变化打成可安装的包：许可证改为 LGPL-3.0-or-later 附 App Store / DRM 例外（`LICENSE` + `COPYING` 都进 ZIP 与安装目录）；mygo 跟到 main 开发版 `26602642`，sqlite/libc/x/image/purego 升到最新；Core pin `2d1dd76` → `d9a1851`（moejs 跟 main 的 `df42231`）。
