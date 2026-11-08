@@ -18,6 +18,12 @@
 **更正上一轮的说法**：上轮失败不是补丁里 `0o644` 的问题，而是我内联转写 base64 时少了字符（2957/2216 字节，`git apply` 报 `corrupt patch at line 46`）。权威 gist 版本解出 2960/2218 字节、哈希一致、`git apply` 干净通过。
 
 
+## 0.2.29 发布（2026-11-08）
+
+Core pin `da23603`（`new URL` 保留原始查询串，签名链接不再被改写）。提交 `4935ca9`；ZIP 23,001,466 B（sha256 `d828c710…6c4f`），安装包 19,914,144 B（sha256 `077e52b1…a54f`）；二进制 marker `Nekophage 0.2.29 | Core da236038…d061 | commit 4935ca9`。隔离安装/启动/原生关窗/卸载/资料保留 **14 PASS / 0 FAIL**；新 pin 上 `check.sh` **7/7**、桌面探针 **27 PASS / 0 FAIL / 0 RETRY / 0 SKIP**。
+
+已发布到公开仓库：tag `v0.2.29`（`a231231`）与 Release `https://github.com/laincat/Nekophage/releases/tag/v0.2.29`，四资产 API 回读 4/4 HTTP 200、大小一致、`sha256sum -c` 两项 OK。回执 `E:/Code/deliveries/2026-11-08-nekophage-0.2.29/receipt.json`。**边界**：仅 Windows amd64；安装包未做代码签名；不覆盖 macOS 或真机。
+
 ## Core pin 升到 `da23603`（2026-11-08）
 
 Core `da23603` 修正 `new URL`：保留原始查询串与片段标记，签名链接的 `?sig=a/b` 不再被改成 `%2F`；`u.hash = "y"` 不再丢 `#`。这是生产 `init.js` 行为变更，故跟进 pin。新 pin 下 `check.sh` **7/7**、`desktop-probes.sh` **27 PASS / 0 FAIL / 0 RETRY / 0 SKIP**。回执 `E:/Code/deliveries/2026-11-08-core-url-raw-query/receipt.json`。

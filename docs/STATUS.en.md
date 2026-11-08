@@ -18,6 +18,12 @@ With `view.CapturePage()` (the WebView's own), the same fixture reran:
 **Correcting the previous round's account**: the failure was not the patch's `0o644` but my inline transcription of the base64 dropping characters (2957/2216 bytes, `git apply` reported `corrupt patch at line 46`). The authoritative gist decoded to 2960/2218 bytes with matching hashes and applied cleanly.
 
 
+## 0.2.29 released (2026-11-08)
+
+Core pin `da23603` (`new URL` keeps the raw query, so signed links are no longer rewritten). Commit `4935ca9`; ZIP 23,001,466 B (sha256 `d828c710…6c4f`), installer 19,914,144 B (sha256 `077e52b1…a54f`); binary marker `Nekophage 0.2.29 | Core da236038…d061 | commit 4935ca9`. Isolated install/launch/native close/uninstall/profile retention is **14 PASS / 0 FAIL**; on the new pin `check.sh` is **7/7** and the desktop probes are **27 PASS / 0 FAIL / 0 RETRY / 0 SKIP**.
+
+Published in the public repository: tag `v0.2.29` (`a231231`) and Release `https://github.com/laincat/Nekophage/releases/tag/v0.2.29`; all four assets read back 4/4 HTTP 200 with matching sizes and 2 checksums OK. Receipt `E:/Code/deliveries/2026-11-08-nekophage-0.2.29/receipt.json`. **Boundaries**: Windows amd64 only; the installer is not code-signed; macOS and devices are not covered.
+
 ## Core pin moved to `da23603` (2026-11-08)
 
 Core `da23603` fixes `new URL`: the raw query and fragment marker are kept, so a signed `?sig=a/b` is no longer turned into `%2F`, and `u.hash = "y"` no longer drops the `#`. That is a production `init.js` behaviour change, so the pin follows. On the new pin `check.sh` is **7/7** and `desktop-probes.sh` is **27 PASS / 0 FAIL / 0 RETRY / 0 SKIP**. Receipt `E:/Code/deliveries/2026-11-08-core-url-raw-query/receipt.json`.
