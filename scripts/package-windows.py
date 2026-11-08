@@ -111,8 +111,12 @@ def main():
         archive_hash = digest(archive)
         destination = out / name
         os.replace(archive, destination)
+        # newline="\n": on Windows write_text turns \n into \r\n, and sha256sum -c
+        # then reads the \r as part of the file name and cannot open the file.
+        # The checksum is published next to the package, so it has to verify
+        # with the stock tool on every platform.
         destination.with_suffix(".zip.sha256").write_text(
-            f"{archive_hash}  {name}\n", encoding="utf-8"
+            f"{archive_hash}  {name}\n", encoding="utf-8", newline="\n"
         )
         print(f"PASS Windows build, ZIP CRC, unpacked checksums and executable -version")
         print(f"package: {destination}")
@@ -133,7 +137,7 @@ def main():
             installer_destination = out / installer_name
             os.replace(installer, installer_destination)
             installer_destination.with_suffix(".exe.sha256").write_text(
-                f"{installer_hash}  {installer_name}\n", encoding="utf-8"
+                f"{installer_hash}  {installer_name}\n", encoding="utf-8", newline="\n"
             )
             print(f"PASS NSIS installer build (execution tested separately)")
             print(f"installer: {installer_destination}")
