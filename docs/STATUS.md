@@ -18,6 +18,19 @@
 **更正上一轮的说法**：上轮失败不是补丁里 `0o644` 的问题，而是我内联转写 base64 时少了字符（2957/2216 字节，`git apply` 报 `corrupt patch at line 46`）。权威 gist 版本解出 2960/2218 字节、哈希一致、`git apply` 干净通过。
 
 
+## 当前 pin 的 Windows 原生阅读主线：真实 UIA 点击（2026-11-08）
+
+`9ce106a` / Core `d9a1851` 上，用 `cmd/uicheck -tags e2e` 构建的自动化通道发**真实指针与键盘事件**（点搜索框、输入 `probe`、点「搜索」、双击结果卡、点「阅读」、滚轮、点「书架」、点「继续」），不是内部函数调用。两个进程共用同一份资料目录：
+
+- 进程 1：搜索 → 详情（「共 1 章」）→ 点「阅读」打开独立阅读窗口 `Loopback Comic · Chapter 1` → 滚轮直到 `shelf.json` 记下 `Loopback Comic / Chapter 1 / page 1`。
+- 关窗：只对自己进程的 HWND 发 `WM_CLOSE`（先阅读窗、后主窗），**原进程退出码 0**，资料目录保留。
+- 进程 2：同一资料目录恢复，真实点「书架」→ 书架行显示 `Chapter 1 · 第 1 页 · 刚刚`；点「继续」→ 阅读窗口再次打开；再次 `WM_CLOSE` 退出码 0。
+- 两次的 `shelf.json` **内容逐字节相同**（`time` 未变），说明是读回而不是重写。
+
+证据：`E:/Code/deliveries/2026-11-08-windows-native-mainline/`（`mainline.py`、`receipt.json`、`rpc.jsonl`、四张截图、两份 `shelf.json`、UIA 树）。
+
+**边界**：这是 Windows 原生客户端在当前 pin 上的结果，**不是 macOS**（Mac 侧仍缺模型路由，见 ROADMAP），也不是真机或真实站点——漫画来自仓库自带的 loopback 夹具。
+
 ## 0.2.27 的桌面探针与全工程检查（2026-11-08）
 
 在 `3ad0459`（默认字幕跟系统语言）上跑的桌面证据：

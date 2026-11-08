@@ -18,6 +18,19 @@ With `view.CapturePage()` (the WebView's own), the same fixture reran:
 **Correcting the previous round's account**: the failure was not the patch's `0o644` but my inline transcription of the base64 dropping characters (2957/2216 bytes, `git apply` reported `corrupt patch at line 46`). The authoritative gist decoded to 2960/2218 bytes with matching hashes and applied cleanly.
 
 
+## The Windows native reading mainline on the current pin, driven by real UIA clicks (2026-11-08)
+
+On `9ce106a` / Core `d9a1851`, the automation channel of `cmd/uicheck -tags e2e` sent **real pointer and keyboard events** (click the search field, type `probe`, press 搜索, double-click the result card, press 阅读, scroll, press 书架, press 继续) rather than calling internal functions. Two processes shared one profile directory:
+
+- Process 1: search -> detail ("共 1 章") -> press 阅读 to open the separate reader window `Loopback Comic · Chapter 1` -> wheel events until `shelf.json` recorded `Loopback Comic / Chapter 1 / page 1`.
+- Closing: `WM_CLOSE` to the process's own HWNDs only (the reader window first, the main window last), **the original process exited with code 0** and the profile directory was kept.
+- Process 2: the same profile restored, a real press on 书架 -> the shelf row shows `Chapter 1 · 第 1 页 · 刚刚`; pressing 继续 opened the reader window again; another `WM_CLOSE` exited 0.
+- The two `shelf.json` files are **byte-identical** (the `time` stamp did not change), so the row was read back rather than rewritten.
+
+Evidence: `E:/Code/deliveries/2026-11-08-windows-native-mainline/` (`mainline.py`, `receipt.json`, `rpc.jsonl`, four screenshots, both `shelf.json` files, the UIA trees).
+
+**Boundaries**: this is the Windows native client on the current pin. It is **not macOS** (the Mac side still has no model route, see the ROADMAP), not a device, and not a real site - the comic comes from the repository's own loopback fixture.
+
 ## Desktop probes and the whole-project check on 0.2.27 (2026-11-08)
 
 Desktop evidence on `3ad0459` (system-language default subtitles):
