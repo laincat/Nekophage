@@ -18,6 +18,14 @@ With `view.CapturePage()` (the WebView's own), the same fixture reran:
 **Correcting the previous round's account**: the failure was not the patch's `0o644` but my inline transcription of the base64 dropping characters (2957/2216 bytes, `git apply` reported `corrupt patch at line 46`). The authoritative gist decoded to 2960/2218 bytes with matching hashes and applied cleanly.
 
 
+## 0.2.28: the Windows package on the new pin `3d61c62` (2026-11-08)
+
+0.2.27 linked Core `d9a1851`; Core `3d61c62` changed production `init.js` (`new URL` drops `.`/`..` path segments), so the package is rebuilt on the new pin. Commit `719d852`; ZIP 23,002,081 B (sha256 `f2256ddd…1f`), installer 19,913,306 B (sha256 `ed2bc622…b0`); binary marker `Nekophage 0.2.28 | Core 3d61c623…a5 | commit 719d852`. Isolated install/launch/native close/uninstall/profile retention is **14 PASS / 0 FAIL**, and the Windows native reading mainline on the new pin (real UIA pointer/keyboard: search -> detail -> read -> shelf -> close -> a second process restores and resumes) **PASSES**.
+
+Also fixed: on Windows `package-windows.py` wrote `.sha256` files with CRLF, and `sha256sum -c` read the `` as part of the file name and could not open the installer. `ef46ac2` writes LF; a full rebuild with the fixed script verifies 2 OK with `sha256sum -c` and contains 0 CRs. The two 0.2.28 checksum files were rewritten in the same form and verify OK.
+
+Delivery `E:/Code/deliveries/2026-11-08-nekophage-0.2.28/`. **Boundaries**: this Windows machine only; not macOS, and not a public release (no remote, no release destination).
+
 ## Core pin moved to `3d61c62` (2026-11-08)
 
 Core `3d61c62` makes `new URL` drop `.`/`..` path segments for special schemes as the standard does (before, the relative `../img/1.jpg` was sent as the literal `/b/c/../img/1.jpg`). That is a production `init.js` behaviour change, so the pin follows. On the new pin `sh scripts/check.sh` is **7/7** and `desktop-probes.sh` is **26 PASS / 0 FAIL / 0 RETRY / 0 SKIP**. Logs `E:/Temp/nk-check-pin3d61.log`, `E:/Temp/nk-probes-pin3d61.log`.

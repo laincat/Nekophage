@@ -18,6 +18,14 @@
 **更正上一轮的说法**：上轮失败不是补丁里 `0o644` 的问题，而是我内联转写 base64 时少了字符（2957/2216 字节，`git apply` 报 `corrupt patch at line 46`）。权威 gist 版本解出 2960/2218 字节、哈希一致、`git apply` 干净通过。
 
 
+## 0.2.28：新 pin `3d61c62` 的 Windows 安装包（2026-11-08）
+
+0.2.27 链接的是 Core `d9a1851`；Core `3d61c62` 改了生产 `init.js`（`new URL` 移除 `.`/`..` 路径段），故在新 pin 上重新打包。提交 `719d852`；ZIP 23,002,081 B（sha256 `f2256ddd…1f`），安装包 19,913,306 B（sha256 `ed2bc622…b0`）；二进制 marker `Nekophage 0.2.28 | Core 3d61c623…a5 | commit 719d852`。隔离安装/启动/原生关窗/卸载/配置保留 **14 PASS / 0 FAIL**；新 pin 上 Windows 原生阅读主线（真实 UIA 指针/键盘：搜索→详情→阅读→书架→关窗→第二进程恢复并续读）**PASS**。
+
+顺带修复：`package-windows.py` 在 Windows 上把 `.sha256` 写成 CRLF，`sha256sum -c` 会把 `` 当成文件名而无法打开安装包。`ef46ac2` 改为写 LF；用修复后脚本完整重打一次，`sha256sum -c` 2 项 OK、CR 为 0。0.2.28 交付的两个校验和已按同样格式重写并复核 OK。
+
+交付 `E:/Code/deliveries/2026-11-08-nekophage-0.2.28/`。**边界**：仅本机 Windows；不是 macOS，也不是公开发布（无 remote、未指定发布目的地）。
+
 ## Core pin 升到 `3d61c62`（2026-11-08）
 
 Core `3d61c62` 让 `new URL` 对特殊 scheme 按标准移除 `.`/`..` 路径段（此前相对地址 `../img/1.jpg` 会以字面 `/b/c/../img/1.jpg` 发出）。这是生产 `init.js` 行为变更，故跟进 pin。新 pin 下 `sh scripts/check.sh` **7/7**、`desktop-probes.sh` **26 PASS / 0 FAIL / 0 RETRY / 0 SKIP**。日志 `E:/Temp/nk-check-pin3d61.log`、`E:/Temp/nk-probes-pin3d61.log`。
