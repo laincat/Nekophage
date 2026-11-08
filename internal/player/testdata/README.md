@@ -49,3 +49,4 @@ go run ./cmd/uicheck -dir /path/to/new-test-profile \
 
 `scripts/desktop-probes.sh` 把三条一起跑：正向要求真实解码尺寸、时钟前进、帧回读、暂停落盘与「继续观看」恢复；两条负向要求**非零退出**且日志出现 `auth rejected`，否则说明鉴权已形同虚设。日志不打印 Cookie 值。
 
+把 `hls_subs_probe.js` 与 `hls-subs/` 夹具、`-video-auth -video-hlsjs -video-subs-text 字幕渲染检查` 组合,可验证 Core 重写后的字幕 URI 仍带着源声明头与 Cookie;任一丢失会被夹具 403 拒绝,`showing` 轨无活动 cue 而探针失败。此组合已加入 `desktop-probes.sh`。

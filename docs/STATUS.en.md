@@ -18,6 +18,16 @@ With `view.CapturePage()` (the WebView's own), the same fixture reran:
 **Correcting the previous round's account**: the failure was not the patch's `0o644` but my inline transcription of the base64 dropping characters (2957/2216 bytes, `git apply` reported `corrupt patch at line 46`). The authoritative gist decoded to 2960/2218 bytes with matching hashes and applied cleanly.
 
 
+## A combined regression for rewritten subtitle URIs under auth (2026-11-08)
+
+`-video-auth` (Referer/Cookie) and `-video-subs` (subtitle choice) had each been verified **separately, never together**: Core rewrites an `EXT-X-MEDIA` `URI` through the same MediaProxy, and if that rewritten subtitle request dropped the source-declared header or login Cookie the fixture would answer 403 and the `showing` track would have no active cue. That link had no regression protection.
+
+`desktop-probes.sh` now adds a fifth probe: `hls_subs_probe.js` with the `hls-subs` fixture and `-video-auth -video-hlsjs -video-subs-text 字幕渲染检查`. The run reports `video-probe: ok=true`, decoding 320x180 with **12 `/sub*` requests and 0 `auth rejected`**, 2 active cues whose `showing` track text is `字幕渲染检查`, a 139,047-byte frame readback, and `2.109s` saved on pause and restored after reopening.
+
+`NK_OFFICIAL_SRC=/e/Temp/nkprobe/official-srcs sh scripts/desktop-probes.sh` -> **25 PASS / 0 FAIL / 0 SKIP**; `sh scripts/check.sh` -> **7/7 PASS**. Logs `E:/Temp/nk-probes-subs-auth.log`, `build/probes/video-subs-auth.log`; receipt `E:/Code/deliveries/2026-11-08-video-subs-auth/receipt.json`.
+
+**Boundaries**: a real Windows WebView with the repository's loopback HLS/WebVTT fixture - not a real site, device or macOS; subtitle font/position styling is not measured and audible speaker output is not proven.
+
 ## HLS headers, Range and progress become a resident desktop regression (2026-11-08)
 
 `desktop-probes.sh` previously ran only the local MP4 with `-range`; whether the source-declared `Referer` and login Cookie really reach the upstream through the media proxy had evidence only from a historical installed package. On `d9a1851` this is now three default probes:

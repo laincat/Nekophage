@@ -49,3 +49,4 @@ Two negative scripts drop one dimension each:
 
 `scripts/desktop-probes.sh` runs all three: the positive case requires real decoded dimensions, an advancing clock, a frame readback, a pause-saved position and a Continue Watching restore; both negative cases require a **non-zero exit** and an `auth rejected` line, otherwise the authentication has quietly stopped working. Logs never print Cookie values.
 
+Combining `hls_subs_probe.js` with the `hls-subs/` fixture and `-video-auth -video-hlsjs -video-subs-text 字幕渲染检查` verifies that Core-rewritten subtitle URIs still carry the source-declared header and Cookie; losing either gets a 403, leaves the `showing` track without an active cue and fails the probe. This combination is part of `desktop-probes.sh`.

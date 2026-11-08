@@ -162,6 +162,19 @@ expect_rejection "a missing Cookie is refused with 403" \
 		-video-media internal/player/testdata/hls -video-auth -video-hlsjs \
 		-video clip -video-frame "$out/video-no-cookie.png"
 
+# Core rewrites EXT-X-MEDIA subtitle URIs through the same proxy. Checked with
+# authentication on: a rewritten URI that dropped the Referer/Cookie would be
+# refused with 403, the showing track would have no active cue, and this probe
+# would fail. The subtitle text itself comes from an active cue, not a cached one.
+rc=0
+go run ./cmd/uicheck -dir "$auth_work/subtitles" \
+	-video-script internal/player/testdata/hls_subs_probe.js \
+	-video-media internal/player/testdata/hls-subs -video-auth -video-hlsjs \
+	-video-subs-text '字幕渲染检查' -video clip \
+	-video-frame "$out/video-subs-auth-frame.png" \
+	>"$out/video-subs-auth.log" 2>&1 || rc=$?
+report "$rc" "rewritten subtitle URIs keep Referer and Cookie under auth" "$out/video-subs-auth.log"
+
 # A subtitle choice has to outlive the page: choosing English, closing and
 # reopening used to fall back to the manifest default. The cue itself must be
 # the one rendered after the reopen, not merely the name stored.

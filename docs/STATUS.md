@@ -18,6 +18,16 @@
 **更正上一轮的说法**：上轮失败不是补丁里 `0o644` 的问题，而是我内联转写 base64 时少了字符（2957/2216 字节，`git apply` 报 `corrupt patch at line 46`）。权威 gist 版本解出 2960/2218 字节、哈希一致、`git apply` 干净通过。
 
 
+## 字幕 URI 重写 + 鉴权的组合回归（2026-11-08）
+
+此前 `-video-auth`（Referer/Cookie）与 `-video-subs`（字幕选择）各自单独验过，**从未组合**：Core 把 `EXT-X-MEDIA` 的 `URI` 重写到同一个 MediaProxy，如果重写后的字幕请求丢掉源声明头或登录 Cookie，夹具会 403、`showing` 轨没有活动 cue——这条链路此前没有回归保护。
+
+现在 `desktop-probes.sh` 增加第五条：`hls_subs_probe.js` + `hls-subs` 夹具 + `-video-auth -video-hlsjs -video-subs-text 字幕渲染检查`。实跑 `video-probe: ok=true`，解码 320×180、**12 次 `/sub*` 请求、`auth rejected` 0 次**、活动 cue 2 条且 `showing` 轨文本为 `字幕渲染检查`、帧回读 139,047 字节、暂停落盘 `2.109s` 并重开恢复。
+
+`NK_OFFICIAL_SRC=/e/Temp/nkprobe/official-srcs sh scripts/desktop-probes.sh` → **25 PASS / 0 FAIL / 0 SKIP**；`sh scripts/check.sh` → **7/7 PASS**。日志 `E:/Temp/nk-probes-subs-auth.log`、`build/probes/video-subs-auth.log`；回执 `E:/Code/deliveries/2026-11-08-video-subs-auth/receipt.json`。
+
+**边界**：真实 Windows WebView + 仓库 loopback HLS/WebVTT 夹具，不是真实站点、真机或 macOS；字幕字号/位置样式未测，也不证明扬声器发声。
+
 ## HLS 请求头/Range/进度成为常驻桌面回归（2026-11-08）
 
 `desktop-probes.sh` 此前只跑 `-range` 的本地 MP4，源声明的 `Referer` 与登录 Cookie 是否真的经媒体代理到达上游，只有历史安装包的证据。现在在 `d9a1851` 上补成默认三条：
