@@ -18,6 +18,14 @@
 **更正上一轮的说法**：上轮失败不是补丁里 `0o644` 的问题，而是我内联转写 base64 时少了字符（2957/2216 字节，`git apply` 报 `corrupt patch at line 46`）。权威 gist 版本解出 2960/2218 字节、哈希一致、`git apply` 干净通过。
 
 
+## 原生 MP4 解码路径的鉴权回归（2026-11-08）
+
+此前所有带鉴权的视频探针都走 hls.js；原生解码器由浏览器自己取文件，是经过同一代理的另一条路径。`desktop-probes.sh` 新增第六条：`mp4_probe.js` + `mp4-audio/clip.mp4` + `-video-auth -video-audio`，实跑 `decoder=native`、音频解码 17,637 字节、`auth rejected` 0 次、暂停落盘 `2.057s` 并重开恢复。
+
+全套 **26 PASS / 0 FAIL / 0 SKIP**，其中 1 次 RETRY：「关闭源对话框释放调用方」首次 `a dialog window was never opened`，重试通过；这是既有窗口丢失 flake，与本改动无关，首轮日志保留。`check.sh` **7/7 PASS**。回执 `E:/Code/deliveries/2026-11-08-native-mp4-auth/receipt.json`。
+
+**边界**：Windows WebView + 仓库 loopback 夹具；非真实站点、真机或 macOS；音频只证明解码字节，不证明扬声器发声。
+
 ## 字幕 URI 重写 + 鉴权的组合回归（2026-11-08）
 
 此前 `-video-auth`（Referer/Cookie）与 `-video-subs`（字幕选择）各自单独验过，**从未组合**：Core 把 `EXT-X-MEDIA` 的 `URI` 重写到同一个 MediaProxy，如果重写后的字幕请求丢掉源声明头或登录 Cookie，夹具会 403、`showing` 轨没有活动 cue——这条链路此前没有回归保护。

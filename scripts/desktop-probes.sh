@@ -175,6 +175,17 @@ go run ./cmd/uicheck -dir "$auth_work/subtitles" \
 	>"$out/video-subs-auth.log" 2>&1 || rc=$?
 report "$rc" "rewritten subtitle URIs keep Referer and Cookie under auth" "$out/video-subs-auth.log"
 
+# The native MP4 decoder is a different path from hls.js: the browser fetches the
+# file itself. Authed requests have to survive that path too, so this repeats the
+# header check with the native decoder and reads back its decoded audio bytes.
+rc=0
+go run ./cmd/uicheck -dir "$auth_work/native" \
+	-video-script internal/player/testdata/mp4_probe.js \
+	-video-media internal/player/testdata/mp4-audio/clip.mp4 -video-auth -video-audio \
+	-video clip -video-frame "$out/video-native-auth-frame.png" \
+	>"$out/video-native-auth.log" 2>&1 || rc=$?
+report "$rc" "the native MP4 decoder also carries Referer and Cookie" "$out/video-native-auth.log"
+
 # A subtitle choice has to outlive the page: choosing English, closing and
 # reopening used to fall back to the manifest default. The cue itself must be
 # the one rendered after the reopen, not merely the name stored.

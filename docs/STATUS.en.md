@@ -18,6 +18,14 @@ With `view.CapturePage()` (the WebView's own), the same fixture reran:
 **Correcting the previous round's account**: the failure was not the patch's `0o644` but my inline transcription of the base64 dropping characters (2957/2216 bytes, `git apply` reported `corrupt patch at line 46`). The authoritative gist decoded to 2960/2218 bytes with matching hashes and applied cleanly.
 
 
+## An auth regression for the native MP4 decoder (2026-11-08)
+
+Every earlier authenticated video probe went through hls.js; the native decoder fetches the file itself, a different path through the same proxy. `desktop-probes.sh` adds a sixth probe: `mp4_probe.js` + `mp4-audio/clip.mp4` + `-video-auth -video-audio`. The run reports `decoder=native`, 17,637 decoded audio bytes, 0 `auth rejected`, and `2.057s` saved on pause and restored after reopening.
+
+The full suite is **26 PASS / 0 FAIL / 0 SKIP** with one RETRY: "closing a source dialog releases its caller" first reported `a dialog window was never opened` and passed on retry. That is an existing window-loss flake unrelated to this change; the first-attempt log is kept. `check.sh` is **7/7 PASS**. Receipt `E:/Code/deliveries/2026-11-08-native-mp4-auth/receipt.json`.
+
+**Boundaries**: Windows WebView with the repository loopback fixture; not a real site, device or macOS; audio is proven only as decoded bytes, not audible speaker output.
+
 ## A combined regression for rewritten subtitle URIs under auth (2026-11-08)
 
 `-video-auth` (Referer/Cookie) and `-video-subs` (subtitle choice) had each been verified **separately, never together**: Core rewrites an `EXT-X-MEDIA` `URI` through the same MediaProxy, and if that rewritten subtitle request dropped the source-declared header or login Cookie the fixture would answer 403 and the `showing` track would have no active cue. That link had no regression protection.
