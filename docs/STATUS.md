@@ -18,6 +18,10 @@
 **更正上一轮的说法**：上轮失败不是补丁里 `0o644` 的问题，而是我内联转写 base64 时少了字符（2957/2216 字节，`git apply` 报 `corrupt patch at line 46`）。权威 gist 版本解出 2960/2218 字节、哈希一致、`git apply` 干净通过。
 
 
+## 0.2.29 产物含 Core 修复标记（2026-11-08）
+
+除版本与 Core marker 外，另做内容核对：0.2.29 ZIP 里的 `Nekophage.exe` 用 `strings` 能找到 Core `da23603` 新增的注释 `The query is kept exactly as written` **1 次**，0.2.28 为 **0 次**；0.4.7 IPA 同样 1 次、0.4.6 为 0 次。安装包是 LZMA 压缩载荷，不可直接搜。证据 `E:/Code/deliveries/2026-11-08-release-content-marker/`。
+
 ## 0.2.29 发布（2026-11-08）
 
 Core pin `da23603`（`new URL` 保留原始查询串，签名链接不再被改写）。提交 `4935ca9`；ZIP 23,001,466 B（sha256 `d828c710…6c4f`），安装包 19,914,144 B（sha256 `077e52b1…a54f`）；二进制 marker `Nekophage 0.2.29 | Core da236038…d061 | commit 4935ca9`。隔离安装/启动/原生关窗/卸载/资料保留 **14 PASS / 0 FAIL**；新 pin 上 `check.sh` **7/7**、桌面探针 **27 PASS / 0 FAIL / 0 RETRY / 0 SKIP**。

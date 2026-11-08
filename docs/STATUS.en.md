@@ -18,6 +18,10 @@ With `view.CapturePage()` (the WebView's own), the same fixture reran:
 **Correcting the previous round's account**: the failure was not the patch's `0o644` but my inline transcription of the base64 dropping characters (2957/2216 bytes, `git apply` reported `corrupt patch at line 46`). The authoritative gist decoded to 2960/2218 bytes with matching hashes and applied cleanly.
 
 
+## 0.2.29 artifact carries the Core fix marker (2026-11-08)
+
+Beyond the version and Core marker, a content check: `strings` on `Nekophage.exe` inside the 0.2.29 ZIP finds the comment Core `da23603` added, `The query is kept exactly as written`, **once**; 0.2.28 finds **0**; the 0.4.7 IPA is also 1 and 0.4.6 is 0. The NSIS setup is an LZMA-packed payload and cannot be searched directly. Evidence `E:/Code/deliveries/2026-11-08-release-content-marker/`.
+
 ## 0.2.29 released (2026-11-08)
 
 Core pin `da23603` (`new URL` keeps the raw query, so signed links are no longer rewritten). Commit `4935ca9`; ZIP 23,001,466 B (sha256 `d828c710…6c4f`), installer 19,914,144 B (sha256 `077e52b1…a54f`); binary marker `Nekophage 0.2.29 | Core da236038…d061 | commit 4935ca9`. Isolated install/launch/native close/uninstall/profile retention is **14 PASS / 0 FAIL**; on the new pin `check.sh` is **7/7** and the desktop probes are **27 PASS / 0 FAIL / 0 RETRY / 0 SKIP**.
