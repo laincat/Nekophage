@@ -18,6 +18,14 @@
 **更正上一轮的说法**：上轮失败不是补丁里 `0o644` 的问题，而是我内联转写 base64 时少了字符（2957/2216 字节，`git apply` 报 `corrupt patch at line 46`）。权威 gist 版本解出 2960/2218 字节、哈希一致、`git apply` 干净通过。
 
 
+## 0.2.28 公开发布（2026-11-08）
+
+发布目的地已确定并在公开仓库 `https://github.com/laincat/Nekophage` 完成：`v0.2.28` tag（`4921dbf`，指向 `719d852`）与 Release `https://github.com/laincat/Nekophage/releases/tag/v0.2.28`，`draft=false`、`prerelease=false`，四个资产均已上传。发布说明含中英双语、大小与 SHA-256。
+
+回读：API 资产端点 4/4 HTTP 200，大小与 Release 元数据一致，`sha256sum -c` 两项 OK，ZIP 与 EXE 均与已验收产物逐字节相同。公开下载地址中 ZIP 与 ZIP 校验和 HTTP 200 且逐字节一致；安装包及其校验和在本轮多次返回 GitHub 网关 504（只拿到 92 字节错误页），不是文件损坏，API 资产端点返回的是同一批字节。详见 `public-readback.log`、`api-assets.log`。
+
+回执 `E:/Code/deliveries/2026-11-08-nekophage-0.2.28/receipt.json`。**边界**：仅 Windows amd64；安装包未做代码签名；不覆盖 macOS 或真机。
+
 ## 0.2.28：新 pin `3d61c62` 的 Windows 安装包（2026-11-08）
 
 0.2.27 链接的是 Core `d9a1851`；Core `3d61c62` 改了生产 `init.js`（`new URL` 移除 `.`/`..` 路径段），故在新 pin 上重新打包。提交 `719d852`；ZIP 23,002,081 B（sha256 `f2256ddd…1f`），安装包 19,913,306 B（sha256 `ed2bc622…b0`）；二进制 marker `Nekophage 0.2.28 | Core 3d61c623…a5 | commit 719d852`。隔离安装/启动/原生关窗/卸载/配置保留 **14 PASS / 0 FAIL**；新 pin 上 Windows 原生阅读主线（真实 UIA 指针/键盘：搜索→详情→阅读→书架→关窗→第二进程恢复并续读）**PASS**。

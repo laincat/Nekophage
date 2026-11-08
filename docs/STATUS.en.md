@@ -18,6 +18,14 @@ With `view.CapturePage()` (the WebView's own), the same fixture reran:
 **Correcting the previous round's account**: the failure was not the patch's `0o644` but my inline transcription of the base64 dropping characters (2957/2216 bytes, `git apply` reported `corrupt patch at line 46`). The authoritative gist decoded to 2960/2218 bytes with matching hashes and applied cleanly.
 
 
+## 0.2.28 published (2026-11-08)
+
+The release destination is now the public repository `https://github.com/laincat/Nekophage`: tag `v0.2.28` (`4921dbf`, pointing at `719d852`) and Release `https://github.com/laincat/Nekophage/releases/tag/v0.2.28`, `draft=false`, `prerelease=false`, with all four assets uploaded. The notes are bilingual and carry sizes and SHA-256 digests.
+
+Read-back: the API asset endpoint returned 4/4 HTTP 200, sizes match the Release metadata, `sha256sum -c` verifies 2 OK, and the ZIP and EXE are byte-identical to the accepted artifacts. Over the public download URL the ZIP and its checksum returned HTTP 200 and were byte-identical; the installer and its checksum kept returning GitHub gateway 504 (92-byte error bodies) this round, which is not a corrupt artifact - the API asset endpoint serves the same bytes. See `public-readback.log`, `api-assets.log`.
+
+Receipt `E:/Code/deliveries/2026-11-08-nekophage-0.2.28/receipt.json`. **Boundaries**: Windows amd64 only; the installer is not code-signed; macOS and devices are not covered.
+
 ## 0.2.28: the Windows package on the new pin `3d61c62` (2026-11-08)
 
 0.2.27 linked Core `d9a1851`; Core `3d61c62` changed production `init.js` (`new URL` drops `.`/`..` path segments), so the package is rebuilt on the new pin. Commit `719d852`; ZIP 23,002,081 B (sha256 `f2256ddd…1f`), installer 19,913,306 B (sha256 `ed2bc622…b0`); binary marker `Nekophage 0.2.28 | Core 3d61c623…a5 | commit 719d852`. Isolated install/launch/native close/uninstall/profile retention is **14 PASS / 0 FAIL**, and the Windows native reading mainline on the new pin (real UIA pointer/keyboard: search -> detail -> read -> shelf -> close -> a second process restores and resumes) **PASSES**.
