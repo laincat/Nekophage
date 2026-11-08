@@ -18,6 +18,10 @@
 **更正上一轮的说法**：上轮失败不是补丁里 `0o644` 的问题，而是我内联转写 base64 时少了字符（2957/2216 字节，`git apply` 报 `corrupt patch at line 46`）。权威 gist 版本解出 2960/2218 字节、哈希一致、`git apply` 干净通过。
 
 
+## Core pin 升到 `3d61c62`（2026-11-08）
+
+Core `3d61c62` 让 `new URL` 对特殊 scheme 按标准移除 `.`/`..` 路径段（此前相对地址 `../img/1.jpg` 会以字面 `/b/c/../img/1.jpg` 发出）。这是生产 `init.js` 行为变更，故跟进 pin。新 pin 下 `sh scripts/check.sh` **7/7**、`desktop-probes.sh` **26 PASS / 0 FAIL / 0 RETRY / 0 SKIP**。日志 `E:/Temp/nk-check-pin3d61.log`、`E:/Temp/nk-probes-pin3d61.log`。
+
 ## 对话框探针的数据竞争（2026-11-08）
 
 上一轮全套里「关闭源对话框释放调用方」首次报 `a dialog window was never opened` 后重试通过。该报错并非 10 秒找窗超时，说明窗口已被找到并关闭：`answered` 是普通 bool，写在 `win.Close()` 之后，而关窗会让 `ShowDialog` 返回并 `Quit`，`Run` 可能先返回、`main` 先读到 false。修复为 `atomic.Bool` 且在关窗前写入。

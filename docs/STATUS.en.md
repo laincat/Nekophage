@@ -18,6 +18,10 @@ With `view.CapturePage()` (the WebView's own), the same fixture reran:
 **Correcting the previous round's account**: the failure was not the patch's `0o644` but my inline transcription of the base64 dropping characters (2957/2216 bytes, `git apply` reported `corrupt patch at line 46`). The authoritative gist decoded to 2960/2218 bytes with matching hashes and applied cleanly.
 
 
+## Core pin moved to `3d61c62` (2026-11-08)
+
+Core `3d61c62` makes `new URL` drop `.`/`..` path segments for special schemes as the standard does (before, the relative `../img/1.jpg` was sent as the literal `/b/c/../img/1.jpg`). That is a production `init.js` behaviour change, so the pin follows. On the new pin `sh scripts/check.sh` is **7/7** and `desktop-probes.sh` is **26 PASS / 0 FAIL / 0 RETRY / 0 SKIP**. Logs `E:/Temp/nk-check-pin3d61.log`, `E:/Temp/nk-probes-pin3d61.log`.
+
 ## A data race in the dialog probe (2026-11-08)
 
 In the previous full run, "closing a source dialog releases its caller" first reported `a dialog window was never opened` and passed on retry. That message is not the 10-second window lookup timeout, so the window had been found and closed: `answered` was a plain bool written after `win.Close()`, closing releases `ShowDialog` which calls `Quit`, and `Run` could return so `main` read false first. It is now an `atomic.Bool` stored before the window closes.
