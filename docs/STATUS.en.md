@@ -18,6 +18,10 @@ With `view.CapturePage()` (the WebView's own), the same fixture reran:
 **Correcting the previous round's account**: the failure was not the patch's `0o644` but my inline transcription of the base64 dropping characters (2957/2216 bytes, `git apply` reported `corrupt patch at line 46`). The authoritative gist decoded to 2960/2218 bytes with matching hashes and applied cleanly.
 
 
+## Core pin moved to `da23603` (2026-11-08)
+
+Core `da23603` fixes `new URL`: the raw query and fragment marker are kept, so a signed `?sig=a/b` is no longer turned into `%2F`, and `u.hash = "y"` no longer drops the `#`. That is a production `init.js` behaviour change, so the pin follows. On the new pin `check.sh` is **7/7** and `desktop-probes.sh` is **27 PASS / 0 FAIL / 0 RETRY / 0 SKIP**. Receipt `E:/Code/deliveries/2026-11-08-core-url-raw-query/receipt.json`.
+
 ## Public-source reproducibility check (2026-11-08)
 
 A fresh `git clone` of the public repository detached at `v0.2.28` (HEAD `719d852`, 265 tracked files); `scripts/fetch-core.sh` resolved Core HEAD `3d61c623…`, matching the pin; `go build` passes and `-version` reports `0.2.28 / Core 3d61c623… / commit 719d852 / go1.27.3 windows/amd64`, matching the released package marker. `sh scripts/check.sh` is **7/7 PASS** with a clean working tree.

@@ -18,6 +18,10 @@
 **更正上一轮的说法**：上轮失败不是补丁里 `0o644` 的问题，而是我内联转写 base64 时少了字符（2957/2216 字节，`git apply` 报 `corrupt patch at line 46`）。权威 gist 版本解出 2960/2218 字节、哈希一致、`git apply` 干净通过。
 
 
+## Core pin 升到 `da23603`（2026-11-08）
+
+Core `da23603` 修正 `new URL`：保留原始查询串与片段标记，签名链接的 `?sig=a/b` 不再被改成 `%2F`；`u.hash = "y"` 不再丢 `#`。这是生产 `init.js` 行为变更，故跟进 pin。新 pin 下 `check.sh` **7/7**、`desktop-probes.sh` **27 PASS / 0 FAIL / 0 RETRY / 0 SKIP**。回执 `E:/Code/deliveries/2026-11-08-core-url-raw-query/receipt.json`。
+
 ## 公开源码可复现性核对（2026-11-08）
 
 从公开仓库全新 `git clone` 并 detach 到 `v0.2.28`（HEAD `719d852`，265 个跟踪文件），`scripts/fetch-core.sh` 拉到 Core 实际 HEAD `3d61c623…`（与 pin 一致）；`go build` PASS，`-version` 输出 `0.2.28 / Core 3d61c623… / commit 719d852 / go1.27.3 windows/amd64`，与发布包 marker 一致。`sh scripts/check.sh` **7/7 PASS**、工作树干净。
