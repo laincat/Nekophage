@@ -205,10 +205,16 @@ func main() {
 				}
 				time.Sleep(250 * time.Millisecond)
 			}
+			log.Printf("reader page ready=%v after waiting for its figures", ready)
 			if !ready {
+				// Fail here. The window can look perfectly healthy while its page
+				// never finished loading; every check below drives that page, so
+				// letting them run (and especially letting the retry branch clear
+				// checkErr on success) can turn an unloaded reader into a pass.
 				checkErr = fmt.Errorf("the reader page never reached a loaded state")
+				mygo.App.Quit()
+				return
 			}
-			checkErr = nil
 			if *retryCheck {
 				// The decode assertion below reads the page before the retry, which is
 				// empty by design here; the retry block reads it again afterwards.

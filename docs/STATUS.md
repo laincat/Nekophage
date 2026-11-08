@@ -18,6 +18,14 @@
 **更正上一轮的说法**：上轮失败不是补丁里 `0o644` 的问题，而是我内联转写 base64 时少了字符（2957/2216 字节，`git apply` 报 `corrupt patch at line 46`）。权威 gist 版本解出 2960/2218 字节、哈希一致、`git apply` 干净通过。
 
 
+## macOS 当前 pin 阅读主线 + 阅读探针断言修复（2026-11-08）
+
+**macOS 实跑**：Orca Worker `mac-mainline-3d61` 在 `Laincat-Mini`（darwin arm64、macOS 27.2、go1.27.3）上 clone `06b067b`，`build/core` 实际 HEAD 为 `3d61c623…`（与 pin 一致）。`go build`/`go vet` PASS，`go test` ok 19 包 / FAIL 0；`readercheck` 四种模式（进度由页面写本章键、滚动 1200 落盘并重开恢复、双页 `spread rtl` 右起、失败后重试解码 2 页）、`uicheck` 搜索/详情、`shelf-probe.sh` 全部 PASS；`package-macos.sh` 产出 `Nekophage.app`（可执行文件 27,055,776 B），两次真实启动出主窗口并用 Quit AppleEvent 正常退出 `exit_code=0`。签名为 **ad-hoc**（`flags=0x2(adhoc)`、`TeamIdentifier=not set`、无 Authority），不是 Developer ID 或公证。证据 `E:/Code/deliveries/2026-11-08-macos-mainline-3d61/`。
+
+**Worker 发现的真实缺陷（已修复）**：`cmd/readercheck/main.go` 的 `!ready` 断言被紧随的 `checkErr = nil` 无条件清空，页面永未加载完成时也可能被后续成功分支判为 PASS。现在 `!ready` 立即以 `the reader page never reached a loaded state` 退出。新增仓库夹具 `internal/reader/testdata/no_figures_source.js` 与默认负向用例：修复前 `ready=false` 却被清空、修复后明确 rc=1；四种正常模式仍 rc=0。全套 **27 PASS / 0 FAIL / 0 RETRY / 0 SKIP**，`check.sh` **7/7**。
+
+**边界**：编译/单测不是窗口证据；ad-hoc 签名不等于 Developer ID/公证；未跑 iOS 套件或模拟器。
+
 ## 0.2.28 公开发布（2026-11-08）
 
 发布目的地已确定并在公开仓库 `https://github.com/laincat/Nekophage` 完成：`v0.2.28` tag（`4921dbf`，指向 `719d852`）与 Release `https://github.com/laincat/Nekophage/releases/tag/v0.2.28`，`draft=false`、`prerelease=false`，四个资产均已上传。发布说明含中英双语、大小与 SHA-256。

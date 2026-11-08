@@ -18,6 +18,14 @@ With `view.CapturePage()` (the WebView's own), the same fixture reran:
 **Correcting the previous round's account**: the failure was not the patch's `0o644` but my inline transcription of the base64 dropping characters (2957/2216 bytes, `git apply` reported `corrupt patch at line 46`). The authoritative gist decoded to 2960/2218 bytes with matching hashes and applied cleanly.
 
 
+## macOS current-pin reading mainline + reader-probe assertion fix (2026-11-08)
+
+**Real macOS run**: Orca Worker `mac-mainline-3d61` on `Laincat-Mini` (darwin arm64, macOS 27.2, go1.27.3) cloned `06b067b`; `build/core` HEAD is `3d61c623…`, matching the pin. `go build`/`go vet` pass, `go test` gives 19 ok / 0 FAIL; all four `readercheck` modes (position written by the page under its chapter key, scroll 1200 stored and restored, two-column `spread rtl` with the first page on the right, retry decoding 2 pages after failure), `uicheck` search/detail and `shelf-probe.sh` pass; `package-macos.sh` produced `Nekophage.app` (executable 27,055,776 B), started a real main window twice and exited with `exit_code=0` through a Quit AppleEvent. Signing is **ad-hoc** (`flags=0x2(adhoc)`, `TeamIdentifier=not set`, no Authority), not Developer ID or notarisation. Evidence `E:/Code/deliveries/2026-11-08-macos-mainline-3d61/`.
+
+**Real defect found by the Worker (fixed)**: in `cmd/readercheck/main.go` the `!ready` assertion was cleared by an unconditional `checkErr = nil`, so a page that never finished loading could still pass through a later successful branch. It now exits immediately with `the reader page never reached a loaded state`. A repository fixture `internal/reader/testdata/no_figures_source.js` and a default negative case pin this: before the fix `ready=false` was cleared, after it the run is rc=1; all four normal modes remain rc=0. Full suite **27 PASS / 0 FAIL / 0 RETRY / 0 SKIP**, `check.sh` **7/7**.
+
+**Boundaries**: build/unit tests are not window evidence; ad-hoc signing is not Developer ID/notarisation; no iOS suite or simulator was run.
+
 ## 0.2.28 published (2026-11-08)
 
 The release destination is now the public repository `https://github.com/laincat/Nekophage`: tag `v0.2.28` (`4921dbf`, pointing at `719d852`) and Release `https://github.com/laincat/Nekophage/releases/tag/v0.2.28`, `draft=false`, `prerelease=false`, with all four assets uploaded. The notes are bilingual and carry sizes and SHA-256 digests.

@@ -102,6 +102,16 @@ run "the favourites the source keeps are listed" \
 run "the reader decodes a served page" \
 	"$out/reader-probe.log" sh scripts/reader-probe.sh
 
+# A window that opened but whose reader page never loaded must be rejected.
+# The fixture makes the reader's own chapter fetch fail after readercheck has
+# picked the chapter, so no figure is ever created. Before the fix the ready
+# assertion was cleared by `checkErr = nil`, and a later successful branch could
+# turn this into a pass.
+expect_rejection "an unloaded reader page is rejected, not reported as read" \
+	"$out/reader-no-figures.log" "the reader page never reached a loaded state" \
+	go run ./cmd/readercheck -script internal/reader/testdata/no_figures_source.js \
+		-query probe -serve 18731 -out "$out/reader-no-figures.png"
+
 # A page that does not load has to say so and come back when retried. The server
 # fails the first two requests on purpose, so the notice is reachable without a
 # network and the retry is what has to recover the picture.
