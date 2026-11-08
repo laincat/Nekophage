@@ -37,3 +37,15 @@ The probe requires decoded dimensions and an advancing clock, reads back an actu
 `mp4-audio/` uses the same audio-carrying media without segmentation: concatenate the `EXT-X-MAP` init segment and every `EXT-X-BYTERANGE` media segment of `hls-audio/main.m3u8` in order into one `clip.mp4` (262,284 bytes, SHA-256 `ed70a8687bbdaac74ef1342edc4bedf44c7c9ab67c15d7a56501dc5a332d7e59`); no re-encode is needed. It lets the native MP4 path be checked too: `mp4_probe.js` with `-video-audio` must report `decoder=native` and a positive decoded-byte count, while the video-only file built the same way from `hls/` reports 0 and exits nonzero.
 
 `mp4_probe.js` uses the same login and header requirements. Set `-video-media` to the original MP4 file and omit `-video-hlsjs` to check native MP4 decoding and resume. Use a fresh test profile for each run so old history cannot conceal a missing progress write.
+
+## Authentication and request-header probes
+
+`hls_probe.js` visits `http://127.0.0.1:18732/login` in `search.load` to pick up the fixture Cookie and declares `Referer: https://fixture.invalid/` in `loadPlay`. `-video-auth` makes the fixture check both on every media request and answer 403 when either is missing, so the positive probe really verifies that the media proxy forwards the source-declared header *and* the Cookie upstream - not merely that playback succeeds.
+
+Two negative scripts drop one dimension each:
+
+- `hls_no_referer_probe.js` drops `Referer` but keeps the login;
+- `hls_no_cookie_probe.js` skips `/login` but keeps `Referer`.
+
+`scripts/desktop-probes.sh` runs all three: the positive case requires real decoded dimensions, an advancing clock, a frame readback, a pause-saved position and a Continue Watching restore; both negative cases require a **non-zero exit** and an `auth rejected` line, otherwise the authentication has quietly stopped working. Logs never print Cookie values.
+

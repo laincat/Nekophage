@@ -18,6 +18,20 @@ With `view.CapturePage()` (the WebView's own), the same fixture reran:
 **Correcting the previous round's account**: the failure was not the patch's `0o644` but my inline transcription of the base64 dropping characters (2957/2216 bytes, `git apply` reported `corrupt patch at line 46`). The authoritative gist decoded to 2960/2218 bytes with matching hashes and applied cleanly.
 
 
+## HLS headers, Range and progress become a resident desktop regression (2026-11-08)
+
+`desktop-probes.sh` previously ran only the local MP4 with `-range`; whether the source-declared `Referer` and login Cookie really reach the upstream through the media proxy had evidence only from a historical installed package. On `d9a1851` this is now three default probes:
+
+- **Positive**: `hls_probe.js` with `-video-auth -video-hlsjs`; the fixture checks both `Referer: https://fixture.invalid/` and the Cookie obtained at `/login` on every media request. A real WebView decodes 320x180 via hls.js, the clock advances `0.00->2.00`, a real frame is read back, the pause writes `2.104s`, the shelf is reopened from disk and Continue Watching restores `2.104s`; the log shows **11 `bytes=` Range requests and 0 `auth rejected`**.
+- **Negative 1**: `hls_no_referer_probe.js` drops Referer but keeps the login -> the server logs `auth rejected`, HTTP 403, 0 Range requests, the probe exits non-zero and the player shows the Chinese 403 message.
+- **Negative 2**: `hls_no_cookie_probe.js` skips `/login` but keeps Referer -> the same 403 and non-zero exit.
+
+A new `expect_rejection` helper requires **both a non-zero exit and an `auth rejected` line**, so a broken fixture, a missing source or a port collision cannot masquerade as an expected failure. Each process gets a fresh temporary profile, so an old shelf cannot hide whether progress was written this run.
+
+`NK_OFFICIAL_SRC=/e/Temp/nkprobe/official-srcs sh scripts/desktop-probes.sh` -> **24 PASS / 0 FAIL / 0 SKIP**; `sh scripts/check.sh` -> **7/7 PASS** (including the full `go test` with the race detector, gofmt, docs, partitions, capabilities). Logs `E:/Temp/nk-probes-auth.log`, `E:/Temp/nk-check-auth.log`, `build/probes/video-auth*.log`; receipt `E:/Code/deliveries/2026-11-08-video-auth-probes/receipt.json`.
+
+**Boundaries**: a real Windows WebView with the repository's loopback HLS fixture - **not** a real site, a device or macOS, and not audible speaker output. The two negatives only prove the fixture genuinely enforces Referer and Cookie.
+
 ## The Windows native reading mainline on the current pin, driven by real UIA clicks (2026-11-08)
 
 On `9ce106a` / Core `d9a1851`, the automation channel of `cmd/uicheck -tags e2e` sent **real pointer and keyboard events** (click the search field, type `probe`, press 搜索, double-click the result card, press 阅读, scroll, press 书架, press 继续) rather than calling internal functions. Two processes shared one profile directory:

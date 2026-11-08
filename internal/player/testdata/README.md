@@ -37,3 +37,15 @@ go run ./cmd/uicheck -dir /path/to/new-test-profile \
 `mp4-audio/` 是同一带音轨素材的非分片用法:把 `hls-audio/main.m3u8` 里的 `EXT-X-MAP` 初始化片段与全部 `EXT-X-BYTERANGE` 媒体分片按顺序拼成一个 `clip.mp4`(262,284 字节,SHA-256 `ed70a8687bbdaac74ef1342edc4bedf44c7c9ab67c15d7a56501dc5a332d7e59`),不需要重新编码。它让原生 MP4 解码路径也能被检查:用 `mp4_probe.js` 加 `-video-audio` 应得到 `decoder=native` 且解码字节数大于零;把 `hls/` 同样拼出的无音轨文件用作反例应得到 0 并以非零退出。
 
 `mp4_probe.js` 用同一登录与请求头规则,把 `-video-media` 换成原始 MP4 文件并去掉 `-video-hlsjs`,即可验证原生 MP4 解码和续播。每次使用新的测试 profile,避免旧历史掩盖进度是否真的落盘。
+
+## 鉴权与请求头探针
+
+`hls_probe.js` 在 `search.load` 里访问 `http://127.0.0.1:18732/login` 领取夹具 Cookie，`loadPlay` 声明 `Referer: https://fixture.invalid/`。`-video-auth` 让夹具对每个媒体请求同时校验这两者，缺一即 403；因此正向探针实际验证的是媒体代理把源声明头与 Cookie 一起送到上游，而不只是播放能成功。
+
+两个负向脚本各去掉一维：
+
+- `hls_no_referer_probe.js` 去掉 `Referer`，保留登录；
+- `hls_no_cookie_probe.js` 不访问 `/login`，保留 `Referer`。
+
+`scripts/desktop-probes.sh` 把三条一起跑：正向要求真实解码尺寸、时钟前进、帧回读、暂停落盘与「继续观看」恢复；两条负向要求**非零退出**且日志出现 `auth rejected`，否则说明鉴权已形同虚设。日志不打印 Cookie 值。
+

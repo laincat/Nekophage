@@ -18,6 +18,20 @@
 **更正上一轮的说法**：上轮失败不是补丁里 `0o644` 的问题，而是我内联转写 base64 时少了字符（2957/2216 字节，`git apply` 报 `corrupt patch at line 46`）。权威 gist 版本解出 2960/2218 字节、哈希一致、`git apply` 干净通过。
 
 
+## HLS 请求头/Range/进度成为常驻桌面回归（2026-11-08）
+
+`desktop-probes.sh` 此前只跑 `-range` 的本地 MP4，源声明的 `Referer` 与登录 Cookie 是否真的经媒体代理到达上游，只有历史安装包的证据。现在在 `d9a1851` 上补成默认三条：
+
+- **正向**：`hls_probe.js` + `-video-auth -video-hlsjs`，夹具对每个媒体请求同时校验 `Referer: https://fixture.invalid/` 与 `/login` 领到的 Cookie。真实 WebView 用 hls.js 解码出 320×180、时钟 `0.00→2.00`、回读真实帧、暂停落盘 `2.104s`、重开磁盘书架并「继续观看」恢复到 `2.104s`；日志 **11 段 `bytes=` Range 请求、0 次 `auth rejected`**。
+- **负向 1**：`hls_no_referer_probe.js` 去掉 Referer，保留登录 → 服务端 `auth rejected`、HTTP 403、0 段 Range、探针非零退出，播放器显示「媒体访问被拒绝 (HTTP 403)」。
+- **负向 2**：`hls_no_cookie_probe.js` 不访问 `/login`，保留 Referer → 同样 403 与非零退出。
+
+负向用例新增 `expect_rejection`，要求**非零退出且日志出现 `auth rejected`**，避免把夹具坏掉、源缺失或端口冲突误判为「按预期失败」。每个进程用独立临时 profile，避免旧书架掩盖本次是否真的落盘。
+
+`NK_OFFICIAL_SRC=/e/Temp/nkprobe/official-srcs sh scripts/desktop-probes.sh` → **24 PASS / 0 FAIL / 0 SKIP**；`sh scripts/check.sh` → **7/7 PASS**（含 race detector 全量 `go test`、`gofmt`、docs、partitions、capabilities）。日志 `E:/Temp/nk-probes-auth.log`、`E:/Temp/nk-check-auth.log`、`build/probes/video-auth*.log`；回执 `E:/Code/deliveries/2026-11-08-video-auth-probes/receipt.json`。
+
+**边界**：真实 Windows WebView + 仓库自带 loopback HLS 夹具，**不是**真实站点、真机、macOS，也不证明扬声器实际发声；两条负向只证明夹具确实在强制执行 Referer 与 Cookie。
+
 ## 当前 pin 的 Windows 原生阅读主线：真实 UIA 点击（2026-11-08）
 
 `9ce106a` / Core `d9a1851` 上，用 `cmd/uicheck -tags e2e` 构建的自动化通道发**真实指针与键盘事件**（点搜索框、输入 `probe`、点「搜索」、双击结果卡、点「阅读」、滚轮、点「书架」、点「继续」），不是内部函数调用。两个进程共用同一份资料目录：

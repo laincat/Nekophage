@@ -30,6 +30,24 @@ report() {
 	fi
 }
 
+# A negative probe has to fail for the right reason, not just fail. Without the
+# marker the check would pass on a broken fixture, a missing source or a port
+# collision, which are all failures too.
+expect_rejection() {
+	label=$1
+	log=$2
+	wanted=$3
+	shift 3
+	rc=0
+	"$@" >"$log" 2>&1 || rc=$?
+	if [ "$rc" -ne 0 ] && grep -q "$wanted" "$log"; then
+		printf 'PASS  %s\n' "$label"
+	else
+		printf 'FAIL  %s  (rc=%s, see %s)\n' "$label" "$rc" "$log"
+		failed=1
+	fi
+}
+
 # Each command's own status has to be captured where it runs: after `fi`, `$?`
 # would be the status of the if-statement, not of the script inside it.
 run() {
@@ -115,6 +133,34 @@ rc=0
 go run ./cmd/videocheck -media internal/player/testdata/hls/stream.mp4 -range \
 	-out "$out/video.png" >"$out/video.log" 2>&1 || rc=$?
 report "$rc" "a local clip plays, reports progress and honours byte ranges" "$out/video.log"
+
+# The default suite used to exercise only -range. These three prove the source's
+# Referer and the login Cookie really reach the upstream through the media proxy:
+# the positive case decodes and resumes, and each negative case must be rejected
+# by the fixture with a 403 rather than playing. A fresh profile per run keeps an
+# old shelf from hiding whether progress was written this time.
+auth_work=$(mktemp -d "$out/video-auth.XXXXXX")
+rc=0
+go run ./cmd/uicheck -dir "$auth_work/positive" \
+	-video-script internal/player/testdata/hls_probe.js \
+	-video-media internal/player/testdata/hls -video-auth -video-hlsjs \
+	-video clip -video-frame "$out/video-auth-frame.png" \
+	>"$out/video-auth.log" 2>&1 || rc=$?
+report "$rc" "HLS with Referer and Cookie decodes, ranges and resumes" "$out/video-auth.log"
+
+expect_rejection "a missing Referer is refused with 403" \
+	"$out/video-no-referer.log" "auth rejected" \
+	go run ./cmd/uicheck -dir "$auth_work/no-referer" \
+		-video-script internal/player/testdata/hls_no_referer_probe.js \
+		-video-media internal/player/testdata/hls -video-auth -video-hlsjs \
+		-video clip -video-frame "$out/video-no-referer.png"
+
+expect_rejection "a missing Cookie is refused with 403" \
+	"$out/video-no-cookie.log" "auth rejected" \
+	go run ./cmd/uicheck -dir "$auth_work/no-cookie" \
+		-video-script internal/player/testdata/hls_no_cookie_probe.js \
+		-video-media internal/player/testdata/hls -video-auth -video-hlsjs \
+		-video clip -video-frame "$out/video-no-cookie.png"
 
 # A subtitle choice has to outlive the page: choosing English, closing and
 # reopening used to fall back to the manifest default. The cue itself must be
