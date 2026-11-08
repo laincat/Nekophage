@@ -18,6 +18,12 @@
 **更正上一轮的说法**：上轮失败不是补丁里 `0o644` 的问题，而是我内联转写 base64 时少了字符（2957/2216 字节，`git apply` 报 `corrupt patch at line 46`）。权威 gist 版本解出 2960/2218 字节、哈希一致、`git apply` 干净通过。
 
 
+## 公开源码可复现性核对（2026-11-08）
+
+从公开仓库全新 `git clone` 并 detach 到 `v0.2.28`（HEAD `719d852`，265 个跟踪文件），`scripts/fetch-core.sh` 拉到 Core 实际 HEAD `3d61c623…`（与 pin 一致）；`go build` PASS，`-version` 输出 `0.2.28 / Core 3d61c623… / commit 719d852 / go1.27.3 windows/amd64`，与发布包 marker 一致。`sh scripts/check.sh` **7/7 PASS**、工作树干净。
+
+前两次 check 的 `docs` 失败只是我把验证日志和构建产物写进了仓库根目录，被 `check-docs.sh` 的「根目录保持干净」规则拒绝；移出后即通过，不是产品缺陷。日志 `E:/Code/deliveries/2026-11-08-nekophage-0.2.28/`。
+
 ## macOS 当前 pin 阅读主线 + 阅读探针断言修复（2026-11-08）
 
 **macOS 实跑**：Orca Worker `mac-mainline-3d61` 在 `Laincat-Mini`（darwin arm64、macOS 27.2、go1.27.3）上 clone `06b067b`，`build/core` 实际 HEAD 为 `3d61c623…`（与 pin 一致）。`go build`/`go vet` PASS，`go test` ok 19 包 / FAIL 0；`readercheck` 四种模式（进度由页面写本章键、滚动 1200 落盘并重开恢复、双页 `spread rtl` 右起、失败后重试解码 2 页）、`uicheck` 搜索/详情、`shelf-probe.sh` 全部 PASS；`package-macos.sh` 产出 `Nekophage.app`（可执行文件 27,055,776 B），两次真实启动出主窗口并用 Quit AppleEvent 正常退出 `exit_code=0`。签名为 **ad-hoc**（`flags=0x2(adhoc)`、`TeamIdentifier=not set`、无 Authority），不是 Developer ID 或公证。证据 `E:/Code/deliveries/2026-11-08-macos-mainline-3d61/`。

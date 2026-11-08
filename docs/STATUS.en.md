@@ -18,6 +18,12 @@ With `view.CapturePage()` (the WebView's own), the same fixture reran:
 **Correcting the previous round's account**: the failure was not the patch's `0o644` but my inline transcription of the base64 dropping characters (2957/2216 bytes, `git apply` reported `corrupt patch at line 46`). The authoritative gist decoded to 2960/2218 bytes with matching hashes and applied cleanly.
 
 
+## Public-source reproducibility check (2026-11-08)
+
+A fresh `git clone` of the public repository detached at `v0.2.28` (HEAD `719d852`, 265 tracked files); `scripts/fetch-core.sh` resolved Core HEAD `3d61c623…`, matching the pin; `go build` passes and `-version` reports `0.2.28 / Core 3d61c623… / commit 719d852 / go1.27.3 windows/amd64`, matching the released package marker. `sh scripts/check.sh` is **7/7 PASS** with a clean working tree.
+
+The first two `docs` failures were self-inflicted: the verification logs and built exe were placed in the repository root, which `check-docs.sh` rejects by design. Moving them outside the tree gave rc=0; this is not a product defect. Logs `E:/Code/deliveries/2026-11-08-nekophage-0.2.28/`.
+
 ## macOS current-pin reading mainline + reader-probe assertion fix (2026-11-08)
 
 **Real macOS run**: Orca Worker `mac-mainline-3d61` on `Laincat-Mini` (darwin arm64, macOS 27.2, go1.27.3) cloned `06b067b`; `build/core` HEAD is `3d61c623…`, matching the pin. `go build`/`go vet` pass, `go test` gives 19 ok / 0 FAIL; all four `readercheck` modes (position written by the page under its chapter key, scroll 1200 stored and restored, two-column `spread rtl` with the first page on the right, retry decoding 2 pages after failure), `uicheck` search/detail and `shelf-probe.sh` pass; `package-macos.sh` produced `Nekophage.app` (executable 27,055,776 B), started a real main window twice and exited with `exit_code=0` through a Quit AppleEvent. Signing is **ad-hoc** (`flags=0x2(adhoc)`, `TeamIdentifier=not set`, no Authority), not Developer ID or notarisation. Evidence `E:/Code/deliveries/2026-11-08-macos-mainline-3d61/`.
