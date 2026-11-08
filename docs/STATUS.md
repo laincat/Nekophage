@@ -18,6 +18,16 @@
 **更正上一轮的说法**：上轮失败不是补丁里 `0o644` 的问题，而是我内联转写 base64 时少了字符（2957/2216 字节，`git apply` 报 `corrupt patch at line 46`）。权威 gist 版本解出 2960/2218 字节、哈希一致、`git apply` 干净通过。
 
 
+## 0.2.27 的桌面探针与全工程检查（2026-11-08）
+
+在 `3ad0459`（默认字幕跟系统语言）上跑的桌面证据：
+
+- `scripts/desktop-probes.sh`（带 `NK_OFFICIAL_SRC=/e/Temp/nkprobe/official-srcs`）：**21 PASS / 0 FAIL / 0 SKIP**。此前是 19 PASS + 1 SKIP（官方源回调需要 `NK_OFFICIAL_SRC`），这次把官方源的回调与标签语义也跑通了。日志 `E:/Temp/desktop-probes-0227.log`。
+- `scripts/check.sh`：**7/7 PASS**（gofmt、core pin、go vet、go test 含 race detector、docs、partitions、capabilities）。日志 `E:/Temp/nk-0227-check.log`。
+- Windows 打包与隔离安装见 [STATUS 上一条](#)：ZIP 23,001,884 字节、安装包 19,910,626 字节、隔离安装 **14 PASS / 0 FAIL**。
+
+**边界**：这些是 Windows 上跑的；macOS 当前 pin 的搜索→详情→阅读→进度保存主线仍未跑（本机没有 macOS，Mac 设备上也没有可用的模型路由，一次性远程勘察调度报 `Scheduled remote model route unavailable: unreachable`）。
+
 ## 0.2.27：Windows ZIP / 安装包已构建并隔离验证（2026-11-07）
 
 `3ad0459`（默认字幕跟系统语言）之后打出的 **0.2.27** 可运行产物，Core pin 仍是 `d9a1851`：

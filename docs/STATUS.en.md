@@ -18,6 +18,16 @@ With `view.CapturePage()` (the WebView's own), the same fixture reran:
 **Correcting the previous round's account**: the failure was not the patch's `0o644` but my inline transcription of the base64 dropping characters (2957/2216 bytes, `git apply` reported `corrupt patch at line 46`). The authoritative gist decoded to 2960/2218 bytes with matching hashes and applied cleanly.
 
 
+## Desktop probes and the whole-project check on 0.2.27 (2026-11-08)
+
+Desktop evidence on `3ad0459` (system-language default subtitles):
+
+- `scripts/desktop-probes.sh` (with `NK_OFFICIAL_SRC=/e/Temp/nkprobe/official-srcs`): **21 PASS / 0 FAIL / 0 SKIP**. It was 19 PASS + 1 SKIP before (the official-source callbacks need `NK_OFFICIAL_SRC`); this time the official sources' callbacks and tag semantics also passed. Log `E:/Temp/desktop-probes-0227.log`.
+- `scripts/check.sh`: **7/7 PASS** (gofmt, core pin, go vet, go test with the race detector, docs, partitions, capabilities). Log `E:/Temp/nk-0227-check.log`.
+- The Windows package and the isolated install are in the previous STATUS entry: ZIP 23,001,884 bytes, installer 19,910,626 bytes, isolated install **14 PASS / 0 FAIL**.
+
+**Boundaries**: these ran on Windows; the macOS mainline on the current pin - search -> detail -> read -> progress saved - still has not run (there is no macOS here, and the Mac device has no usable model route either: a one-off remote survey schedule failed with `Scheduled remote model route unavailable: unreachable`).
+
 ## 0.2.27: Windows ZIP / installer built and verified in isolation (2026-11-07)
 
 A runnable **0.2.27** build from `3ad0459` (system-language default subtitles); the Core pin stays `d9a1851`:
