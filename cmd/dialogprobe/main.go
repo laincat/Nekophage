@@ -13,6 +13,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"sync/atomic"
 	"time"
 
 	"github.com/egoist/mygo"
@@ -27,7 +28,12 @@ func main() {
 	handler.SetAutoConfirm(false)
 
 	result := make(chan error, 1)
-	var answered bool
+	// Set before the window is closed, not after: closing it releases ShowDialog,
+	// which quits the app, and Run can return before a write placed after Close
+	// has happened. The probe then reported "a dialog window was never opened" for
+	// a dialog it had just closed. Atomic because main reads it from another
+	// goroutine once Run returns.
+	var answered atomic.Bool
 	mygo.App.WhenReady(func() {
 		go func() {
 			err := handler.ShowDialog("Refresh Domain List", "Update Failed\n\nUsing Custom:", []js.DialogAction{
@@ -52,8 +58,8 @@ func main() {
 				mygo.App.Quit()
 				return
 			}
+			answered.Store(true)
 			win.Close()
-			answered = true
 		}()
 	})
 	if err := mygo.App.Run(); err != nil {
@@ -61,7 +67,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	if !answered {
+	if !answered.Load() {
 		fmt.Println("FAIL a dialog window was never opened")
 		os.Exit(1)
 	}

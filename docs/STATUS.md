@@ -18,6 +18,12 @@
 **更正上一轮的说法**：上轮失败不是补丁里 `0o644` 的问题，而是我内联转写 base64 时少了字符（2957/2216 字节，`git apply` 报 `corrupt patch at line 46`）。权威 gist 版本解出 2960/2218 字节、哈希一致、`git apply` 干净通过。
 
 
+## 对话框探针的数据竞争（2026-11-08）
+
+上一轮全套里「关闭源对话框释放调用方」首次报 `a dialog window was never opened` 后重试通过。该报错并非 10 秒找窗超时，说明窗口已被找到并关闭：`answered` 是普通 bool，写在 `win.Close()` 之后，而关窗会让 `ShowDialog` 返回并 `Quit`，`Run` 可能先返回、`main` 先读到 false。修复为 `atomic.Bool` 且在关窗前写入。
+
+`-race` 构建：修复前 10/10 次报告 DATA RACE；修复后 20 次 20 PASS、0 DATA RACE。全套 **26 PASS / 0 FAIL / 0 RETRY / 0 SKIP**，`check.sh` **7/7**。仅改探针，不涉产品代码。回执 `E:/Code/deliveries/2026-11-08-dialog-probe-race/receipt.json`。
+
 ## 原生 MP4 解码路径的鉴权回归（2026-11-08）
 
 此前所有带鉴权的视频探针都走 hls.js；原生解码器由浏览器自己取文件，是经过同一代理的另一条路径。`desktop-probes.sh` 新增第六条：`mp4_probe.js` + `mp4-audio/clip.mp4` + `-video-auth -video-audio`，实跑 `decoder=native`、音频解码 17,637 字节、`auth rejected` 0 次、暂停落盘 `2.057s` 并重开恢复。

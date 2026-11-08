@@ -18,6 +18,12 @@ With `view.CapturePage()` (the WebView's own), the same fixture reran:
 **Correcting the previous round's account**: the failure was not the patch's `0o644` but my inline transcription of the base64 dropping characters (2957/2216 bytes, `git apply` reported `corrupt patch at line 46`). The authoritative gist decoded to 2960/2218 bytes with matching hashes and applied cleanly.
 
 
+## A data race in the dialog probe (2026-11-08)
+
+In the previous full run, "closing a source dialog releases its caller" first reported `a dialog window was never opened` and passed on retry. That message is not the 10-second window lookup timeout, so the window had been found and closed: `answered` was a plain bool written after `win.Close()`, closing releases `ShowDialog` which calls `Quit`, and `Run` could return so `main` read false first. It is now an `atomic.Bool` stored before the window closes.
+
+Under `-race`: before the fix 10/10 runs reported a DATA RACE; after it 20 runs gave 20 PASS and 0 DATA RACE. The full suite is **26 PASS / 0 FAIL / 0 RETRY / 0 SKIP** and `check.sh` is **7/7**. Probe-only change; no product code. Receipt `E:/Code/deliveries/2026-11-08-dialog-probe-race/receipt.json`.
+
 ## An auth regression for the native MP4 decoder (2026-11-08)
 
 Every earlier authenticated video probe went through hls.js; the native decoder fetches the file itself, a different path through the same proxy. `desktop-probes.sh` adds a sixth probe: `mp4_probe.js` + `mp4-audio/clip.mp4` + `-video-auth -video-audio`. The run reports `decoder=native`, 17,637 decoded audio bytes, 0 `auth rejected`, and `2.057s` saved on pause and restored after reopening.
