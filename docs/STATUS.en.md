@@ -18,6 +18,16 @@ With `view.CapturePage()` (the WebView's own), the same fixture reran:
 **Correcting the previous round's account**: the failure was not the patch's `0o644` but my inline transcription of the base64 dropping characters (2957/2216 bytes, `git apply` reported `corrupt patch at line 46`). The authoritative gist decoded to 2960/2218 bytes with matching hashes and applied cleanly.
 
 
+## Portable layout: all data in the program folder (2026-11-09)
+
+Per the user's decision the desktop build is **portable only** for now and stays unsigned. When its folder is writable, `Nekophage.exe` writes everything into four subfolders and leaves only shipped files at the top level: `data/` (sources, plugins, services, cookies, shelf, settings), `cache/`, `logs/` and `webview/` (the WebView2 profile). An explicit `-data-dir` still wins; when the folder cannot be written (for example under Program Files) it falls back to `%APPDATA%\Nekophage`.
+
+On the first start, if `data/` is empty and an old `%APPDATA%\Nekophage` exists, that profile is copied in and the original is left untouched; once `data/` holds anything it is never overwritten. `WEBVIEW2_USER_DATA_FOLDER` points at `webview/`, and a value the user already set wins. The code is in `internal/portable/`; `main.go` decides the paths before Core is opened.
+
+**Verification**: `check.sh` **7/7 PASS**, desktop probes **27 PASS / 0 FAIL / 0 RETRY / 0 SKIP**, `internal/portable` **5 unit tests PASS**; `scripts/package-windows.py` produced a **23,010,149-byte** ZIP with SHA-256 `a78932d86e12fe3a793952e5dfa1f15b34b39cba8da212165e8a2c5b6504fbd6`. The real unzipped package started twice, **closed normally with exit 0**, added exactly those four folders at the root, migrated the earlier profile correctly while leaving its bytes unchanged, kept its own data on the second start, and wrote **0** new files into the real `%APPDATA%` / `%LOCALAPPDATA%`. A read-only program folder also opened, exited 0 and fell back to the per-user profile. The reader window and the `webview/EBWebView` profile were really created; the automation capture did not include WebView page content, so this round makes **no claim that the reader page rendered**. Evidence `E:/Code/deliveries/2026-11-09-nekophage-portable/`.
+
+**Boundary**: the macOS `.app` layout is unverified; this changes data locations only, not the Core pin, iOS interface results, devices or the speaker. The old NSIS installer can still be built on demand but is no longer the delivery direction.
+
 ## 0.2.31 released and checked (2026-11-09)
 
 `v0.2.31` points at `c10410d`, Core `2bafd88`, and carries Core's relative-reference resolution, `URLSearchParams` iteration and `URL.parse` fixes. Public release: `https://github.com/laincat/Nekophage/releases/tag/v0.2.31`.

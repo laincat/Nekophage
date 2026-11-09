@@ -18,6 +18,16 @@
 **更正上一轮的说法**：上轮失败不是补丁里 `0o644` 的问题，而是我内联转写 base64 时少了字符（2957/2216 字节，`git apply` 报 `corrupt patch at line 46`）。权威 gist 版本解出 2960/2218 字节、哈希一致、`git apply` 干净通过。
 
 
+## 便携版：资料全部进程序目录（2026-11-09）
+
+按用户决定，桌面当前只按**便携版**提供，暂不签名。程序目录可写时，`Nekophage.exe` 把运行时资料全部写进四个子目录，根目录只留随包文件：`data/`（源、插件、服务、Cookie、书架、设置）、`cache/`、`logs/`、`webview/`（WebView2 配置）。`-data-dir` 显式覆盖仍然优先；程序目录不可写（如放在 Program Files 下）时回退到 `%APPDATA%\Nekophage`。
+
+首次启动且 `data/` 为空、旧 `%APPDATA%\Nekophage` 存在时，复制一份旧资料过来，原资料不改动；`data/` 已有内容时绝不覆盖。`WEBVIEW2_USER_DATA_FOLDER` 指向 `webview/`，用户已设置的值优先。代码 `internal/portable/`，`main.go` 在创建 Core 之前完成路径决策。
+
+**验证**：`check.sh` **7/7 PASS**、桌面探针 **27 PASS / 0 FAIL / 0 RETRY / 0 SKIP**、`internal/portable` **5 项单测 PASS**；`scripts/package-windows.py` 生成 ZIP **23,010,149 字节**、SHA-256 `a78932d86e12fe3a793952e5dfa1f15b34b39cba8da212165e8a2c5b6504fbd6`。真实解压包两次启动均**正常关窗、退出 0**，根目录只新增上述四个目录，旧资料迁移正确且原资料逐字节未变，第二次启动保留便携副本自己的数据，真实 `%APPDATA%` / `%LOCALAPPDATA%` 新增文件 **0**。只读程序目录用例也正常开窗、退出 0 并回退到用户资料目录。阅读器窗口与 `webview/EBWebView` 配置实际创建；自动化截图没有取到 WebView 页面内容，本轮**不据此声称阅读页渲染通过**。证据 `E:/Code/deliveries/2026-11-09-nekophage-portable/`。
+
+**边界**：macOS 的 `.app` 内布局未验证；此改动只改资料位置，不改 Core pin、不重跑 iOS 界面、不证明真机或扬声器。旧 NSIS 安装版仍可按需构建，但不再是当前交付方向。
+
 ## 0.2.31 已发布并核对（2026-11-09）
 
 `v0.2.31` 指向 `c10410d`，Core `2bafd88`，包含 Core 的相对地址解析、`URLSearchParams` 迭代与 `URL.parse` 修复。公开 Release：`https://github.com/laincat/Nekophage/releases/tag/v0.2.31`。
