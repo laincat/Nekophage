@@ -22,7 +22,7 @@
 
 Core `6d40ec2` 修 `new URL` 的 7 处真实缺口：默认端口不再留在地址里（`https://a.com:443/p` → `https://a.com/p`）、路径按标准百分号编码（`/a b` → `/a%20b`，已转义的 `%2f` 原样保留）、特殊 scheme 的反斜杠按分隔符处理（`https:\\a.com\\p` → `https://a.com/p`）、无主机 scheme 的 `href` 不再硬拼 `//`（`mailto:a@b` 不再变成 `mailto://a@b`）、点段对所有「有主机或以 `/` 开头」的路径解析（`foo:/a/../b` → `/b`）、`URLSearchParams` 补上 `size`、非特殊 scheme 的 `origin` 返回 `null`。这是生产 `init.js` 行为变更，故两端跟进 pin。证据 `E:/Code/deliveries/2026-11-09-core-url-whatwg/`。
 
-桌面端新 pin 下的实测：`scripts/check.sh` **7/7 PASS**（含 race detector 的 `go test`）、`scripts/desktop-probes.sh` **26 PASS / 0 FAIL / 1 SKIP**（跳过的是需要仓库外官方源脚本的回调与标签用例）、`check-core-pin.sh` **ok (6d40ec2)**。Core 侧 `go test ./...` **23 包 PASS**、官方源巡检 **34/34**、两批差分 **173/177 与 Node 一致**、变异检验 **7/7 被捕获**、Core CI `42553165294` **四个 job 全 success**（含 Apple xcframework 与 Swift smoke 9/0）。
+桌面端新 pin 下的实测：`scripts/check.sh` **7/7 PASS**（含 race detector 的 `go test`）、`scripts/desktop-probes.sh` **27 PASS / 0 FAIL / 0 RETRY / 0 SKIP**（以 `NK_OFFICIAL_SRC` 提供 34 份仓库外官方源脚本后，回调与标签两条也执行通过；不带该变量时为 25 PASS / 1 SKIP）、`check-core-pin.sh` **ok (6d40ec2)**。Core 侧 `go test ./...` **23 包 PASS**、官方源巡检 **34/34**、两批差分 **173/177 与 Node 一致**、变异检验 **7/7 被捕获**、Core CI `42553165294` **四个 job 全 success**（含 Apple xcframework 与 Swift smoke 9/0）。
 
 **边界**：桌面探针证明新 pin 下真实窗口行为未回归，不证明 macOS、真实站点或扬声器；本轮未发新版本，0.2.29 仍是最新公开产物。
 
