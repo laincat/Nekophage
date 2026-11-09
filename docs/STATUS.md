@@ -18,6 +18,14 @@
 **更正上一轮的说法**：上轮失败不是补丁里 `0o644` 的问题，而是我内联转写 base64 时少了字符（2957/2216 字节，`git apply` 报 `corrupt patch at line 46`）。权威 gist 版本解出 2960/2218 字节、哈希一致、`git apply` 干净通过。
 
 
+## Core pin 升到 `2bafd88`：相对地址与参数迭代（2026-11-09）
+
+Core `2bafd88` 补上 `new URL` 的另一半：协议相对地址（`//cdn.example/x.jpg`）不再被拼到页面路径后面、只有查询/片段/空串的引用保留 base 的路径与查询、opaque path 只接受片段、`URLSearchParams` 可迭代（`entries`/`keys`/`values`/`[Symbol.iterator]`，复制构造拷贝参数对）、新增 `URL.parse`。这是生产 `init.js` 行为变更，故两端跟进 pin。证据 `E:/Code/deliveries/2026-11-09-core-url-relative/`。
+
+新 pin 下桌面实测：`scripts/check.sh` **7/7 PASS**（含 race detector 的 `go test`）、`scripts/desktop-probes.sh` **27 PASS / 0 FAIL / 0 RETRY / 0 SKIP**、`check-core-pin.sh` **ok (2bafd88)**。Core 侧 `go test ./...` **23 包 PASS**、官方源巡检 **34/34**、第三批差分 **41/41 与 Node 一致**、变异检验 **9/9 被捕获**。
+
+**边界**：桌面探针证明新 pin 下真实窗口行为未回归，不证明 macOS、真实站点或扬声器。本轮暂不发新版本，0.2.30 仍是最新公开产物。
+
 ## 0.2.30 已发布并核对（2026-11-09）
 
 `v0.2.30` 指向 `03bb36d`，Core `6d40ec2`，包含 Core 的 `new URL` WHATWG 对齐。公开 Release：`https://github.com/laincat/Nekophage/releases/tag/v0.2.30`（2026-11-09T05:02:46Z）。

@@ -18,6 +18,14 @@ With `view.CapturePage()` (the WebView's own), the same fixture reran:
 **Correcting the previous round's account**: the failure was not the patch's `0o644` but my inline transcription of the base64 dropping characters (2957/2216 bytes, `git apply` reported `corrupt patch at line 46`). The authoritative gist decoded to 2960/2218 bytes with matching hashes and applied cleanly.
 
 
+## Core pin moved to `2bafd88`: relative references and parameter iteration (2026-11-09)
+
+Core `2bafd88` adds the other half of `new URL`: a protocol-relative address (`//cdn.example/x.jpg`) is no longer appended to the page path, a query-only / fragment-only / empty reference keeps the base's path and query, an opaque path accepts only a fragment, `URLSearchParams` is iterable (`entries`/`keys`/`values`/`[Symbol.iterator]`, and its copy constructor copies pairs) and `URL.parse` was added. This changes production `init.js` behaviour, so both clients follow the pin. Evidence `E:/Code/deliveries/2026-11-09-core-url-relative/`.
+
+On the new pin the desktop gives `scripts/check.sh` **7/7 PASS** (including `go test` under the race detector), `scripts/desktop-probes.sh` **27 PASS / 0 FAIL / 0 RETRY / 0 SKIP** and `check-core-pin.sh` **ok (2bafd88)**. On the Core side `go test ./...` passes **23 packages**, the official-source sweep is **34/34**, the third differential batch is **41/41 with Node** and the mutation check **caught 9/9**.
+
+**Boundary**: the desktop probes show the real-window behaviour did not regress on the new pin; they say nothing about macOS, the real sites or the speaker. No new version this round, so 0.2.30 is still the latest public artifact.
+
 ## 0.2.30 released and checked (2026-11-09)
 
 `v0.2.30` points at `03bb36d`, Core `6d40ec2`, and carries Core's WHATWG `new URL` alignment. Public release: `https://github.com/laincat/Nekophage/releases/tag/v0.2.30` (2026-11-09T05:02:46Z).
