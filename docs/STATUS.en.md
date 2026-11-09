@@ -18,6 +18,14 @@ With `view.CapturePage()` (the WebView's own), the same fixture reran:
 **Correcting the previous round's account**: the failure was not the patch's `0o644` but my inline transcription of the base64 dropping characters (2957/2216 bytes, `git apply` reported `corrupt patch at line 46`). The authoritative gist decoded to 2960/2218 bytes with matching hashes and applied cleanly.
 
 
+## Core pin moved to `6d40ec2`: `new URL` aligned with WHATWG (2026-11-09)
+
+Core `6d40ec2` fixes 7 real gaps in `new URL`: the default port no longer stays in the address (`https://a.com:443/p` → `https://a.com/p`), the path is percent-encoded as the standard says (`/a b` → `/a%20b`, with an escape the source wrote such as `%2f` kept as it is), a backslash is a separator for a special scheme (`https:\\a.com\\p` → `https://a.com/p`), the `href` of a scheme without a host no longer forces a `//` (`mailto:a@b` no longer becomes `mailto://a@b`), dot segments are resolved for every path that has a host or begins with `/` (`foo:/a/../b` → `/b`), `URLSearchParams` gained `size`, and the `origin` of a scheme that is not special answers `null`. This changes production `init.js` behaviour, so both clients follow the pin. Evidence `E:/Code/deliveries/2026-11-09-core-url-whatwg/`.
+
+The desktop side was measured on the new pin: `scripts/check.sh` **7/7 PASS** (including `go test` under the race detector), `scripts/desktop-probes.sh` **26 PASS / 0 FAIL / 1 SKIP** (the skip is the official-source callbacks and tags case, which needs scripts outside the repository), and `check-core-pin.sh` **ok (6d40ec2)**. On the Core side `go test ./...` passes all **23 packages**, the official-source sweep is **34/34**, the two differential batches agree with Node on **173/177** cases, the mutation check **caught 7/7**, and Core CI `42553165294` **succeeded in all four jobs** (including the Apple xcframework and the Swift smoke test, 9/0).
+
+**Boundary**: the desktop probes show that the real-window behaviour did not regress on the new pin; they say nothing about macOS, the real sites or the speaker. No new version was released this round, so 0.2.29 is still the latest public artifact.
+
 ## 0.2.29 artifact carries the Core fix marker (2026-11-08)
 
 Beyond the version and Core marker, a content check: `strings` on `Nekophage.exe` inside the 0.2.29 ZIP finds the comment Core `da23603` added, `The query is kept exactly as written`, **once**; 0.2.28 finds **0**; the 0.4.7 IPA is also 1 and 0.4.6 is 0. The NSIS setup is an LZMA-packed payload and cannot be searched directly. Evidence `E:/Code/deliveries/2026-11-08-release-content-marker/`.

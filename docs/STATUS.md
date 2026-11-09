@@ -18,6 +18,14 @@
 **更正上一轮的说法**：上轮失败不是补丁里 `0o644` 的问题，而是我内联转写 base64 时少了字符（2957/2216 字节，`git apply` 报 `corrupt patch at line 46`）。权威 gist 版本解出 2960/2218 字节、哈希一致、`git apply` 干净通过。
 
 
+## Core pin 升到 `6d40ec2`：`new URL` 对齐 WHATWG（2026-11-09）
+
+Core `6d40ec2` 修 `new URL` 的 7 处真实缺口：默认端口不再留在地址里（`https://a.com:443/p` → `https://a.com/p`）、路径按标准百分号编码（`/a b` → `/a%20b`，已转义的 `%2f` 原样保留）、特殊 scheme 的反斜杠按分隔符处理（`https:\\a.com\\p` → `https://a.com/p`）、无主机 scheme 的 `href` 不再硬拼 `//`（`mailto:a@b` 不再变成 `mailto://a@b`）、点段对所有「有主机或以 `/` 开头」的路径解析（`foo:/a/../b` → `/b`）、`URLSearchParams` 补上 `size`、非特殊 scheme 的 `origin` 返回 `null`。这是生产 `init.js` 行为变更，故两端跟进 pin。证据 `E:/Code/deliveries/2026-11-09-core-url-whatwg/`。
+
+桌面端新 pin 下的实测：`scripts/check.sh` **7/7 PASS**（含 race detector 的 `go test`）、`scripts/desktop-probes.sh` **26 PASS / 0 FAIL / 1 SKIP**（跳过的是需要仓库外官方源脚本的回调与标签用例）、`check-core-pin.sh` **ok (6d40ec2)**。Core 侧 `go test ./...` **23 包 PASS**、官方源巡检 **34/34**、两批差分 **173/177 与 Node 一致**、变异检验 **7/7 被捕获**、Core CI `42553165294` **四个 job 全 success**（含 Apple xcframework 与 Swift smoke 9/0）。
+
+**边界**：桌面探针证明新 pin 下真实窗口行为未回归，不证明 macOS、真实站点或扬声器；本轮未发新版本，0.2.29 仍是最新公开产物。
+
 ## 0.2.29 产物含 Core 修复标记（2026-11-08）
 
 除版本与 Core marker 外，另做内容核对：0.2.29 ZIP 里的 `Nekophage.exe` 用 `strings` 能找到 Core `da23603` 新增的注释 `The query is kept exactly as written` **1 次**，0.2.28 为 **0 次**；0.4.7 IPA 同样 1 次、0.4.6 为 0 次。安装包是 LZMA 压缩载荷，不可直接搜。证据 `E:/Code/deliveries/2026-11-08-release-content-marker/`。
