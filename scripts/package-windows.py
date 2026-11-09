@@ -64,27 +64,37 @@ def main():
             encoding="utf-8",
         )
         (stage / "README.zh.txt").write_text(
-            "Nekophage Windows 使用说明\n\n"
-            "安装版运行安装后的 Nekophage.exe;便携版解压整个目录后运行。无需安装 Go 或单独启动 Core。\n"
+            "便携版:把整个 Nekophage 目录解压到可写的位置(例如 D:\\Apps\\Nekophage),运行 Nekophage.exe。无需安装 Go 或单独启动 Core。\n"
             "阅读器、播放器和网页登录需要 Microsoft Edge WebView2 运行时。\n"
             "初始不附带第三方源;在源管理选择漫画源、视频源或 Kazumi 规则,从文件/链接安装。\n"
             "视频包含本机媒体代理、HLS.js 与进度续播;具体平台与媒体格式验证见仓库状态记录。\n"
-            "数据保存在 %APPDATA%\\Nekophage,升级时无需复制数据到安装目录。\n"
             "AI 功能连接另行安装的本机 Magpie;此包不包含 Magpie。\n\n"
-            "这是未签名的本地测试构建。安装版仅为当前用户安装,卸载保留 APPDATA 中的资料。\n"
-            "版本、Core 和提交见 BUILD-INFO.txt;文件校验见 SHA256SUMS.txt。\n",
+            "所有资料都放在程序目录里,程序根目录只有随包文件:\n"
+            "  data\\     源、插件、服务、Cookie、书架与设置\n"
+            "  cache\\    可以随时删除、会重新生成的内容\n"
+            "  logs\\     诊断日志\n"
+            "  webview\\  阅读器与播放器的 WebView2 配置\n"
+            "升级:用新版本的文件覆盖旧目录即可,这四个目录保持不动。删除整个目录即彻底移除,不在用户目录留下资料。\n"
+            "首次启动时,如果 data 为空而 %APPDATA%\\Nekophage 里有旧资料,会复制一份过来,原资料不改动。\n"
+            "程序目录不可写(如放在 Program Files 下)时,改用 %APPDATA%\\Nekophage。\n\n"
+            "这是未签名的本地测试构建。版本、Core 和提交见 BUILD-INFO.txt;文件校验见 SHA256SUMS.txt。\n",
             encoding="utf-8",
         )
         (stage / "README.en.txt").write_text(
-            "Nekophage Windows instructions\n\n"
-            "Run the installed Nekophage.exe, or extract the entire portable ZIP before running. Go and a separate Core process are unnecessary.\n"
+            "Portable: extract the whole Nekophage folder somewhere writable (for example D:\\Apps\\Nekophage) and run Nekophage.exe. Go and a separate Core process are unnecessary.\n"
             "The reader, player and web sign-in require Microsoft Edge WebView2 Runtime.\n"
             "No third-party sources are bundled; select comic/video/Kazumi in source management and install a file or URL.\n"
             "Video includes a local media proxy, HLS.js and persisted resume; see the repository status for platform/format evidence.\n"
-            "Data lives in %APPDATA%\\Nekophage and does not need copying into the application directory.\n"
             "AI connects to a separately installed local Magpie; Magpie is not included.\n\n"
-            "This is an unsigned local test build. Setup installs for the current user; uninstall preserves APPDATA profile files.\n"
-            "See BUILD-INFO.txt for versions and the commit, and SHA256SUMS.txt for file hashes.\n",
+            "Everything the app keeps stays in its folder, and the folder's top level holds only the shipped files:\n"
+            "  data\\     sources, plugins, services, cookies, shelf and settings\n"
+            "  cache\\    anything that can be deleted and rebuilt\n"
+            "  logs\\     diagnostics\n"
+            "  webview\\  the WebView2 profile of the reader and player\n"
+            "To upgrade, copy the new files over the old folder; the four folders stay as they are. Deleting the folder removes the app completely and leaves nothing in the user profile.\n"
+            "On first start, if data is empty and %APPDATA%\\Nekophage holds an earlier profile, it is copied in and the original is left untouched.\n"
+            "When the folder cannot be written (for example under Program Files), %APPDATA%\\Nekophage is used instead.\n\n"
+            "This is an unsigned local test build. See BUILD-INFO.txt for versions and the commit, and SHA256SUMS.txt for file hashes.\n",
             encoding="utf-8",
         )
         files = sorted(stage.iterdir())

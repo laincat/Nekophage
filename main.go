@@ -18,6 +18,7 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"runtime"
 	"runtime/debug"
 
@@ -27,6 +28,7 @@ import (
 	"github.com/laincat/nekophage/internal/cookies"
 	"github.com/laincat/nekophage/internal/core"
 	"github.com/laincat/nekophage/internal/library"
+	"github.com/laincat/nekophage/internal/portable"
 	"github.com/laincat/nekophage/internal/reader"
 	"github.com/laincat/nekophage/internal/servicecli"
 	"github.com/laincat/nekophage/internal/sourceapi"
@@ -67,15 +69,46 @@ func main() {
 		return
 	}
 
-	// Set the override before any application component resolves its data path.
+	// Set the data folder before any application component resolves its path.
+	// An explicit -data-dir wins; otherwise the copy is portable and keeps its
+	// data beside the executable, falling back to the per-user profile only
+	// when the program folder cannot be written (an install under Program
+	// Files, a read-only medium).
 	if *dataDirOverride != "" {
 		if err := os.MkdirAll(*dataDirOverride, 0o700); err != nil {
 			log.Fatal(err)
 		}
 		mygo.App.SetPath(mygo.PathUserData, *dataDirOverride)
+	} else if exe, err := os.Executable(); err == nil {
+		root := filepath.Dir(exe)
+		if resolved, err := filepath.EvalSymlinks(root); err == nil {
+			root = resolved
+		}
+		if dirs, err := portable.Prepare(root); err != nil {
+			log.Printf("nekophage: %v; using the per-user profile", err)
+		} else {
+			// A first portable start copies an installed build's sources, shelf
+			// and settings. The old path is worked out by hand: asking MyGo for
+			// it would create an empty profile folder on a machine that never
+			// had one, which is the trace a portable copy must not leave.
+			if config, err := os.UserConfigDir(); err == nil {
+				old := filepath.Join(config, mygo.App.Name())
+				if n, err := portable.MigrateFrom(old, dirs.Data); err != nil {
+					log.Printf("nekophage: copying the earlier profile from %s: %v", old, err)
+				} else if n > 0 {
+					log.Printf("nekophage: copied %d files from the earlier profile %s", n, old)
+				}
+			}
+			mygo.App.SetPath(mygo.PathUserData, dirs.Data)
+			mygo.App.SetPath(mygo.PathCache, dirs.Cache)
+			mygo.App.SetPath(mygo.PathLogs, dirs.Logs)
+			if err := portable.PointWebViewAt(dirs.WebView, os.Getenv, os.Setenv); err != nil {
+				log.Printf("nekophage: keeping the WebView profile in the default place: %v", err)
+			}
+		}
 	}
 
-	// Sources, settings and cookies live in the per-user data directory.
+	// Sources, settings, cookies, plugins and services live here.
 	dataDir, err := mygo.App.Path(mygo.PathUserData)
 	if err != nil {
 		log.Fatal(err)
