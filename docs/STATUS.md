@@ -18,6 +18,16 @@
 **更正上一轮的说法**：上轮失败不是补丁里 `0o644` 的问题，而是我内联转写 base64 时少了字符（2957/2216 字节，`git apply` 报 `corrupt patch at line 46`）。权威 gist 版本解出 2960/2218 字节、哈希一致、`git apply` 干净通过。
 
 
+## 0.2.30 已发布并核对（2026-11-09）
+
+`v0.2.30` 指向 `03bb36d`，Core `6d40ec2`，包含 Core 的 `new URL` WHATWG 对齐。公开 Release：`https://github.com/laincat/Nekophage/releases/tag/v0.2.30`（2026-11-09T05:02:46Z）。
+
+产物：ZIP **23,000,744 字节**、SHA-256 `9f6ed150c1954fa3e3e4646e71c5614284c479cdec8f38616834f93ebd48b413`；安装包 **19,911,507 字节**、SHA-256 `73320c6a6dbc289604bc97ef2348d68325fc5483930b2f8101a6887daaf6901e`。二进制 marker：`Nekophage 0.2.30 (Venera source API 1.6.3) | Core 6d40ec2… | commit 03bb36d | go1.27.3 windows/amd64`。
+
+隔离安装验证 **14 PASS / 0 FAIL**：安装器退出 0、安装后二进制可运行并报告正确版本与 Core、卸载器存在、`skipRegistration=1`、真实窗口打开（1100×760）并截图、`WM_CLOSE` 后进程退出 0、卸载退出 0 且删除安装目录、`%APPDATA%\Nekophage` 资料保留、exe SHA-256 记录。四资产 API 回读齐全，ZIP 与 setup 的公开下载与本地文件逐字节一致。`check.sh` **7/7**、桌面探针 **27 PASS / 0 FAIL / 0 RETRY / 0 SKIP**。
+
+**边界**：Windows amd64、未签名；macOS、真机与真实站点未覆盖。回执 `E:/Code/deliveries/2026-11-09-nekophage-0.2.30/`。
+
 ## Core pin 升到 `6d40ec2`：`new URL` 对齐 WHATWG（2026-11-09）
 
 Core `6d40ec2` 修 `new URL` 的 7 处真实缺口：默认端口不再留在地址里（`https://a.com:443/p` → `https://a.com/p`）、路径按标准百分号编码（`/a b` → `/a%20b`，已转义的 `%2f` 原样保留）、特殊 scheme 的反斜杠按分隔符处理（`https:\\a.com\\p` → `https://a.com/p`）、无主机 scheme 的 `href` 不再硬拼 `//`（`mailto:a@b` 不再变成 `mailto://a@b`）、点段对所有「有主机或以 `/` 开头」的路径解析（`foo:/a/../b` → `/b`）、`URLSearchParams` 补上 `size`、非特殊 scheme 的 `origin` 返回 `null`。这是生产 `init.js` 行为变更，故两端跟进 pin。证据 `E:/Code/deliveries/2026-11-09-core-url-whatwg/`。

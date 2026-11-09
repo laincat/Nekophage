@@ -18,6 +18,16 @@ With `view.CapturePage()` (the WebView's own), the same fixture reran:
 **Correcting the previous round's account**: the failure was not the patch's `0o644` but my inline transcription of the base64 dropping characters (2957/2216 bytes, `git apply` reported `corrupt patch at line 46`). The authoritative gist decoded to 2960/2218 bytes with matching hashes and applied cleanly.
 
 
+## 0.2.30 released and checked (2026-11-09)
+
+`v0.2.30` points at `03bb36d`, Core `6d40ec2`, and carries Core's WHATWG `new URL` alignment. Public release: `https://github.com/laincat/Nekophage/releases/tag/v0.2.30` (2026-11-09T05:02:46Z).
+
+Artifacts: ZIP **23,000,744 bytes**, SHA-256 `9f6ed150c1954fa3e3e4646e71c5614284c479cdec8f38616834f93ebd48b413`; installer **19,911,507 bytes**, SHA-256 `73320c6a6dbc289604bc97ef2348d68325fc5483930b2f8101a6887daaf6901e`. Binary marker: `Nekophage 0.2.30 (Venera source API 1.6.3) | Core 6d40ec2… | commit 03bb36d | go1.27.3 windows/amd64`.
+
+The isolated install is **14 PASS / 0 FAIL**: installer exits 0, the installed binary runs and reports the right version and Core, the uninstaller exists, `skipRegistration=1`, a real window opens (1100×760) and is captured, the process exits 0 after `WM_CLOSE`, uninstall exits 0 and removes the install directory, `%APPDATA%\Nekophage` is preserved, and the exe SHA-256 is recorded. All four assets read back through the API, and the public ZIP and setup downloads are byte-identical to the local files. `check.sh` is **7/7** and the desktop probes are **27 PASS / 0 FAIL / 0 RETRY / 0 SKIP**.
+
+**Boundary**: Windows amd64, unsigned; macOS, devices and the real sites are not covered. Receipt `E:/Code/deliveries/2026-11-09-nekophage-0.2.30/`.
+
 ## Core pin moved to `6d40ec2`: `new URL` aligned with WHATWG (2026-11-09)
 
 Core `6d40ec2` fixes 7 real gaps in `new URL`: the default port no longer stays in the address (`https://a.com:443/p` → `https://a.com/p`), the path is percent-encoded as the standard says (`/a b` → `/a%20b`, with an escape the source wrote such as `%2f` kept as it is), a backslash is a separator for a special scheme (`https:\\a.com\\p` → `https://a.com/p`), the `href` of a scheme without a host no longer forces a `//` (`mailto:a@b` no longer becomes `mailto://a@b`), dot segments are resolved for every path that has a host or begins with `/` (`foo:/a/../b` → `/b`), `URLSearchParams` gained `size`, and the `origin` of a scheme that is not special answers `null`. This changes production `init.js` behaviour, so both clients follow the pin. Evidence `E:/Code/deliveries/2026-11-09-core-url-whatwg/`.
