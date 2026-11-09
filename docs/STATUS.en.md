@@ -18,13 +18,23 @@ With `view.CapturePage()` (the WebView's own), the same fixture reran:
 **Correcting the previous round's account**: the failure was not the patch's `0o644` but my inline transcription of the base64 dropping characters (2957/2216 bytes, `git apply` reported `corrupt patch at line 46`). The authoritative gist decoded to 2960/2218 bytes with matching hashes and applied cleanly.
 
 
+## 0.2.31 released and checked (2026-11-09)
+
+`v0.2.31` points at `c10410d`, Core `2bafd88`, and carries Core's relative-reference resolution, `URLSearchParams` iteration and `URL.parse` fixes. Public release: `https://github.com/laincat/Nekophage/releases/tag/v0.2.31`.
+
+Artifacts: ZIP **23,000,870 bytes**, SHA-256 `90dbe52ebfb5491ad6f963a83301772f7f09137c8b98e2e6dfe4a63c7d950eb2`; installer **19,914,010 bytes**, SHA-256 `4c7f3081800453fe66fcef7f52ae3864c05cf0fb579509cfee34a0fdbd580124`; binary marker `Nekophage 0.2.31 (Venera source API 1.6.3) | Core 2bafd88… | commit c10410d | go1.27.3 windows/amd64`. Both public downloads answer HTTP 200 and are byte-identical to the local files, and `sha256sum -c` passes for both.
+
+Before releasing: `scripts/check.sh` **7/7 PASS**, desktop probes **27 PASS / 0 FAIL / 0 RETRY / 0 SKIP**, and an isolated install (`-S /NOREGISTER`, real per-user directory, real 1100×760 window, normal close, uninstall, profile kept) at **14 PASS / 0 FAIL**.
+
+**Boundary**: Windows amd64, unsigned; behaviour matches 0.2.30 and only the Core pin moves. macOS, devices and the real sites are not covered. For about 40 minutes after publishing the `releases/download` route intermittently answered 504 (the same window as Nekularity 0.4.9) and only retries returned 200; the artifacts did not change. Receipt `E:/Code/deliveries/2026-11-09-nekophage-0.2.31/`.
+
 ## Core pin moved to `2bafd88`: relative references and parameter iteration (2026-11-09)
 
 Core `2bafd88` adds the other half of `new URL`: a protocol-relative address (`//cdn.example/x.jpg`) is no longer appended to the page path, a query-only / fragment-only / empty reference keeps the base's path and query, an opaque path accepts only a fragment, `URLSearchParams` is iterable (`entries`/`keys`/`values`/`[Symbol.iterator]`, and its copy constructor copies pairs) and `URL.parse` was added. This changes production `init.js` behaviour, so both clients follow the pin. Evidence `E:/Code/deliveries/2026-11-09-core-url-relative/`.
 
 On the new pin the desktop gives `scripts/check.sh` **7/7 PASS** (including `go test` under the race detector), `scripts/desktop-probes.sh` **27 PASS / 0 FAIL / 0 RETRY / 0 SKIP** and `check-core-pin.sh` **ok (2bafd88)**. On the Core side `go test ./...` passes **23 packages**, the official-source sweep is **34/34**, the third differential batch is **41/41 with Node** and the mutation check **caught 9/9**.
 
-**Boundary**: the desktop probes show the real-window behaviour did not regress on the new pin; they say nothing about macOS, the real sites or the speaker. No new version this round, so 0.2.30 is still the latest public artifact.
+**Boundary**: the desktop probes show the real-window behaviour did not regress on the new pin; they say nothing about macOS, the real sites or the speaker. This pin shipped as 0.2.31 (see below).
 
 ## 0.2.30 released and checked (2026-11-09)
 

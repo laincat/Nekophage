@@ -18,13 +18,23 @@
 **更正上一轮的说法**：上轮失败不是补丁里 `0o644` 的问题，而是我内联转写 base64 时少了字符（2957/2216 字节，`git apply` 报 `corrupt patch at line 46`）。权威 gist 版本解出 2960/2218 字节、哈希一致、`git apply` 干净通过。
 
 
+## 0.2.31 已发布并核对（2026-11-09）
+
+`v0.2.31` 指向 `c10410d`，Core `2bafd88`，包含 Core 的相对地址解析、`URLSearchParams` 迭代与 `URL.parse` 修复。公开 Release：`https://github.com/laincat/Nekophage/releases/tag/v0.2.31`。
+
+产物：ZIP **23,000,870 字节**、SHA-256 `90dbe52ebfb5491ad6f963a83301772f7f09137c8b98e2e6dfe4a63c7d950eb2`；安装包 **19,914,010 字节**、SHA-256 `4c7f3081800453fe66fcef7f52ae3864c05cf0fb579509cfee34a0fdbd580124`；二进制 marker：`Nekophage 0.2.31 (Venera source API 1.6.3) | Core 2bafd88… | commit c10410d | go1.27.3 windows/amd64`。网页两条公开下载均 HTTP 200 且与本地逐字节一致，`sha256sum -c` 两个文件 OK。
+
+发布前：`scripts/check.sh` **7/7 PASS**、桌面探针 **27 PASS / 0 FAIL / 0 RETRY / 0 SKIP**、隔离安装（`-S /NOREGISTER`，真实 per-user 目录、真实窗口 1100×760、正常关窗、卸载、资料保留）**14 PASS / 0 FAIL**。
+
+**边界**：Windows amd64、未签名；功能与 0.2.30 相同，仅 Core pin 前进。macOS、真机与真实站点未覆盖。发布后约 40 分钟内 `releases/download` 路由间歇 504（与 Nekularity 0.4.9 同期），重试后才拿到 200，产物本身未变。回执 `E:/Code/deliveries/2026-11-09-nekophage-0.2.31/`。
+
 ## Core pin 升到 `2bafd88`：相对地址与参数迭代（2026-11-09）
 
 Core `2bafd88` 补上 `new URL` 的另一半：协议相对地址（`//cdn.example/x.jpg`）不再被拼到页面路径后面、只有查询/片段/空串的引用保留 base 的路径与查询、opaque path 只接受片段、`URLSearchParams` 可迭代（`entries`/`keys`/`values`/`[Symbol.iterator]`，复制构造拷贝参数对）、新增 `URL.parse`。这是生产 `init.js` 行为变更，故两端跟进 pin。证据 `E:/Code/deliveries/2026-11-09-core-url-relative/`。
 
 新 pin 下桌面实测：`scripts/check.sh` **7/7 PASS**（含 race detector 的 `go test`）、`scripts/desktop-probes.sh` **27 PASS / 0 FAIL / 0 RETRY / 0 SKIP**、`check-core-pin.sh` **ok (2bafd88)**。Core 侧 `go test ./...` **23 包 PASS**、官方源巡检 **34/34**、第三批差分 **41/41 与 Node 一致**、变异检验 **9/9 被捕获**。
 
-**边界**：桌面探针证明新 pin 下真实窗口行为未回归，不证明 macOS、真实站点或扬声器。本轮暂不发新版本，0.2.30 仍是最新公开产物。
+**边界**：桌面探针证明新 pin 下真实窗口行为未回归，不证明 macOS、真实站点或扬声器。本 pin 已随 0.2.31 发布（见下）。
 
 ## 0.2.30 已发布并核对（2026-11-09）
 
