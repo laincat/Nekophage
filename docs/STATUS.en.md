@@ -18,6 +18,14 @@ With `view.CapturePage()` (the WebView's own), the same fixture reran:
 **Correcting the previous round's account**: the failure was not the patch's `0o644` but my inline transcription of the base64 dropping characters (2957/2216 bytes, `git apply` reported `corrupt patch at line 46`). The authoritative gist decoded to 2960/2218 bytes with matching hashes and applied cleanly.
 
 
+## Dependency upgrade: MyGo v0.8.3, sqlite v1.62.0 and Core `0405a64` (2026-11-09)
+
+`github.com/egoist/mygo` moved from `v0.7.5-0.20261106015623-266026423a6d` to **v0.8.3**, `modernc.org/sqlite` to **v1.62.0**, and the Core pin from `2bafd88` to **`0405a64320bdb283e415a8afe7a13726aa5cf674`** (moejs v0.1.0 + sqlite v1.62.0).
+
+MyGo v0.8.0's breaking change is about keys: `HandleInput` now receives every key the system reports — a modifier pressed alone, lock keys, and keys without a `Key` arriving as `KeyUnknown`. This repository implements no custom `HandleInput`; its tests only build keys with `ui.Cmd`/`ui.KeyA`, so no code changed. v0.8.3 also changes Markdown's default parser (mentions/references) and generated TypeScript type names; neither path is consumed here. `Opacity` now fades a subtree as one and inactive windows fade their accent, which is upstream behaviour: the probes checked function, not the new look.
+
+Regressions: `scripts/check.sh` **7/7 PASS** (including the race detector) and `scripts/desktop-probes.sh` **27 PASS / 0 FAIL / 0 RETRY / 0 SKIP** (real windows for search, detail, reader, HLS/MP4, subtitles, resume, auth and official-source callbacks). `scripts/check-core-pin.sh` confirms the linked Core is `0405a64`. Boundary: no new version was released, so public `v0.2.31` still carries the old pin; macOS and devices are not covered.
+
 ## Portable layout: all data in the program folder (2026-11-09)
 
 Per the user's decision the desktop build is **portable only** for now and stays unsigned. When its folder is writable, `Nekophage.exe` writes everything into four subfolders and leaves only shipped files at the top level: `data/` (sources, plugins, services, cookies, shelf, settings), `cache/`, `logs/` and `webview/` (the WebView2 profile). An explicit `-data-dir` still wins; when the folder cannot be written (for example under Program Files) it falls back to `%APPDATA%\Nekophage`.

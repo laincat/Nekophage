@@ -18,6 +18,14 @@
 **更正上一轮的说法**：上轮失败不是补丁里 `0o644` 的问题，而是我内联转写 base64 时少了字符（2957/2216 字节，`git apply` 报 `corrupt patch at line 46`）。权威 gist 版本解出 2960/2218 字节、哈希一致、`git apply` 干净通过。
 
 
+## 依赖升级：MyGo v0.8.3、sqlite v1.62.0 与 Core `0405a64`（2026-11-09）
+
+`github.com/egoist/mygo` 从 `v0.7.5-0.20261106015623-266026423a6d` 升到 **v0.8.3**，`modernc.org/sqlite` 升到 **v1.62.0**；Core pin 从 `2bafd88` 前进到 **`0405a64320bdb283e415a8afe7a13726aa5cf674`**（moejs v0.1.0 + sqlite v1.62.0）。
+
+MyGo v0.8.0 的破坏性改动集中在按键：`HandleInput` 现在收到系统报告的每一个键（修饰键单独按、锁定键、无 `Key` 的键都会以 `KeyUnknown` 到达）。本仓没有自定义 `HandleInput`，只在测试里用 `ui.Cmd`/`ui.KeyA` 构造按键，升级后无代码改动。v0.8.3 还改了 Markdown 默认解析（mentions/references）与 TypeScript 生成类型名，本仓不消费这两条路径。`Opacity` 改为整棵子树一起淡化、非活动窗口强调色变灰，属于上游行为变化，本轮探针只验证功能，没有单独重审视觉。
+
+回归：`scripts/check.sh` **7/7 PASS**（含 race detector）、`scripts/desktop-probes.sh` **27 PASS / 0 FAIL / 0 RETRY / 0 SKIP**（真实窗口搜索、详情、阅读、HLS/MP4、字幕、续播、鉴权与官方源回调）。`scripts/check-core-pin.sh` 确认链接的 Core 就是 `0405a64`。边界：未发布新版本，公开 `v0.2.31` 仍是旧 pin；macOS 与真机未覆盖。
+
 ## 便携版：资料全部进程序目录（2026-11-09）
 
 按用户决定，桌面当前只按**便携版**提供，暂不签名。程序目录可写时，`Nekophage.exe` 把运行时资料全部写进四个子目录，根目录只留随包文件：`data/`（源、插件、服务、Cookie、书架、设置）、`cache/`、`logs/`、`webview/`（WebView2 配置）。`-data-dir` 显式覆盖仍然优先；程序目录不可写（如放在 Program Files 下）时回退到 `%APPDATA%\Nekophage`。
