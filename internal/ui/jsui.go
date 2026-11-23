@@ -13,6 +13,7 @@ import (
 	"github.com/egoist/mygo"
 	"github.com/egoist/mygo/ui"
 	"github.com/laincat/veneracat-core/comic/js"
+	"github.com/laincat/veneracat-core/host"
 )
 
 // jsUI gives a source the UI it asks for: a message, a dialog with buttons, an
@@ -23,7 +24,8 @@ import (
 // refresh, happy's cache wipe. It is not cosmetic: several sources do their work
 // from inside a dialog callback, so the button press is what starts the work.
 type JSHandler struct {
-	app *App
+	app     *App
+	openURL func(string) error
 	// autoConfirm is set by the capture tools, which cannot press a button in a
 	// window they are photographing. Nothing in a normal run sets it.
 	autoConfirm bool
@@ -87,6 +89,20 @@ func (h *JSHandler) ShowMessage(message string) {
 
 // LaunchURL opens a link in the system browser.
 func (h *JSHandler) LaunchURL(url string) {
+	if err := host.ValidateURL(url); err != nil {
+		log.Printf("nekophage: rejected source link: %v", err)
+		return
+	}
+	open := h.openURL
+	if open == nil {
+		open = openSystemURL
+	}
+	if err := open(url); err != nil {
+		log.Printf("nekophage: opening source link: %v", err)
+	}
+}
+
+func openSystemURL(url string) error {
 	var cmd *exec.Cmd
 	switch runtime.GOOS {
 	case "windows":
@@ -97,8 +113,10 @@ func (h *JSHandler) LaunchURL(url string) {
 		cmd = exec.Command("xdg-open", url)
 	}
 	if err := cmd.Start(); err != nil {
-		log.Printf("nekophage: opening %s: %v", url, err)
+		return err
 	}
+	go func() { _ = cmd.Wait() }()
+	return nil
 }
 
 // ShowDialog shows buttons and waits for one to be pressed. The action's own

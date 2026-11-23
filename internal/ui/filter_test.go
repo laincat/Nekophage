@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"github.com/laincat/nekophage/internal/profile"
 	"os"
 	"path/filepath"
 	"testing"
@@ -44,11 +45,11 @@ func TestFilterChapters(t *testing.T) {
 func TestSettingsRoundTrip(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "ui.json")
 	// Nothing saved yet: the window starts empty rather than failing.
-	if _, ok := readSettings(path); ok {
+	if _, ok := profile.ReadPreferences(path); ok {
 		t.Fatal("a missing file read as saved settings")
 	}
-	writeSettings(path, settings{Source: "manga_dex", Query: "one piece"})
-	got, ok := readSettings(path)
+	profile.WritePreferences(path, profile.Preferences{Source: "manga_dex", Query: "one piece"})
+	got, ok := profile.ReadPreferences(path)
 	if !ok || got.Source != "manga_dex" || got.Query != "one piece" {
 		t.Fatalf("settings = %+v %v", got, ok)
 	}
@@ -56,7 +57,7 @@ func TestSettingsRoundTrip(t *testing.T) {
 	if err := os.WriteFile(path, []byte("{"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if _, ok := readSettings(path); ok {
+	if _, ok := profile.ReadPreferences(path); ok {
 		t.Fatal("a damaged file read as saved settings")
 	}
 }

@@ -35,8 +35,8 @@ Tests use the real Core parser, client Transport and loopback HTTP for restorati
 
 `-collection install <collectionID> <entryID>` installs one entry, deciding platform and capability compatibility first and refusing with the missing capabilities listed.
 
-- `comic-source.js`: downloads text, checks the declared size and SHA-256, then installs it as a comic source. If the script registers a key other than the declared one, it is uninstalled again.
-- `service.js`: downloads a zip service package, checks the digest and expands it into `<data-dir>/services/<ID>/`. The package is loaded once before anything is written, so a syntax error or an invalid manifest is refused before it reaches disk. A service of the same id is replaced as a whole, leaving no files from the previous version. The install record lives in `<data-dir>/services.json`.
+- `comic-source.js` verifies the download size, SHA-256 and declared script key before it publishes the comic source to the registry and disk. A successful update preserves the existing source data and cookies.
+- `service.js` verifies the ZIP digest, manifest and catalogue identity before replacing the package in `<data-dir>/services/<ID>/` and updating `<data-dir>/services.json`. Ordinary service storage lives beside the package.
 - `video-source.js` and other kinds are still refused explicitly.
 
 The `-service` command uses an installed package:

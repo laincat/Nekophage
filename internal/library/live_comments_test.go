@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/laincat/nekophage/internal/core"
+	"github.com/laincat/veneracat-core/gohost/library"
 )
 
 // TestLiveComments reads a real comic's comment thread.
@@ -33,7 +34,7 @@ func TestLiveComments(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer c.Close()
-	lib := New(c)
+	lib := library.New(c)
 	record, err := lib.InstallText(ctx, string(body), script)
 	if err != nil {
 		t.Fatal(err)

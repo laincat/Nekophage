@@ -25,6 +25,30 @@ if [ -z "$dir" ] || [ ! -d "$dir" ]; then
 fi
 
 out=${NK_LIVE_LOG_DIR:-build/live}
+if [ "${1:-}" = browse ]; then
+	out=${NK_LIVE_LOG_DIR:-build/live-explore}
+	mkdir -p "$out"
+
+	# A browse that failed once usually fails the same way twice, but a timeout
+	# reads exactly like a site refusing; NK_LIVE_REPEAT=2 makes the difference
+	# visible.
+	repeat=${NK_LIVE_REPEAT:-1}
+	status=0
+	run=1
+	while [ "$run" -le "$repeat" ]; do
+		log="$out/sweep-$run.log"
+		if go run ./cmd/explorecheck -dir "$dir" -timeout "${NK_LIVE_TIMEOUT:-60s}" >"$log" 2>&1; then
+			summary=ok
+		else
+			summary=failed
+			status=1
+		fi
+		printf 'live-sources browse %d/%d: %s (see %s)\n' "$run" "$repeat" "$summary" "$log"
+		grep -E '^(explorecheck|failed|needs a server|no browses)' "$log" || true
+		run=$((run + 1))
+	done
+	exit "$status"
+fi
 mkdir -p "$out"
 
 passed=''

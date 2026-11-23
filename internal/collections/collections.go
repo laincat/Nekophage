@@ -16,7 +16,6 @@ import (
 	"time"
 
 	"github.com/laincat/nekophage/internal/core"
-	"github.com/laincat/nekophage/internal/store"
 	"github.com/laincat/veneracat-core/subscription"
 )
 
@@ -49,7 +48,7 @@ type operation struct {
 // must not concurrently modify the same profile, as with other app stores.
 type Manager struct {
 	mu        sync.Mutex
-	store     *store.Store
+	root      string
 	transport *core.Transport
 	records   map[string]record
 	active    map[string]*operation // keyed by the subscribed URL
@@ -58,9 +57,9 @@ type Manager struct {
 
 // Open restores validated snapshots without network access. Corrupt or future
 // formats return an error and are never silently replaced by an empty store.
-func Open(s *store.Store, tr *core.Transport) (*Manager, error) {
-	m := &Manager{store: s, transport: tr, records: map[string]record{}, active: map[string]*operation{}}
-	data, err := s.Collections()
+func Open(dataDir string, tr *core.Transport) (*Manager, error) {
+	m := &Manager{root: dataDir, transport: tr, records: map[string]record{}, active: map[string]*operation{}}
+	data, err := readSnapshot(dataDir)
 	if err != nil {
 		return nil, err
 	}
@@ -253,7 +252,7 @@ func (m *Manager) publish(next map[string]record) error {
 	if err := encoder.Encode(saved); err != nil {
 		return err
 	}
-	if err := m.store.SaveCollections(data.Bytes()); err != nil {
+	if err := saveSnapshot(m.root, data.Bytes()); err != nil {
 		return err
 	}
 	m.records = next

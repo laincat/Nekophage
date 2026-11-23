@@ -13,6 +13,11 @@
 set -eu
 
 cd "$(dirname "$0")/.."
+layout=0
+if [ "${1:-}" = --layout ]; then
+	layout=1
+	shift
+fi
 # Without NK_READ_SRC the repository own two-page loopback source is used, with
 # readercheck serving the pages: the decode check then needs no site and no
 # fixture from another repository.
@@ -33,6 +38,14 @@ out=build/probes
 mkdir -p "$out"
 log=$out/reader.log
 shot=$out/reader.png
+if [ "$layout" = 1 ]; then
+	src=internal/reader/testdata/loopback_source.js
+	query=probe
+	NK_READ_SERVE=18731
+	log=$out/layout.log
+	shot=$out/layout.png
+	set -- -layout "$@"
+fi
 
 # NK_READ_SERVE=18731 serves one PNG on loopback, for a source whose chapter points
 # at 127.0.0.1 — the same trick the iOS interface tests use. That makes the decode
@@ -44,7 +57,7 @@ fi
 
 rc=0
 # shellcheck disable=SC2086 # serve is either empty or one flag and its value
-go run ./cmd/readercheck -script "$src" -query "$query" $serve -out "$shot" >"$log" 2>&1 || rc=$?
+go run ./cmd/readercheck -script "$src" -query "$query" $serve -out "$shot" "$@" >"$log" 2>&1 || rc=$?
 
 if [ $rc -ne 0 ]; then
 	# The last real log line, not the go run wrapper's "exit status 1":
@@ -56,7 +69,11 @@ fi
 
 # The line names the page count and how many images decoded; without it the tool
 # finished for a reason other than a rendered chapter.
-line=$(grep -E 'page title=.* images=.* decoded=' "$log" | tail -1 || true)
+if [ "$layout" = 1 ]; then
+	line=$(grep -E 'layout: ' "$log" | tail -1 || true)
+else
+	line=$(grep -E 'page title=.* images=.* decoded=[1-9][0-9]*' "$log" | tail -1 || true)
+fi
 if [ -z "$line" ]; then
 	printf 'reader-probe: the tool reported no page state; see %s\n' "$log" >&2
 	exit 1

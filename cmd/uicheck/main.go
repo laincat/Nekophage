@@ -22,14 +22,14 @@ import (
 
 	"github.com/egoist/mygo"
 	"github.com/laincat/nekophage/internal/browser"
-	"github.com/laincat/nekophage/internal/cookies"
 	"github.com/laincat/nekophage/internal/core"
-	"github.com/laincat/nekophage/internal/library"
 	"github.com/laincat/nekophage/internal/probesite"
 	"github.com/laincat/nekophage/internal/reader"
 	"github.com/laincat/nekophage/internal/sourceapi"
 	"github.com/laincat/nekophage/internal/ui"
 	"github.com/laincat/veneracat-core/comic/js"
+	"github.com/laincat/veneracat-core/gohost/cookies"
+	"github.com/laincat/veneracat-core/gohost/library"
 	"github.com/laincat/veneracat-core/host"
 	"github.com/laincat/veneracat-core/plugin"
 

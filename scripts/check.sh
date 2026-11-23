@@ -47,7 +47,5 @@ race="-race"
 [ "${NK_NO_RACE:-}" = "1" ] && race=""
 run "go test ($( [ -n "$race" ] && echo 'race detector' || echo 'no race detector' ))" 	go test -count=1 $race ./...
 run 'docs' sh scripts/check-docs.sh
-run 'partitions' sh scripts/check-partitions.sh
-run 'capabilities' sh scripts/check-capabilities.sh
 
 exit $status

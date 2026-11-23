@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"github.com/laincat/nekophage/internal/profile"
 	"path/filepath"
 	"reflect"
 	"testing"
@@ -93,7 +94,7 @@ func TestSettingsRememberTheFavouriteFolder(t *testing.T) {
 	a := &App{favFolder: "以后看"}
 	a.saveSettingsTo(path, "copy_manga", "海贼王")
 
-	got, ok := readSettings(path)
+	got, ok := profile.ReadPreferences(path)
 	if !ok {
 		t.Fatal("settings not written")
 	}

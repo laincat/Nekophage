@@ -26,7 +26,7 @@ For people and AI assistants working on the code. Read before changing it.
 In the repository root:
 
 ```sh
-sh scripts/check.sh   # gofmt, actual Core checkout, go vet, go test (with the race detector), docs, partitions, capabilities — one line per step
+sh scripts/check.sh
 ```
 
 The steps individually:
@@ -37,10 +37,9 @@ sh scripts/check-core.sh  # the linked Core checkout must be clean and match the
 go vet ./...
 go test ./...       # includes end-to-end tests; no network, httptest
 sh scripts/check-docs.sh
-sh scripts/check-partitions.sh
 ```
 
-`check-partitions.sh` guards a partition name: `"comic:<key>"` may appear only in `core.ComicPartition`. It comes from a real bug — a backup restore wrote cookies under the bare source key while every request reads `comic:<key>`, so they landed where nothing would read them and the summary still claimed "N sign-ins restored". **The test asserted the same wrong assumption**, so it passed. That is not uncovered code: the case was confirming a misunderstanding. The only reliable check is a fact source outside the code (the key the transport really uses), plus making the wrong call impossible (take a source key, add the prefix inside) rather than relying on "remember the helper".
+End-to-end tests read restored cookies via the same source partition the HTTP transport uses. The shared host derives that partition from the source key.
 ## Checking real sources and the interface (needs the network and a desktop session; optional)
 
 ```sh

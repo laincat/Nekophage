@@ -22,7 +22,7 @@
 
 ```
 main.go                装配:数据目录、Core、Library、阅读器、验证器、主窗口
-internal/core          Core 的装配与漫画数据
+internal/core          Core 共享 Go 宿主的桌面装配
   transport.go         host.Transport:net/http,按分区取用 Cookie,重定向逐跳处理
   core.go              js.Runtime + plugin.Registry;搜索、详情、章节、图片请求、解析
 internal/cookies       每个源一个 Cookie 罐(RFC 6265 匹配,持久 Cookie 写文件)

@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/laincat/nekophage/internal/core"
-	"github.com/laincat/nekophage/internal/library"
+	"github.com/laincat/veneracat-core/gohost/library"
 	"github.com/laincat/veneracat-core/plugin"
 	"github.com/laincat/veneracat-core/subscription"
 )

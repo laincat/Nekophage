@@ -76,10 +76,10 @@ run() {
 
 run "login window: ok, timeout, failing callback, late cookie, close" \
 	"$out/login.log" sh scripts/login-probe.sh
-run "challenge window: cleared and dismissed" \
-	"$out/challenge.log" sh scripts/challenge-probe.sh
+run "challenge window: cleared" "$out/challenge-clear.log" go run ./cmd/verifycheck browser -mode clear
+run "challenge window: dismissed" "$out/challenge-dismiss.log" go run ./cmd/verifycheck browser -mode dismiss
 
-run "the reader lays two pages side by side" 	"$out/layout-probe.log" sh scripts/layout-probe.sh
+run "the reader lays two pages side by side" 	"$out/layout-probe.log" sh scripts/reader-probe.sh --layout
 
 go build -o "$out/dialogprobe" ./cmd/dialogprobe
 run "closing a source dialog releases its caller" \
@@ -200,7 +200,7 @@ report "$rc" "the native MP4 decoder also carries Referer and Cookie" "$out/vide
 # reopening used to fall back to the manifest default. The cue itself must be
 # the one rendered after the reopen, not merely the name stored.
 rc=0
-go run ./cmd/subcheck -dir internal/player/testdata/hls-subs \
+go run ./cmd/videocheck subtitles -dir internal/player/testdata/hls-subs \
 	-out "$out/subtitle.png" >"$out/subtitle.log" 2>&1 || rc=$?
 report "$rc" "a subtitle choice survives reopening" "$out/subtitle.log"
 
@@ -209,13 +209,13 @@ report "$rc" "a subtitle choice survives reopening" "$out/subtitle.log"
 restore_work=$(mktemp -d "$out/subtitle-restore.XXXXXX")
 cp internal/player/testdata/saved-english.json "$restore_work/shelf.json"
 rc=0
-go run ./cmd/subcheck -dir internal/player/testdata/hls-subs -work "$restore_work" \
+go run ./cmd/videocheck subtitles -dir internal/player/testdata/hls-subs -work "$restore_work" \
 	-baseline-text 'Subtitle rendering proof' -choose '关闭' \
 	-out "$out/subtitle-restore.png" >"$out/subtitle-restore.log" 2>&1 || rc=$?
 report "$rc" "saved English renders before switching off and reopening" "$out/subtitle-restore.log"
 if [ "$rc" -eq 0 ]; then
 	rc=0
-	go run ./cmd/subcheck -dir internal/player/testdata/hls-subs -work "$restore_work" \
+	go run ./cmd/videocheck subtitles -dir internal/player/testdata/hls-subs -work "$restore_work" \
 		-baseline-off -choose '关闭' \
 		-out "$out/subtitle-off-process.png" >"$out/subtitle-off-process.log" 2>&1 || rc=$?
 	report "$rc" "saved off survives a new process" "$out/subtitle-off-process.log"
@@ -256,15 +256,9 @@ run "the category page draws and loads" \
 	"$out/category-probe.log" sh scripts/category-probe.sh
 
 if [ -n "${NK_OFFICIAL_SRC:-}" ]; then
-	run "every callback the official sources declare" \
-		"$out/callbacks.log" sh scripts/callback-probe.sh
-	# Tags are the other thing a source decides for itself, and a namespace it does
-	# not handle is a normal answer rather than a fault, so that script separates
-	# site failures from source mappings instead of failing on both.
-	run "what every source's own tags mean" \
-		"$out/tags.log" sh scripts/tag-probe.sh
+	run "official source contracts" "$out/contracts.log" sh scripts/live-contracts.sh
 else
-	printf 'SKIP  official source callbacks and tags (set NK_OFFICIAL_SRC)\n'
+	printf 'SKIP  official source contracts (set NK_OFFICIAL_SRC)\n'
 fi
 
 printf 'logs: %s\n' "$out"

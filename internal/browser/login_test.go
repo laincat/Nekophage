@@ -28,7 +28,7 @@ func TestLoginWindowRejectsSourcesWithoutBrowserLogin(t *testing.T) {
 }`, "file", ""); err != nil {
 		t.Fatal(err)
 	}
-	login := NewLoginWindow(c, nil, "plain", "comic:plain")
+	login := NewLoginWindow(c, "plain")
 	if _, err := login.Run(context.Background()); err == nil {
 		t.Fatal("a source without a browser login opened one")
 	}
@@ -192,7 +192,7 @@ func TestClosingTheLoginWindowStopsOnLoginSuccess(t *testing.T) {
 		t.Fatalf("declaration: %v", err)
 	}
 
-	l := NewLoginWindow(c, nil, "slow", "comic:slow")
+	l := NewLoginWindow(c, "slow")
 	// The user already pressed "我已登录": done has fired, the window has not.
 	state := &loginState{done: make(chan struct{}), closedCh: make(chan struct{})}
 	close(state.done)

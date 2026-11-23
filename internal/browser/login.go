@@ -14,8 +14,8 @@ import (
 
 	"github.com/egoist/mygo"
 	"github.com/egoist/mygo/ui"
-	"github.com/laincat/nekophage/internal/cookies"
 	"github.com/laincat/nekophage/internal/core"
+	"github.com/laincat/veneracat-core/gohost/cookies"
 )
 
 // Logging in on the site's own page.
@@ -42,8 +42,8 @@ type LoginWindow struct {
 }
 
 // NewLoginWindow builds the helper for one source.
-func NewLoginWindow(c *core.Core, jar *cookies.Jar, key, partition string) *LoginWindow {
-	return &LoginWindow{core: c, jar: jar, key: key, partition: partition}
+func NewLoginWindow(c *core.Core, key string) *LoginWindow {
+	return &LoginWindow{core: c, jar: c.Jar(), key: key, partition: core.ComicPartition(key)}
 }
 
 // Run shows the login page and waits until the source says it is logged in, the
@@ -240,7 +240,9 @@ func (l *LoginWindow) store(ctx context.Context, decl core.WebviewLogin, pageURL
 		// cookies settle, so the caller keeps polling.
 		return 0, errNoCookiesYet
 	}
-	l.jar.Import(l.partition, out)
+	if err := l.jar.Import(l.partition, out); err != nil {
+		return 0, err
+	}
 	// The source may need to read its own cookie to finish: ehentai copies it to
 	// another host, ccc refreshes its profile.
 	if err := l.runLoginHook(ctx, decl, state); err != nil {

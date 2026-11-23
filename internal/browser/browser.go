@@ -19,7 +19,7 @@ import (
 
 	"github.com/egoist/mygo"
 	"github.com/egoist/mygo/ui"
-	"github.com/laincat/nekophage/internal/cookies"
+	"github.com/laincat/veneracat-core/gohost/cookies"
 	"github.com/laincat/veneracat-core/host"
 )
 
@@ -111,7 +111,9 @@ func (c *challenge) watch(ctx context.Context) (*host.Clearance, error) {
 				debugState(c)
 				continue
 			}
-			c.jar.Import(c.ch.Partition, cookies)
+			if err := c.jar.Import(c.ch.Partition, cookies); err != nil {
+				return nil, err
+			}
 			if os.Getenv("NKDEBUG") != "" {
 				log.Printf("verify: partition %q, %d cookie(s) imported, jar now has %d for %s",
 					c.ch.Partition, len(cookies), len(c.jar.Get(c.ch.Partition, c.ch.URL)), c.ch.URL)
@@ -267,17 +269,4 @@ func (c *challenge) draw(ctx *ui.Context) {
 			ui.WebView(ctx, c.web).Grow(1)
 		}
 	})
-}
-
-// Sniffer finds a video's stream in a page. It is what a video source that
-// answers with a page URL needs; nothing calls it until video sources are
-// wired up, so it reports ErrUnsupported instead of pretending.
-type Sniffer struct{}
-
-// NewSniffer builds a Sniffer.
-func NewSniffer() *Sniffer { return &Sniffer{} }
-
-// Sniff implements host.Sniffer.
-func (s *Sniffer) Sniff(ctx context.Context, req *host.SniffRequest) (*host.SniffResult, error) {
-	return nil, host.ErrUnsupported
 }

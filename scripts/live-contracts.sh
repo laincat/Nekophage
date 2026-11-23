@@ -21,6 +21,7 @@ if [ -z "$dir" ] || [ ! -d "$dir" ]; then
 	printf 'live-contracts: set NK_OFFICIAL_SRC to a directory of source scripts\n' >&2
 	exit 2
 fi
+dir=$(cd "$dir" && pwd)
 
 out=${NK_CONTRACT_LOG_DIR:-build/contracts}
 mkdir -p "$out"
@@ -40,11 +41,36 @@ run() {
 }
 
 NK_OFFICIAL_SRC=$dir run "source-api-level" go test ./internal/sourceapi -run TestLevelMeetsEveryOfficialSourceFloor -count=1
-NK_OFFICIAL_SRC=$dir run "webview-login-handoff" go test ./internal/core -run TestWebviewLoginHandoff -count=1
-NK_OFFICIAL_SRC=$dir run "logout-contract" go test ./internal/core -run TestLogout -count=1
+host=github.com/laincat/veneracat-core/gohost
+NK_OFFICIAL_SRC=$dir run "webview-login-handoff" go test "$host" -run TestWebviewLoginHandoff -count=1
+NK_OFFICIAL_SRC=$dir run "logout-contract" go test "$host" -run TestLogout -count=1
+
+if [ "$#" -eq 0 ]; then
+	set -- "$dir"/*.js
+fi
+bin="$out/sourcecheck"
+case "$(uname -s)" in
+MINGW* | MSYS* | CYGWIN*) bin="$bin.exe" ;;
+esac
+go build -o "$bin" ./cmd/sourcecheck
+for source in "$@"; do
+	[ -f "$source" ] || source="$dir/$source"
+	[ -f "$source" ] || continue
+	name=$(basename "$source" .js)
+	run "callbacks-$name" timeout 300 "$bin" callbacks "$source" --all 30
+	log="$out/tags-$name.log"
+	if timeout 120 "$bin" tags "$source" "${NK_TAG_QUERY:-love}" >"$log" 2>&1; then
+		grep '^PASS tags' "$log" | sed "s/^/$name: /"
+	elif grep -Eq '^FAIL (search[: ]|info:|install:|no tag group was handled)' "$log"; then
+		printf 'SKIP  tags %s (%s)\n' "$name" "$log"
+	else
+		printf 'FAIL  tags %s (%s)\n' "$name" "$log"
+		fail=1
+	fi
+done
 
 if [ "$fail" -ne 0 ]; then
 	printf 'live-contracts: a source contract is read wrongly\n'
 	exit 1
 fi
-printf 'live-contracts: ok (source level, browser-login handoff, logout)\n'
+printf 'live-contracts: ok\n'

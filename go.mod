@@ -5,7 +5,6 @@ go 1.27.4
 require (
 	github.com/egoist/mygo v0.10.1-0.20261123085535-da81e0ca50f6
 	github.com/laincat/veneracat-core v0.0.0
-	golang.org/x/image v0.48.0
 	modernc.org/sqlite v1.63.0
 )
 
@@ -24,6 +23,7 @@ require (
 	github.com/mattn/go-isatty v0.0.24 // indirect
 	github.com/ncruces/go-strftime v1.1.0 // indirect
 	github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec // indirect
+	golang.org/x/image v0.48.0 // indirect
 	golang.org/x/net v0.63.0 // indirect
 	golang.org/x/sys v0.50.0 // indirect
 	golang.org/x/text v0.44.0 // indirect

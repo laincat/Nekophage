@@ -36,8 +36,8 @@ Nekophage -data-dir ./profile -collection unfollow publisher.collection
 
 `-collection install <合集ID> <条目ID>` 安装一个条目，先按平台与能力判定兼容，不兼容直接拒绝并列出缺失能力。
 
-- `comic-source.js`：下载文本，按条目声明的字节数与 SHA-256 校验后交给源库安装；脚本注册的 key 与条目声明不一致时立即卸载回滚。
-- `service.js`：下载 zip 服务包，校验摘要后解压到 `<data-dir>/services/<ID>/`，安装前先加载一次，语法错误或清单非法都会在落盘前拒绝。同名服务整体替换，不会留下旧版本文件。安装记录写在 `<data-dir>/services.json`。
+- `comic-source.js` 下载文本并校验字节数、SHA-256 和脚本声明的 key，再发布到注册表和磁盘。成功更新会保留既有资料和 Cookie。
+- `service.js` 校验 zip 摘要、服务清单和条目声明的身份，再替换 `<data-dir>/services/<ID>/` 并记录到 `<data-dir>/services.json`。普通服务存储与包文件分开。
 - `video-source.js` 与其他类型仍明确拒绝。
 
 服务包由 `-service` 命令使用：

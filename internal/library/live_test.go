@@ -17,6 +17,7 @@ import (
 	"github.com/laincat/nekophage/internal/core"
 	"github.com/laincat/nekophage/internal/reader"
 	"github.com/laincat/nekophage/internal/shelf"
+	"github.com/laincat/veneracat-core/gohost/library"
 )
 
 // TestLiveSource runs the reading path against a real source and the real
@@ -50,7 +51,7 @@ func TestLiveSource(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer c.Close()
-	lib := New(c)
+	lib := library.New(c)
 
 	rec, err := lib.InstallText(ctx, string(body), script)
 	if err != nil {

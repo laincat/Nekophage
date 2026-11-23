@@ -27,7 +27,7 @@
 在仓库根目录运行:
 
 ```sh
-sh scripts/check.sh   # gofmt、实际 Core 检出、go vet、go test(带 race)、docs、partitions、capabilities,逐项打印
+sh scripts/check.sh
 ```
 
 单步等价于:
@@ -38,10 +38,9 @@ sh scripts/check-core.sh  # 实际链接的 Core 检出必须干净,且与生成
 go vet ./...
 go test ./...       # 含端到端测试,不访问外网:用 httptest
 sh scripts/check-docs.sh
-sh scripts/check-partitions.sh
 ```
 
-`check-partitions.sh` 守的是分区名: `"comic:<key>"` 只允许出现在 `core.ComicPartition`。它来自一个真实的 bug —— 恢复备份 cookie 时写进了裸源 key 分区,而所有请求读的是 `comic:<key>`,cookie 落在没人读的地方,导入摘要却显示「恢复了 N 条」。**当时的测试断言的是同一个错误假设**,所以全绿。这类错误不是「没覆盖到」,而是**用例在帮我们确认误解**:唯一可靠的查法是对照代码之外的事实源(传输层真正用的 key),并让错写不成立(传源 key、内部加前缀),而不是靠「记得用助手」。
+Cookie 恢复的端到端测试从 HTTP 传输实际使用的分区回读。共享宿主统一用源 key 计算分区名。
 
 ## 真实源与界面的核对(需要网络与桌面会话,可选)
 

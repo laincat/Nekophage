@@ -1,15 +1,11 @@
 package ui
 
 import (
-	"bytes"
-	"encoding/json"
-	"log"
-	"os"
+	"context"
 
 	"github.com/egoist/mygo"
 	"github.com/egoist/mygo/ui"
-	"github.com/laincat/veneracat-core/backup"
-	"github.com/laincat/veneracat-core/plugin"
+	"github.com/laincat/nekophage/internal/archive"
 )
 
 // Exporting a .venera backup.
@@ -44,7 +40,9 @@ func (a *App) exportBackup() {
 	a.manage.backupErr, a.manage.backupNotice = "", ""
 	a.manageWin.Update(func() {})
 	go func() {
-		err := a.writeBackup(path)
+		ctx, cancel := a.manageContext()
+		defer cancel()
+		err := archive.Export(ctx, path, a.core, a.searches)
 		a.manageWin.Update(func() {
 			m := &a.manage
 			m.backupBusy = false
@@ -57,68 +55,8 @@ func (a *App) exportBackup() {
 	}()
 }
 
-// writeBackup builds the archive from what this app holds.
 func (a *App) writeBackup(path string) error {
-	records := a.core.Records()
-	sources := make([]backup.WriteSource, 0, len(records))
-	for _, record := range records {
-		// A rule or a video source is not a comic source: the official app's
-		// comic_source/ entries are comic scripts only.
-		if record.Type != plugin.TypeComic || len(record.Body) == 0 {
-			continue
-		}
-		// The source's own stored object travels beside its script: without it a
-		// restore brings back code that has lost its tokens and its chosen domain.
-		//
-		// This client keeps data and settings in two buckets while the archive has
-		// one object per source, so they are merged here and split again on the way
-		// in. Data wins a name clash: it is what the source wrote for itself.
-		data, err := a.core.Store().AllData(record.Key)
-		if err != nil {
-			return err
-		}
-		settings, err := a.core.Store().AllSettings(record.Key)
-		if err != nil {
-			return err
-		}
-		merged := make(map[string]json.RawMessage, len(data)+len(settings))
-		for name, value := range settings {
-			merged[name] = value
-		}
-		for name, value := range data {
-			merged[name] = value
-		}
-		sources = append(sources, backup.WriteSource{
-			Name: record.Key + ".js",
-			Body: []byte(record.Body),
-			Data: merged,
-		})
-	}
-
-	// The store keeps the newest first; the archive lists them oldest first.
-	history := []string{}
-	if a.searches != nil {
-		items := a.searches.Items(200)
-		for i := len(items) - 1; i >= 0; i-- {
-			history = append(history, items[i])
-		}
-	}
-
-	// Settings are kept per source in this client, so there is no app-level
-	// document to put here; an empty object is honest about that.
-	var buf bytes.Buffer
-	if err := backup.Write(&buf, backup.WriteOptions{
-		Sources:       sources,
-		Settings:      map[string]json.RawMessage{},
-		SearchHistory: history,
-	}); err != nil {
-		return err
-	}
-	if err := os.WriteFile(path, buf.Bytes(), 0o600); err != nil {
-		log.Printf("nekophage: exporting %s: %v", path, err)
-		return err
-	}
-	return nil
+	return archive.Export(context.Background(), path, a.core, a.searches)
 }
 
 // exportRow draws the export control beside the import one, and the way into the

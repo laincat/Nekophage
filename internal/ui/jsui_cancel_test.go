@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/laincat/nekophage/internal/core"
-	"github.com/laincat/nekophage/internal/library"
+	"github.com/laincat/veneracat-core/gohost/library"
 )
 
 func TestClosingDialogStopsPictureHTTP(t *testing.T) {

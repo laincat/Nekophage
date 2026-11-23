@@ -58,7 +58,7 @@ func (a *App) openSourceSettings(key string) {
 		values := map[string]json.RawMessage{}
 		if err == nil {
 			for _, s := range list {
-				raw, ok, lerr := a.core.Store().LoadSetting(key, s.Key)
+				raw, ok, lerr := a.core.LoadSourceSetting(key, s.Key)
 				switch {
 				case lerr != nil:
 					err = lerr
@@ -290,7 +290,7 @@ func (a *App) logoutAccount(key string) {
 // saveSetting writes one value and keeps what is on screen in step.
 func (a *App) saveSetting(key, settingKey string, value json.RawMessage) {
 	go func() {
-		err := a.core.Store().SaveSetting(key, settingKey, value)
+		err := a.core.SaveSourceSetting(key, settingKey, value)
 		a.manageWin.Update(func() {
 			m := &a.manage
 			if err != nil {
@@ -553,7 +553,7 @@ func (a *App) webviewLogin(key string) {
 	go func() {
 		ctx, cancel := a.manageContext()
 		defer cancel()
-		login := browser.NewLoginWindow(a.core, a.lib.Jar(), key, core.ComicPartition(key))
+		login := browser.NewLoginWindow(a.core, key)
 		stored, err := login.Run(ctx)
 		a.manageWin.Update(func() {
 			a.mu.Lock()

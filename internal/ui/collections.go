@@ -8,9 +8,6 @@ import (
 	"github.com/egoist/mygo/ui"
 
 	"github.com/laincat/nekophage/internal/collections"
-	"github.com/laincat/nekophage/internal/core"
-	"github.com/laincat/nekophage/internal/services"
-	"github.com/laincat/nekophage/internal/store"
 )
 
 // userAgent is what the collection store tells servers this client is. The
@@ -35,19 +32,8 @@ type collectionPanel struct {
 	notice     string
 }
 
-// openCollections opens the collection manager for one action. The store is a
-// file and the manager owns no goroutine of its own, so an action opens it,
-// runs, and closes it: the window never holds a half-live cache.
 func (a *App) openCollections() (*collections.Manager, error) {
-	s, err := store.Open(a.core.DataDir())
-	if err != nil {
-		return nil, err
-	}
-	m, err := collections.Open(s, core.NewTransport(nil, userAgent, 0))
-	if err != nil {
-		return nil, err
-	}
-	return m, nil
+	return a.collectionManager, a.collectionErr
 }
 
 // refreshCollections reads the subscriptions from disk.
@@ -60,7 +46,6 @@ func (a *App) refreshCollections() {
 		return
 	}
 	rows, listErr := m.List(collections.Platform(), collections.Capabilities())
-	m.Close()
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	if listErr != nil {
@@ -179,7 +164,6 @@ func (a *App) followCollection() {
 			ctx, cancel = context.WithTimeout(ctx, 60*time.Second)
 			defer cancel()
 			err = m.Follow(ctx, raw)
-			m.Close()
 		}
 		a.manageWin.Update(func() {
 			a.colsDone(err, "")
@@ -203,7 +187,6 @@ func (a *App) refreshCollection(id string) {
 			ctx, cancel = context.WithTimeout(ctx, 60*time.Second)
 			defer cancel()
 			err = m.Refresh(ctx, id)
-			m.Close()
 		}
 		a.manageWin.Update(func() {
 			a.colsDone(err, "已刷新 "+id)
@@ -219,7 +202,6 @@ func (a *App) unfollowCollection(id string) {
 		m, err := a.openCollections()
 		if err == nil {
 			err = m.Unfollow(id)
-			m.Close()
 		}
 		a.manageWin.Update(func() {
 			a.colsDone(err, "已取消订阅 "+id)
@@ -243,10 +225,9 @@ func (a *App) installCollectionEntry(collectionID, entryID string) {
 			defer cancel()
 			ctx, cancel = context.WithTimeout(ctx, 120*time.Second)
 			defer cancel()
-			if _, err = collections.InstallEntry(ctx, m, collectionID, entryID, a.core.DataDir(), a.core, a.lib); err == nil {
+			if _, err = collections.InstallEntry(ctx, m, collectionID, entryID, a.core.DataDir(), a.lib); err == nil {
 				notice = "已安装 " + entryID
 			}
-			m.Close()
 		}
 		a.manageWin.Update(func() {
 			a.cols.installing = ""
@@ -285,17 +266,4 @@ func (a *App) colsDone(err error, notice string) {
 	if notice != "" {
 		a.cols.notice = notice
 	}
-}
-
-// installedServices is a small helper for tests: the ids of installed services.
-func (a *App) installedServices() []string {
-	rows, err := services.List(a.core.DataDir())
-	if err != nil {
-		return nil
-	}
-	out := make([]string, 0, len(rows))
-	for _, rec := range rows {
-		out = append(out, rec.ID)
-	}
-	return out
 }

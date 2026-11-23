@@ -82,7 +82,7 @@ func main() {
 	}
 	defer os.RemoveAll(dir)
 
-	c, err := core.Open(core.Options{DataDir: dir, AppVersion: "1.6.3", Locale: "zh_CN"})
+	c, err := core.Open(core.Options{DataDir: dir, Locale: "zh_CN"})
 	if err != nil {
 		panic(err)
 	}
@@ -118,7 +118,7 @@ func main() {
 	// The app hands the login window Core's own jar; a second jar would collect
 	// the cookies where no source ever looks for them.
 	jar := c.Jar()
-	login := browser.NewLoginWindow(c, jar, rec.Key, core.ComicPartition(rec.Key))
+	login := browser.NewLoginWindow(c, rec.Key)
 	if *mode == "close" {
 		// Stand where the person sits: the page loads, then the window is closed
 		// without answering. The wait has to end there.

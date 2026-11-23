@@ -11,8 +11,8 @@ import (
 
 	"github.com/laincat/nekophage/internal/archive"
 	"github.com/laincat/nekophage/internal/core"
-	"github.com/laincat/nekophage/internal/library"
 	"github.com/laincat/veneracat-core/backup"
+	"github.com/laincat/veneracat-core/gohost/library"
 )
 
 // The export is only useful if the file reads back: this writes one through the

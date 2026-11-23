@@ -33,6 +33,10 @@ import (
 )
 
 func main() {
+	if len(os.Args) > 1 && os.Args[1] == "subtitles" {
+		subtitlesProbe(os.Args[2:])
+		return
+	}
 	mediaPath := flag.String("media", "", "local mp4 to play")
 	out := flag.String("out", "video.png", "where to write the window capture")
 	wait := flag.Duration("wait", 25*time.Second, "how long the clip may take to start")

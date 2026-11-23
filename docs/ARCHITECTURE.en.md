@@ -22,7 +22,7 @@ See the2026-11-04 [shared-source ecosystem survey](../../VeneraCat%20Sources/doc
 
 ```
 main.go                wiring: data directory, Core, Library, reader, verifier, main window
-internal/core          Core assembly and comic data
+internal/core          Desktop configuration for Core’s shared Go host
   transport.go         host.Transport: net/http, cookies by partition, redirect hops
   core.go              js.Runtime + plugin.Registry; search, details, chapters, image requests, parsing
 internal/cookies       one cookie jar per source (RFC 6265 matching, persistent cookies on disk)

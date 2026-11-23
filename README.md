@@ -53,7 +53,7 @@ macOS 可用 `go build -o build/Nekophage .` 构建本机程序。Windows 打包
 
 | 目录 | 内容 |
 |---|---|
-| `internal/core` | 把 Core 装进应用:运行时、插件注册表、HTTP 与图片、漫画数据解析 |
+| `internal/core` | 配置桌面使用的 Core 共享 Go 宿主 `gohost` |
 | `internal/cookies` | 按源隔离的 Cookie 罐 |
 | `internal/store` | 源数据、设置与插件记录的持久化 |
 | `internal/library` | 安装、更新、删除源,读取订阅索引 |

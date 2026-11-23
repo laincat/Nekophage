@@ -9,7 +9,6 @@ import (
 	"runtime"
 
 	"github.com/laincat/nekophage/internal/core"
-	"github.com/laincat/nekophage/internal/store"
 )
 
 // RunCommand is used by the desktop binary without opening a window. Following
@@ -28,12 +27,8 @@ func RunCommand(ctx context.Context, dataDir, action string, args []string, out 
 	if len(args) != want {
 		return fmt.Errorf("合集命令 %s 需要 %d 个参数", action, want)
 	}
-	s, err := store.Open(dataDir)
-	if err != nil {
-		return err
-	}
 	tr := core.NewTransport(nil, userAgent, 0)
-	manager, err := Open(s, tr)
+	manager, err := Open(dataDir, tr)
 	if err != nil {
 		return err
 	}
@@ -56,8 +51,6 @@ func RunCommand(ctx context.Context, dataDir, action string, args []string, out 
 	if platform == "darwin" {
 		platform = "macos"
 	}
-	// These script hosts already exist. Theme/module/service and embedded
-	// Magpie-provider runtimes are not advertised by the desktop client.
 	views, err := manager.List(platform, Capabilities())
 	if err != nil {
 		return err

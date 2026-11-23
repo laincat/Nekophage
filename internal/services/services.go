@@ -9,12 +9,8 @@ package services
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
-	"fmt"
 	"os"
-	"path/filepath"
-	"time"
 
 	"github.com/laincat/veneracat-core/service"
 )
@@ -28,7 +24,11 @@ type Record struct {
 
 // Install verifies and installs a service package.
 func Install(ctx context.Context, dataDir, origin, digest string, archive []byte) (*Record, error) {
-	installed, err := service.InstallPackage(ctx, dataDir, origin, digest, archive)
+	return InstallExpecting(ctx, dataDir, "", origin, digest, archive)
+}
+
+func InstallExpecting(ctx context.Context, dataDir, expectedID, origin, digest string, archive []byte) (*Record, error) {
+	installed, err := service.InstallPackageExpecting(ctx, dataDir, expectedID, origin, digest, archive)
 	if err != nil {
 		return nil, err
 	}
@@ -77,16 +77,6 @@ func Remove(dataDir, id string) error {
 	return service.RemovePackage(dataDir, id)
 }
 
-// InstalledAt is the time a service was installed, or the zero time when the
-// index has no record for it.
-func InstalledAt(dataDir, id string) time.Time {
-	rec, err := service.InstalledPackage(dataDir, id)
-	if err != nil {
-		return time.Time{}
-	}
-	return rec.Installed
-}
-
 // Open loads an installed service with the host a desktop client gives it:
 // the network through Core's bridge, storage in a file beside the package, and
 // the account values the user stored. The caller closes the runtime.
@@ -102,7 +92,7 @@ func Open(ctx context.Context, dataDir, id, userAgent string) (*service.Runtime,
 	if err != nil {
 		return nil, nil, err
 	}
-	stored, err := openServiceData(dataDir, id)
+	stored, err := service.OpenStorage(dataDir, id)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -127,68 +117,11 @@ func Open(ctx context.Context, dataDir, id, userAgent string) (*service.Runtime,
 	return rt, manifest, nil
 }
 
-// serviceData keeps the storage values of one service in the data directory.
-type serviceData struct {
-	path string
-}
-
-// openServiceData opens the storage file of one service.
-func openServiceData(dataDir, id string) (*serviceData, error) {
-	dir := filepath.Join(dataDir, "services")
-	if err := os.MkdirAll(dir, 0o700); err != nil {
-		return nil, err
-	}
-	return &serviceData{path: filepath.Join(dir, id+".json")}, nil
-}
-
-// Get returns one stored value.
-func (s *serviceData) Get(ctx context.Context, key string) (string, bool, error) {
-	values, err := s.read()
-	if err != nil {
-		return "", false, err
-	}
-	value, ok := values[key]
-	return value, ok, nil
-}
-
-// Set writes one stored value.
-func (s *serviceData) Set(ctx context.Context, key, value string) error {
-	values, err := s.read()
-	if err != nil {
-		return err
-	}
-	values[key] = value
-	data, err := json.Marshal(values)
-	if err != nil {
-		return err
-	}
-	return os.WriteFile(s.path, data, 0o600)
-}
-
-// read loads the stored values, treating a missing file as an empty set.
-func (s *serviceData) read() (map[string]string, error) {
-	values := map[string]string{}
-	data, err := os.ReadFile(s.path)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return values, nil
-		}
-		return nil, err
-	}
-	if len(data) == 0 {
-		return values, nil
-	}
-	if err := json.Unmarshal(data, &values); err != nil {
-		return nil, fmt.Errorf("服务存储 %s 损坏: %w", s.path, err)
-	}
-	return values, nil
-}
-
 // HostPackage hosts a package that is not installed yet, for the command line:
 // a directory the user pointed at. It uses the same host the installed path
 // uses, with storage kept under the service's id.
 func HostPackage(ctx context.Context, dataDir string, manifest *service.Manifest, source string) (*service.Runtime, error) {
-	stored, err := openServiceData(dataDir, manifest.ID)
+	stored, err := service.OpenStorage(dataDir, manifest.ID)
 	if err != nil {
 		return nil, err
 	}
@@ -224,7 +157,7 @@ func HostPackage(ctx context.Context, dataDir string, manifest *service.Manifest
 func NewSupervisor(dataDir, userAgent string) (*service.Supervisor, error) {
 	hostFor := func(id string) service.Host {
 		host := service.Host{}
-		if stored, err := openServiceData(dataDir, id); err == nil {
+		if stored, err := service.OpenStorage(dataDir, id); err == nil {
 			host.StorageGet = stored.Get
 			host.StorageSet = stored.Set
 		}

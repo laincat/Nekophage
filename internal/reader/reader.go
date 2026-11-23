@@ -236,21 +236,7 @@ func (s *Server) image(w http.ResponseWriter, r *http.Request) {
 	}
 	ctx, cancel := context.WithTimeout(r.Context(), s.Timeout)
 	defer cancel()
-	// The page hands back what /chapter gave it, but nothing stops a page
-	// from asking for another scheme, so only http(s) is ever fetched. The
-	// page reference is not always an address: a gallery source names its
-	// pages by index and turns them into addresses in onImageLoad, so the
-	// source has to be asked first and the answer is what gets checked.
-	req, err := s.core.ImageRequest(ctx, source, string(raw), comic, chapter, false)
-	if err != nil {
-		writeError(w, err)
-		return
-	}
-	if u, err := url.Parse(req.URL); err != nil || (u.Scheme != "http" && u.Scheme != "https") {
-		writeError(w, errors.New("reader: image URL is not http(s)"))
-		return
-	}
-	data, ctype, err := s.core.DoImageRequest(ctx, source, req)
+	data, ctype, err := s.core.FetchImage(ctx, source, string(raw), comic, chapter)
 	if err != nil {
 		writeError(w, err)
 		return

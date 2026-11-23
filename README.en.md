@@ -53,7 +53,7 @@ On macOS, build the native program with `go build -o build/Nekophage .`. The Win
 
 | Directory | Contents |
 |---|---|
-| `internal/core` | Puts Core in the app: runtime, plugin registry, HTTP and images, comic data parsing |
+| `internal/core` | Configures the desktop app’s shared Go host from Core `gohost` |
 | `internal/cookies` | Cookie jars isolated per source |
 | `internal/store` | Source data, settings and plugin records on disk |
 | `internal/library` | Installs, updates and removes sources; reads indexes |

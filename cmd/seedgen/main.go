@@ -48,7 +48,7 @@ func main() {
 		panic(err)
 	}
 	defer os.RemoveAll(dir)
-	c, err := core.Open(core.Options{DataDir: dir, AppVersion: "1.6.3", Locale: "zh_CN"})
+	c, err := core.Open(core.Options{DataDir: dir, Locale: "zh_CN"})
 	if err != nil {
 		panic(err)
 	}

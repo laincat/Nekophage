@@ -10,11 +10,11 @@
 
 主窗口「视频」已接到搜索/详情/线路分集/播放。Windows 真实 WebView 已验证原生 MP4(`640×360`)与内置 HLS.js 1.7.4(`320×180`):实际视频帧回读、时钟前进、Referer/Cookie、HLS 主/子清单和 fMP4 字节范围、页面暂停落盘与重新打开续播。HLS 夹具和命令在 [testdata](../internal/player/testdata/README.md);无音轨与带 AAC 音轨两份都已验证,后者在 HLS.js 与原生 MP4 两条路径上分别实读 `18537` 与 `17802` 个解码音频字节(`E:/Temp/desktop-audio-decoded-counter.log`、`E:/Temp/desktop-mp4-audio-native.log`),无音轨反例均为 0 且探针非零退出。HLS 日志 `E:/Temp/desktop-hls-browser-playback.log`,原生 MP4 日志 `E:/Temp/desktop-mp4-auth-real-resume.log`。
 
-已移除探针残留的手工 `3s` 进度 POST,失败改为非零退出;保存和续播使用同一个完成判断,保留小数秒。普通源管理已接类型选择、文件/URL 安装与持久化,真实 Windows 原生 UI 安装后关闭/重启仍能选择视频源,恢复后的 HLS 播放通过。视频搜索/分页、详情和播放准备已分代取消,慢 HTTP 的真实断连与下一次读取成功有竞态测试,迟到播放地址在主线程再次判定归属;HLS 会话改为优先内置 HLS.js(原生 HLS 会丢掉 `EXT-X-MEDIA` 字幕组,实测不请求字幕清单),回退原生路径仅作兜底且无字幕;默认路径的字幕选择、活动文本与中文窗口叠加已验证;0.2.4 安装包中的字幕选择框已完成真实操作验收:在同一暂停画面上选 English 后英文可见、选关闭后消失、再选中文后恢复,回执 `E:/Temp/desktop-subtitle-language-024-receipt.json`。字幕选择已独立存入书架并跨播放器重开恢复(`cmd/subcheck`,真实 WebView2),见 STATUS;PiP、字幕样式、变体组刷新后的选择、macOS 与真实在线站点仍待验证;音轨只验证到解码字节计数,未验证扬声器实际输出。嗅探、DRM 和 DASH 明确不支持。
+已移除探针残留的手工 `3s` 进度 POST,失败改为非零退出;保存和续播使用同一个完成判断,保留小数秒。普通源管理已接类型选择、文件/URL 安装与持久化,真实 Windows 原生 UI 安装后关闭/重启仍能选择视频源,恢复后的 HLS 播放通过。视频搜索/分页、详情和播放准备已分代取消,慢 HTTP 的真实断连与下一次读取成功有竞态测试,迟到播放地址在主线程再次判定归属;HLS 会话改为优先内置 HLS.js(原生 HLS 会丢掉 `EXT-X-MEDIA` 字幕组,实测不请求字幕清单),回退原生路径仅作兜底且无字幕;默认路径的字幕选择、活动文本与中文窗口叠加已验证;0.2.4 安装包中的字幕选择框已完成真实操作验收:在同一暂停画面上选 English 后英文可见、选关闭后消失、再选中文后恢复,回执 `E:/Temp/desktop-subtitle-language-024-receipt.json`。字幕选择已独立存入书架并跨播放器重开恢复(`cmd/videocheck subtitles`,真实 WebView2),见 STATUS;PiP、字幕样式、变体组刷新后的选择、macOS 与真实在线站点仍待验证;音轨只验证到解码字节计数,未验证扬声器实际输出。嗅探、DRM 和 DASH 明确不支持。
 
 **默认字幕跟系统语言(2026-11-07)**:没有为该集保存过选择时,页面按**系统语言顺序**挑字幕轨,而不是直接采用清单里的 `DEFAULT=YES`——后者是源对所有用户的猜测。语言标签只比较 ISO 639 语言;中文保留文字系统(`zh-Hans`/`zh-Hant`),同一语言不同文字系统不互相匹配,未写文字系统的 `zh` 对两者都接受。系统语言由 Go 侧传进播放页 URL(`langs` 参数,取自 `mygo.App.PreferredLanguages()`),因为 WebView 的 `navigator.languages` 是本应用界面语言而不是读者语言(本机实测返回 `en-US`,系统是 `zh-CN`)。播放器里选过的语言或"关闭"仍是更高的优先级,并照旧按集保存;菜单里新增"跟随系统语言"把默认还给系统。
 
-真实 WebView2 + HLS.js 1.7.4 上按语言顺序逐一验证(`cmd/subcheck -langs ...`,视图 320×180、暂停在 1.000 秒、读 `activeCues` 文本而不是轨道名):
+真实 WebView2 + HLS.js 1.7.4 上按语言顺序逐一验证(`cmd/videocheck subtitles -langs ...`,视图 320×180、暂停在 1.000 秒、读 `activeCues` 文本而不是轨道名):
 
 | 语言顺序 | 首开选中 | 活动字幕 | 再选并重开 |
 | --- | --- | --- | --- |

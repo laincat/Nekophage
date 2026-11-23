@@ -5,15 +5,19 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/laincat/veneracat-core/subscription"
 
 	"github.com/laincat/nekophage/internal/core"
-	"github.com/laincat/nekophage/internal/store"
+	"github.com/laincat/veneracat-core/gohost/library"
+	"github.com/laincat/veneracat-core/plugin"
 )
 
 const probeScript = `class Probe extends ComicSource {
@@ -33,7 +37,7 @@ func probeCollection(t *testing.T, base string, body []byte, declared []byte, ke
 		"entries": []map[string]any{{
 			"id": "probe", "kind": "comic-source.js", "name": "Probe", "version": "1",
 			"status": "active", "key": key,
-			"supports": map[string]any{"platforms": []string{"windows"}, "requiresCapabilities": []string{"comic-source.js"}},
+			"supports": map[string]any{"platforms": []string{"windows", "macos", "linux"}, "requiresCapabilities": []string{"comic-source.js"}},
 			"artifact": map[string]any{"url": base + "/probe.js", "sha256": hex.EncodeToString(sum[:]), "bytes": len(declared)},
 		}},
 	}
@@ -41,11 +45,7 @@ func probeCollection(t *testing.T, base string, body []byte, declared []byte, ke
 	if err != nil {
 		t.Fatal(err)
 	}
-	s, err := store.Open(t.TempDir())
-	if err != nil {
-		t.Fatal(err)
-	}
-	m, err := Open(s, core.NewTransport(nil, "Nekophage/test", 0))
+	m, err := Open(t.TempDir(), core.NewTransport(nil, "Nekophage/test", 0))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -107,6 +107,50 @@ func TestEntryCarriesTheDeclaredKeyAndCompatibility(t *testing.T) {
 	}
 }
 
+func TestCollectionInstallChecksIdentityBeforePublishing(t *testing.T) {
+	ctx := context.Background()
+	root := t.TempDir()
+	c, err := core.Open(core.Options{DataDir: root})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer c.Close()
+	lib := library.New(c)
+	if _, err := lib.InstallText(ctx, probeScript, "original"); err != nil {
+		t.Fatal(err)
+	}
+	if err := c.Store().SaveData("probe", "account", []byte("123")); err != nil {
+		t.Fatal(err)
+	}
+	served := []byte(strings.Replace(probeScript, "version = '1'", "version = '2'", 1))
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { _, _ = w.Write(served) }))
+	defer server.Close()
+	manager := probeCollection(t, server.URL, served, served, "other")
+	file := filepath.Join(root, "plugins.json")
+	before, err := os.ReadFile(file)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := InstallEntry(ctx, manager, "probe-collection", "probe", root, lib); !errors.Is(err, plugin.ErrKey) {
+		t.Fatalf("mismatch: %v", err)
+	}
+	after, err := os.ReadFile(file)
+	if err != nil || string(after) != string(before) {
+		t.Fatalf("records changed on mismatch: %v", err)
+	}
+	if raw, _, err := c.Store().LoadData("probe", "account"); err != nil || string(raw) != "123" {
+		t.Fatalf("source data changed: %s %v", raw, err)
+	}
+	valid := probeCollection(t, server.URL, served, served, "probe")
+	result, err := InstallEntry(ctx, valid, "probe-collection", "probe", root, lib)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := result.(*plugin.Record); got.Version != "2" || got.Origin != "collection:probe-collection/probe" {
+		t.Fatalf("upgrade: %+v", got)
+	}
+}
+
 // installForTest seeds the manager with one collection document, standing in for
 // a followed subscription so the tests do not need the network twice.
 func (m *Manager) installForTest(document []byte, url string) error {
@@ -132,11 +176,7 @@ func TestArtifactReportsAGrownArtifactAsAMismatch(t *testing.T) {
 	}))
 	defer server.Close()
 
-	s, err := store.Open(t.TempDir())
-	if err != nil {
-		t.Fatal(err)
-	}
-	m, err := Open(s, core.NewTransport(nil, "test", 0))
+	m, err := Open(t.TempDir(), core.NewTransport(nil, "test", 0))
 	if err != nil {
 		t.Fatal(err)
 	}

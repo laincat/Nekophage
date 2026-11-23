@@ -9,13 +9,11 @@ package ui
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"hash/fnv"
 	"log"
 	"math/rand"
 	"os"
-	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
@@ -26,23 +24,27 @@ import (
 	"github.com/egoist/mygo"
 	"github.com/egoist/mygo/ui"
 	"github.com/egoist/mygo/ui/markdown"
+	"github.com/laincat/nekophage/internal/collections"
 	"github.com/laincat/nekophage/internal/core"
-	"github.com/laincat/nekophage/internal/library"
 	"github.com/laincat/nekophage/internal/player"
+	"github.com/laincat/nekophage/internal/profile"
 	"github.com/laincat/nekophage/internal/reader"
 	"github.com/laincat/nekophage/internal/searches"
 	"github.com/laincat/nekophage/internal/shelf"
+	"github.com/laincat/veneracat-core/gohost/library"
 	"github.com/laincat/veneracat-core/plugin"
 )
 
 // App is the main window's state.
 type App struct {
-	core     *core.Core
-	lib      *library.Library
-	shelf    *shelf.Shelf
-	searches *searches.Store
-	win      *mygo.Window
-	scheme   *reader.Server
+	collectionManager *collections.Manager
+	collectionErr     error
+	core              *core.Core
+	lib               *library.Library
+	shelf             *shelf.Shelf
+	searches          *searches.Store
+	win               *mygo.Window
+	scheme            *reader.Server
 
 	mu sync.Mutex
 
@@ -143,12 +145,14 @@ type App struct {
 	md markdown.Options
 
 	// reader window
-	readerWin     *mygo.Window
-	readerView    *mygo.WebView
-	readerTitle   string
-	readerChapter int
-	readerList    []core.Chapter
-	readerComic   string
+	readerWin       *mygo.Window
+	readerView      *mygo.WebView
+	readerTitle     string
+	readerChapter   int
+	readerList      []core.Chapter
+	readerComic     string
+	readerSource    string
+	chapterRecorded chan struct{}
 
 	// reqSeq guards against a slow reply replacing a newer screen. Each new
 	// search, detail or browse takes a ticket; a reply whose ticket is no
@@ -221,8 +225,6 @@ type App struct {
 	renameTo      string
 	movePick      map[string]string
 	openedChapter bool
-	// settings remembers the source and the query between launches.
-	settings settings
 	// dev is what the tools that check the interface ask for; the app leaves
 	// it empty.
 	dev DevOptions
@@ -356,6 +358,10 @@ func New(c *core.Core, lib *library.Library, srv *reader.Server) *App {
 
 // Run shows the window and blocks until the app quits.
 func (a *App) Run() error {
+	a.collectionManager, a.collectionErr = collections.Open(a.core.DataDir(), core.NewTransport(nil, userAgent, 0))
+	if a.collectionManager != nil {
+		defer a.collectionManager.Close()
+	}
 	mygo.App.WhenReady(func() {
 		a.win = mygo.NewWindow(mygo.WindowOptions{
 			Title:   "Nekophage",
@@ -1062,6 +1068,7 @@ func (a *App) openReader(index int) {
 	comicID := a.detailComic.ID
 	title := a.detailComic.Title
 	a.readerChapter, a.readerList, a.readerComic = index, list, comicID
+	a.readerSource = key
 	a.readerTitle = title
 	a.mu.Unlock()
 	if a.readerWin == nil {
@@ -1098,11 +1105,11 @@ func (a *App) loadChapter(key string) {
 	if index >= 0 && index < len(list) {
 		title += " · " + list[index].Title
 	}
+	a.rememberChapter(key)
 	if err := a.readerView.Page().LoadURL(u); err != nil {
 		log.Printf("nekophage: opening the reader: %v (%s)", err, u)
 	}
 	a.readerWin.SetTitle(title)
-	a.rememberChapter(key)
 	if a.dev.AutoNext && !a.devAutoUsed {
 		a.devAutoUsed = true
 		go func() {
@@ -2538,19 +2545,10 @@ func debugLog(format string, args ...any) {
 	fmt.Fprintln(os.Stderr, fmt.Sprintf(format, args...))
 }
 
-// settings is what the window remembers between launches.
-type settings struct {
-	Source string `json:"source,omitempty"`
-	Query  string `json:"query,omitempty"`
-	// Folder is the favourite folder kept last, so the next comic goes there
-	// without choosing it again.
-	Folder string `json:"folder,omitempty"`
-}
-
-func (a *App) settingsPath() string { return filepath.Join(a.core.DataDir(), "ui.json") }
+func (a *App) settingsPath() string { return profile.PreferencesPath(a.core.DataDir()) }
 
 func (a *App) loadSettings() {
-	s, ok := readSettings(a.settingsPath())
+	s, ok := profile.ReadPreferences(a.settingsPath())
 	if !ok {
 		return
 	}
@@ -2584,30 +2582,7 @@ func (a *App) saveSettingsTo(path, source, query string) {
 	a.mu.Lock()
 	folder := a.favFolder
 	a.mu.Unlock()
-	writeSettings(path, settings{Source: source, Query: query, Folder: folder})
-}
-
-// readSettings loads what the window remembered. A missing or unreadable
-// file is not an error: the window starts empty.
-func readSettings(path string) (settings, bool) {
-	data, err := os.ReadFile(path)
-	if err != nil || len(data) == 0 {
-		return settings{}, false
-	}
-	var s settings
-	if json.Unmarshal(data, &s) != nil {
-		return settings{}, false
-	}
-	return s, true
-}
-
-func writeSettings(path string, s settings) {
-	data, err := json.Marshal(s)
-	if err != nil {
-		return
-	}
-	_ = os.MkdirAll(filepath.Dir(path), 0o755)
-	_ = os.WriteFile(path, data, 0o600)
+	profile.WritePreferences(path, profile.Preferences{Source: source, Query: query, Folder: folder})
 }
 
 func firstNonEmpty(vs ...string) string {

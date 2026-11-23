@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/laincat/nekophage/internal/core"
-	"github.com/laincat/nekophage/internal/library"
+	"github.com/laincat/veneracat-core/gohost/library"
 )
 
 const tagSource = `class Tags extends ComicSource {

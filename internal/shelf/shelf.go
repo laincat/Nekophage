@@ -195,6 +195,34 @@ func (s *Shelf) Record(h History) error {
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	return s.record(h)
+}
+
+func (s *Shelf) BeginChapter(h History) error {
+	if h.Source == "" || h.ID == "" {
+		return errors.New("shelf: history needs a source and an id")
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for index, previous := range s.history {
+		if previous.Source != h.Source || previous.ID != h.ID {
+			continue
+		}
+		if previous.ChapterIndex == h.ChapterIndex && previous.Chapter == h.Chapter {
+			h.Page, h.Percent = previous.Page, previous.Percent
+			unchanged := h
+			unchanged.Time = previous.Time
+			if index == 0 && unchanged == previous {
+				return nil
+			}
+		}
+		break
+	}
+	h.Time = time.Now().Unix()
+	return s.record(h)
+}
+
+func (s *Shelf) record(h History) error {
 	out := make([]History, 0, len(s.history)+1)
 	out = append(out, h)
 	for _, e := range s.history {
@@ -206,8 +234,13 @@ func (s *Shelf) Record(h History) error {
 	if len(out) > historyLimit {
 		out = out[:historyLimit]
 	}
+	previous := s.history
 	s.history = out
-	return s.save()
+	if err := s.save(); err != nil {
+		s.history = previous
+		return err
+	}
+	return nil
 }
 
 // UpdateProgress records how far the reader got in a comic already on the
@@ -233,16 +266,26 @@ func (s *Shelf) UpdateProgress(source, id, chapter string, chapterIndex, page, p
 		if e.Source != source || e.ID != id {
 			continue
 		}
-		e.Page = page
-		e.Percent = percent
+		next := *e
+		next.Page = page
+		next.Percent = percent
 		if chapter != "" {
-			e.Chapter = chapter
+			next.Chapter = chapter
 		}
 		if chapterIndex >= 0 {
-			e.ChapterIndex = chapterIndex
+			next.ChapterIndex = chapterIndex
 		}
-		e.Time = time.Now().Unix()
-		return true, s.save()
+		if next == *e {
+			return false, nil
+		}
+		next.Time = time.Now().Unix()
+		previous := *e
+		*e = next
+		if err := s.save(); err != nil {
+			*e = previous
+			return false, err
+		}
+		return true, nil
 	}
 	return false, nil
 }
@@ -255,14 +298,19 @@ func (s *Shelf) Merge(h History) (bool, error) {
 		return false, errors.New("shelf: history needs a source and an id")
 	}
 	s.mu.Lock()
+	defer s.mu.Unlock()
 	for _, e := range s.history {
 		if e.Source == h.Source && e.ID == h.ID && e.Time >= h.Time {
-			s.mu.Unlock()
 			return false, nil
 		}
 	}
-	s.mu.Unlock()
-	return true, s.Record(h)
+	if h.Time == 0 {
+		h.Time = time.Now().Unix()
+	}
+	if err := s.record(h); err != nil {
+		return false, err
+	}
+	return true, nil
 }
 
 // History returns the most recent entries, newest first.
@@ -725,9 +773,15 @@ func (s *Shelf) save() error {
 	if err := os.MkdirAll(s.root, 0o755); err != nil {
 		return err
 	}
-	tmp := s.path() + ".tmp"
-	if err := os.WriteFile(tmp, append(b, '\n'), 0o600); err != nil {
+	tmp, err := os.CreateTemp(s.root, ".shelf-*")
+	if err != nil {
 		return err
 	}
-	return os.Rename(tmp, s.path())
+	defer os.Remove(tmp.Name())
+	_, writeErr := tmp.Write(append(b, '\n'))
+	closeErr := tmp.Close()
+	if err := errors.Join(writeErr, closeErr); err != nil {
+		return err
+	}
+	return os.Rename(tmp.Name(), s.path())
 }

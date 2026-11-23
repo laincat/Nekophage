@@ -16,7 +16,6 @@ import (
 	"time"
 
 	"github.com/laincat/nekophage/internal/core"
-	"github.com/laincat/nekophage/internal/store"
 )
 
 func document(id, version string) string {
@@ -25,11 +24,7 @@ func document(id, version string) string {
 
 func openTest(t *testing.T, root string) *Manager {
 	t.Helper()
-	s, err := store.Open(root)
-	if err != nil {
-		t.Fatal(err)
-	}
-	m, err := Open(s, core.NewTransport(nil, "collection-test", 5*time.Second))
+	m, err := Open(root, core.NewTransport(nil, "collection-test", 5*time.Second))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -167,7 +162,11 @@ func TestWriteFailurePreservesMemoryAndDisk(t *testing.T) {
 	}
 	before, _ := os.ReadFile(filepath.Join(root, "collections.json"))
 	version.Store(2)
-	blocked := filepath.Join(root, "collections.json.tmp")
+	blocked := filepath.Join(root, "collections.json")
+	saved := filepath.Join(root, "previous.json")
+	if err := os.Rename(blocked, saved); err != nil {
+		t.Fatal(err)
+	}
 	if err := os.Mkdir(blocked, 0700); err != nil {
 		t.Fatal(err)
 	}
@@ -180,11 +179,14 @@ func TestWriteFailurePreservesMemoryAndDisk(t *testing.T) {
 	if versionOf(t, m) != "1" {
 		t.Fatal("failed persistence changed memory")
 	}
-	after, _ := os.ReadFile(filepath.Join(root, "collections.json"))
+	after, _ := os.ReadFile(saved)
 	if !bytes.Equal(before, after) {
 		t.Fatal("failed persistence changed disk")
 	}
 	if err := os.Remove(blocked); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Rename(saved, blocked); err != nil {
 		t.Fatal(err)
 	}
 	if err := m.Refresh(context.Background(), "publisher"); err != nil {
@@ -322,11 +324,7 @@ func TestPrecancelAndInvalidSavedDataNeverOverwrite(t *testing.T) {
 		if err := os.WriteFile(p, []byte(data), 0600); err != nil {
 			t.Fatal(err)
 		}
-		s, err := store.Open(root)
-		if err != nil {
-			t.Fatal(err)
-		}
-		if _, err = Open(s, core.NewTransport(nil, "test", 0)); err == nil {
+		if _, err := Open(root, core.NewTransport(nil, "test", 0)); err == nil {
 			t.Fatal("accepted invalid saved data")
 		}
 		after, _ := os.ReadFile(p)
@@ -355,16 +353,12 @@ func TestSnapshotRestoresHTMLWithinDownloadLimit(t *testing.T) {
 
 func TestRestoreRejectsConflictingSavedIdentities(t *testing.T) {
 	root := t.TempDir()
-	s, err := store.Open(root)
-	if err != nil {
-		t.Fatal(err)
-	}
 	rec := record{ID: "publisher", URL: "https://example.test/source.json", Document: json.RawMessage(document("publisher", "1"))}
 	data, _ := json.Marshal(disk{Version: 1, Subscriptions: []record{rec, rec}})
-	if err = s.SaveCollections(data); err != nil {
+	if err := saveSnapshot(root, data); err != nil {
 		t.Fatal(err)
 	}
-	if _, err = Open(s, core.NewTransport(nil, "test", 0)); err == nil {
+	if _, err := Open(root, core.NewTransport(nil, "test", 0)); err == nil {
 		t.Fatal("duplicate snapshot accepted")
 	}
 }

@@ -23,9 +23,9 @@ import (
 
 	"github.com/egoist/mygo"
 	"github.com/laincat/nekophage/internal/browser"
-	"github.com/laincat/nekophage/internal/cookies"
 	"github.com/laincat/nekophage/internal/core"
 	"github.com/laincat/nekophage/internal/sourceapi"
+	"github.com/laincat/veneracat-core/gohost/cookies"
 	"github.com/laincat/veneracat-core/host"
 )
 
@@ -37,6 +37,10 @@ const (
 )
 
 func main() {
+	if len(os.Args) > 1 && os.Args[1] == "browser" {
+		browserProbe(os.Args[2:])
+		return
+	}
 	target := flag.String("url", "", "a real challenge page to open")
 	cookie := flag.String("cookie", "cf_clearance", "cookie the page must set")
 	absent := flag.String("marker", marker, "text that must be gone when the page is passed")

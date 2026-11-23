@@ -4,8 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
-	"net/http"
 	"strings"
 	"sync"
 	"time"
@@ -14,10 +12,7 @@ import (
 
 	"github.com/egoist/mygo/ui"
 	"github.com/laincat/nekophage/internal/archive"
-	"github.com/laincat/nekophage/internal/cookies"
 	"github.com/laincat/nekophage/internal/core"
-	"github.com/laincat/nekophage/internal/shelf"
-	"github.com/laincat/veneracat-core/backup"
 	"github.com/laincat/veneracat-core/plugin"
 	"github.com/laincat/veneracat-core/subscription"
 )
@@ -577,100 +572,7 @@ func (a *App) applyBackup() {
 		defer cancel()
 		ctx, cancel = context.WithTimeout(ctx, 5*time.Minute)
 		defer cancel()
-		sources, fields := 0, 0
-		var firstErr error
-		for _, src := range b.Plan.Sources {
-			if src.Script != "" {
-				if _, err := a.lib.InstallText(ctx, src.Script, "backup:"+src.Key); err != nil {
-					if firstErr == nil {
-						firstErr = fmt.Errorf("%s: %w", src.Key, err)
-					}
-					continue
-				}
-				sources++
-			}
-		}
-		recorded, kept := 0, 0
-		for _, p := range b.Positions() {
-			chapter := ""
-			index := p.Episode - 1
-			if p.Episode > 0 {
-				chapter = "第 " + itoa(p.Episode) + " 话"
-			}
-			ok, err := a.shelf.Merge(shelf.History{
-				Comic:   shelf.Comic{Source: p.Source, ID: p.ID, Title: p.Title, Author: p.Author, Cover: p.Cover},
-				Chapter: chapter, ChapterIndex: index, Page: p.Page, Time: p.Time})
-			if err != nil && firstErr == nil {
-				firstErr = err
-			}
-			if ok {
-				recorded++
-			}
-		}
-		for _, f := range b.Favourites() {
-			for _, it := range f.Items {
-				added, err := a.shelf.Add(f.Name, shelf.Comic{Source: it.Source, ID: it.ID,
-					Title: it.Title, Author: it.Author, Cover: it.Cover})
-				if err != nil && firstErr == nil {
-					firstErr = err
-				}
-				if added {
-					kept++
-				}
-			}
-		}
-
-		pages := 0
-		for _, kept := range mustPages(b) {
-			err := a.shelf.KeepPage(shelf.ImageFavourite{
-				Source:       kept.Source,
-				ComicID:      kept.ComicID,
-				ComicTitle:   kept.ComicTitle,
-				ChapterID:    kept.ChapterID,
-				ChapterIndex: kept.ChapterIndex,
-				ChapterName:  kept.ChapterName,
-				Page:         kept.Page,
-				URL:          kept.URL,
-				Time:         kept.Time,
-			})
-			if err != nil && firstErr == nil {
-				firstErr = err
-			}
-			if err == nil {
-				pages++
-			}
-		}
-
-		installed := make([]string, 0, len(a.lib.Sources()))
-		for _, src := range a.lib.Sources() {
-			installed = append(installed, src.Key)
-		}
-		cookieRows := restoreCookies(b.Plan, a.lib.Jar(), installed, time.Now())
-
-		searched := 0
-		if a.searches != nil && len(b.Content.SearchHistory) > 0 {
-			n, err := a.searches.Merge(b.Content.SearchHistory)
-			if err != nil && firstErr == nil {
-				firstErr = err
-			}
-			searched = n
-		}
-
-		data, err := b.SourceData()
-		if err != nil && firstErr == nil {
-			firstErr = err
-		}
-		for _, d := range data {
-			values := make(map[string]json.RawMessage, len(d.Fields))
-			for _, f := range d.Fields {
-				values[f.Name] = f.Value
-			}
-			n, settings, err := a.lib.ImportSourceValues(ctx, d.Key, values)
-			fields += n + settings
-			if err != nil && firstErr == nil {
-				firstErr = err
-			}
-		}
+		result, firstErr := archive.Apply(ctx, b, a.lib, a.shelf, a.searches)
 		a.manageWin.Update(func() {
 			m := &a.manage
 			m.backupBusy = false
@@ -679,78 +581,13 @@ func (a *App) applyBackup() {
 				m.done(firstErr, "")
 			} else {
 				notice := fmt.Sprintf("已导入 %d 个源、%d 项源数据、%d 条阅读记录、%d 部收藏、%d 条搜索历史、%d 张图片",
-					sources, fields, recorded, kept, searched, pages)
-				if cookieRows > 0 {
-					notice += fmt.Sprintf("、%d 条登录状态", cookieRows)
+					result.Sources, result.Fields, result.History, result.Favourites, result.Searches, result.Pages)
+				if result.Cookies > 0 {
+					notice += fmt.Sprintf("、%d 条登录状态", result.Cookies)
 				}
 				m.done(nil, notice)
 			}
 			a.refreshSources()
 		})
 	}()
-}
-
-// restoreCookies writes a plan's cookies into the partitions that exist now.
-//
-// Split out from the import so the rule can be tested without a window: a
-// partition is written only when its source is installed, because a source whose
-// script failed has nothing that would ever send the cookie. Returns how many
-// cookie rows were written, across all partitions.
-func restoreCookies(plan *backup.Plan, jar *cookies.Jar, installed []string, now time.Time) int {
-	if plan == nil || len(plan.Cookies) == 0 || len(plan.CookieTargets) == 0 {
-		return 0
-	}
-	present := make(map[string]bool, len(installed))
-	for _, key := range installed {
-		present[key] = true
-	}
-	rows := toNetCookies(plan.Cookies, now)
-	if len(rows) == 0 {
-		return 0
-	}
-	written := 0
-	for _, target := range plan.CookieTargets {
-		if !present[target] {
-			continue
-		}
-		// The plan names sources; the jar is keyed by partition. Writing to the
-		// bare key would store cookies no request ever reads.
-		jar.Import(core.ComicPartition(target), rows)
-		written += len(rows)
-	}
-	return written
-}
-
-// toNetCookies turns a backup's cookie rows into the shape the jar imports.
-//
-// Expiry is milliseconds since the epoch in the backup and a time here; a row
-// without one is a session cookie and stays without one.
-func toNetCookies(rows []backup.Cookie, now time.Time) []*http.Cookie {
-	out := make([]*http.Cookie, 0, len(rows))
-	for _, row := range rows {
-		c := &http.Cookie{Name: row.Name, Value: row.Value, Domain: row.Domain, Path: row.Path,
-			Secure: row.Secure, HttpOnly: row.HTTPOnly}
-		if row.Expires != nil && *row.Expires > 0 {
-			when := time.UnixMilli(*row.Expires)
-			// Already expired: the jar would never send it, yet the summary
-			// would count it as a restored sign-in. Skip it instead.
-			if !when.After(now) {
-				continue
-			}
-			c.Expires = when
-		}
-		out = append(out, c)
-	}
-	return out
-}
-
-// mustPages reads the backup's kept pages, reporting a problem through the
-// notice line rather than failing the whole import.
-func mustPages(b *archive.Backup) []archive.KeptPage {
-	pages, err := b.Pages()
-	if err != nil {
-		log.Printf("nekophage: kept pages in %s: %v", b.Path, err)
-		return nil
-	}
-	return pages
 }

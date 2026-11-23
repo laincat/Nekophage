@@ -20,10 +20,14 @@ func (a *App) rememberChapter(key string) {
 	a.mu.Lock()
 	comic, d := a.detailComic, a.detail
 	index, list := a.readerChapter, a.readerList
-	a.mu.Unlock()
 	if comic.ID == "" {
+		a.mu.Unlock()
 		return
 	}
+	previous := a.chapterRecorded
+	done := make(chan struct{})
+	a.chapterRecorded = done
+	a.mu.Unlock()
 	chapter := ""
 	if index >= 0 && index < len(list) {
 		chapter = list[index].Title
@@ -37,7 +41,15 @@ func (a *App) rememberChapter(key string) {
 		ChapterIndex: index,
 		Time:         time.Now().Unix(),
 	}
-	go func() { _ = a.shelf.Record(entry) }()
+	go func() {
+		defer close(done)
+		if previous != nil {
+			<-previous
+		}
+		if err := a.shelf.BeginChapter(entry); err != nil {
+			log.Printf("nekophage: saving opened chapter: %v", err)
+		}
+	}()
 }
 
 // shelfComic is the shelf's copy of a comic the window is showing.
@@ -57,8 +69,10 @@ func (a *App) progressFromReader(p reader.Progress) {
 	}
 	a.mu.Lock()
 	comicID, list, mode, current := a.readerComic, a.readerList, a.mode, a.readerChapter
+	key := a.readerSource
+	recorded := a.chapterRecorded
 	a.mu.Unlock()
-	if p.Comic != comicID || len(list) == 0 {
+	if p.Comic != comicID || p.Source != key {
 		return
 	}
 	// A page that has been replaced still reports where it was; that is not
@@ -67,6 +81,9 @@ func (a *App) progressFromReader(p reader.Progress) {
 		return
 	}
 	index, title := -1, ""
+	if len(list) == 0 && p.Chapter == "" {
+		index = 0
+	}
 	for i, ch := range list {
 		if ch.ID == p.Chapter {
 			index, title = i, ch.Title
@@ -74,6 +91,15 @@ func (a *App) progressFromReader(p reader.Progress) {
 		}
 	}
 	if index < 0 {
+		return
+	}
+	if recorded != nil {
+		<-recorded
+	}
+	a.mu.Lock()
+	stillCurrent := recorded == a.chapterRecorded && p.Comic == a.readerComic && p.Source == a.readerSource && current == a.readerChapter
+	a.mu.Unlock()
+	if !stillCurrent {
 		return
 	}
 	ok, err := a.shelf.UpdateProgress(p.Source, p.Comic, title, index, p.Page, p.Percent)

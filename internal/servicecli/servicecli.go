@@ -14,7 +14,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"path/filepath"
 	"strings"
 	"time"
 
@@ -181,60 +180,4 @@ func writeJSON(out io.Writer, value any) error {
 	}
 	fmt.Fprintln(out, string(data))
 	return nil
-}
-
-// storage keeps the values of one service in the data directory.
-type storage struct {
-	path string
-}
-
-func openStorage(dataDir, id string) (*storage, error) {
-	dir := filepath.Join(dataDir, "services")
-	if err := os.MkdirAll(dir, 0o700); err != nil {
-		return nil, err
-	}
-	return &storage{path: filepath.Join(dir, id+".json")}, nil
-}
-
-// Get returns one stored value.
-func (s *storage) Get(ctx context.Context, key string) (string, bool, error) {
-	values, err := s.read()
-	if err != nil {
-		return "", false, err
-	}
-	value, ok := values[key]
-	return value, ok, nil
-}
-
-// Set writes one stored value.
-func (s *storage) Set(ctx context.Context, key, value string) error {
-	values, err := s.read()
-	if err != nil {
-		return err
-	}
-	values[key] = value
-	data, err := json.Marshal(values)
-	if err != nil {
-		return err
-	}
-	return os.WriteFile(s.path, data, 0o600)
-}
-
-// read loads the stored values, treating a missing file as an empty set.
-func (s *storage) read() (map[string]string, error) {
-	values := map[string]string{}
-	data, err := os.ReadFile(s.path)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return values, nil
-		}
-		return nil, err
-	}
-	if len(data) == 0 {
-		return values, nil
-	}
-	if err := json.Unmarshal(data, &values); err != nil {
-		return nil, fmt.Errorf("服务存储 %s 损坏: %w", s.path, err)
-	}
-	return values, nil
 }
