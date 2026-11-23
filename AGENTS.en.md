@@ -7,7 +7,7 @@ For people and AI assistants working on the code. Read before changing it.
 ## Principles
 
 - Logic belongs in VeneraCat Core. The desktop app provides the interface, networking, WebViews, the player and storage; new logic goes into Core first.
-- Core is a dependency, not a copy: `build/core` is fetched by `scripts/fetch-core.sh`, at the version in `scripts/core-version`. Never edit code under `build/`.
+- `scripts/fetch-core.sh` fetches Core's upstream `main` into `build/core`. Never edit code under `build/`.
 - The main window is native UI (the `ui` package). Only the reader, verification and, later, playback and sniffing use a WebView, and always inside native UI.
 - Slow work never runs on the interface's thread: finish it in a goroutine, then come back through `Window.Update`.
 - Every source's cookies, login state and data are isolated: the partition name is `comic:<key>`, and the system cookie store is not used.
@@ -26,14 +26,14 @@ For people and AI assistants working on the code. Read before changing it.
 In the repository root:
 
 ```sh
-sh scripts/check.sh   # gofmt, actual Core pin, go vet, go test (with the race detector), docs, partitions, capabilities — one line per step
+sh scripts/check.sh   # gofmt, actual Core checkout, go vet, go test (with the race detector), docs, partitions, capabilities — one line per step
 ```
 
 The steps individually:
 
 ```sh
 gofmt -l .          # no output expected
-sh scripts/check-core-pin.sh  # actual module checkout, clean tree and generated stamp must match the pin
+sh scripts/check-core.sh  # the linked Core checkout must be clean and match the generated stamp
 go vet ./...
 go test ./...       # includes end-to-end tests; no network, httptest
 sh scripts/check-docs.sh

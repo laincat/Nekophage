@@ -34,10 +34,10 @@ The reading path (add a source → search → details → read) has real-source 
 
 ## Building
 
-Needs Go 1.27 or later. On Windows, run these build commands in Git Bash; packaging first verifies the selected Core checkout against its pin and rejects stale workspace/stamp state.
+Needs Go 1.27 or later. On Windows, run these build commands in Git Bash; packaging first verifies the selected Core checkout against the generated version stamp and rejects a dirty checkout or a stale stamp.
 
 ```sh
-scripts/fetch-core.sh      # clones Core into build/core (version in scripts/core-version)
+scripts/fetch-core.sh      # fetches Core's upstream main into build/core
 go build -o build/Nekophage.exe .  # Windows; keep the output under build/
 ./build/Nekophage.exe -version     # version, Core commit, source API level, own commit and Go runtime, no window
 go test ./...                     # unit and end-to-end tests

@@ -3,14 +3,11 @@
 #
 #   scripts/fetch-core.sh [path-to-VeneraCat-Core]
 #
-# Without an argument it clones github.com/laincat/VeneraCat-Core at the
-# branch, tag or commit in scripts/core-version into build/core. Either way it
+# Without an argument it uses the latest Core main in build/core. Either way it
 # writes go.work (which is not committed) so go build and go test find Core.
 set -eu
 
 root=$(cd "$(dirname "$0")/.." && pwd)
-pin=$(tr -d ' \n' < "$root/scripts/core-version")
-
 if [ $# -ge 1 ]; then
 	core=$(cd "$1" && pwd)
 else
@@ -18,16 +15,12 @@ else
 	if [ ! -d "$core/.git" ]; then
 		git clone --quiet https://github.com/laincat/VeneraCat-Core.git "$core"
 	fi
-	git -C "$core" fetch --quiet --force origin "+refs/heads/*:refs/remotes/origin/*" --tags
-	if git -C "$core" rev-parse --verify --quiet "origin/$pin" >/dev/null; then
-		git -C "$core" checkout --quiet --detach "origin/$pin"
-	else
-		git -C "$core" checkout --quiet --detach "$pin"
-	fi
+	git -C "$core" fetch --quiet origin '+refs/heads/main:refs/remotes/origin/main'
+	git -C "$core" checkout --quiet --detach origin/main
 fi
 
 revision=$(git -C "$core" rev-parse HEAD)
-echo "Core: $(git -C "$core" rev-parse --short HEAD) (pinned $pin)"
+echo "Core: $revision"
 
 # Core linked as a local module has no version of its own in the build, and this
 # binary's commit is not Core's. A generated file records the revision so

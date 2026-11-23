@@ -38,7 +38,7 @@ else
 	printf 'PASS  gofmt\n'
 fi
 
-run 'core pin' sh scripts/check-core-pin.sh
+run 'core checkout' sh scripts/check-core.sh
 run 'go vet' go vet ./...
 # The race detector is on by default: this app loads comments, browses and decodes
 # images on goroutines while the interface reads the same state, which is exactly

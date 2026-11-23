@@ -7,7 +7,7 @@
 ## 原则
 
 - 业务逻辑放在 VeneraCat Core。桌面端只负责界面、网络、WebView、播放器和存储;需要新的逻辑时先改 Core。
-- Core 是本仓库的依赖,不是副本:`build/core` 由 `scripts/fetch-core.sh` 拉取,版本写在 `scripts/core-version`。不要在 `build/` 里改代码。
+- Core 是本仓库的依赖:`scripts/fetch-core.sh` 将上游 `main` 拉到 `build/core`。不要在 `build/` 里改代码。
 - 主界面是原生 UI(`ui` 包)。只有阅读器、人机验证和以后的播放/嗅探用 WebView,而且要嵌在原生界面里。
 - 慢操作永远不在界面线程上做:goroutine 里完成,再通过 `Window.Update` 回到界面。
 - 每个源的 Cookie、登录状态和源数据互相隔离:分区名是 `comic:<key>`,不使用系统共享 Cookie 存储。
@@ -27,14 +27,14 @@
 在仓库根目录运行:
 
 ```sh
-sh scripts/check.sh   # gofmt、真实 Core pin、go vet、go test(带 race)、docs、partitions、capabilities,逐项打印
+sh scripts/check.sh   # gofmt、实际 Core 检出、go vet、go test(带 race)、docs、partitions、capabilities,逐项打印
 ```
 
 单步等价于:
 
 ```sh
 gofmt -l .          # 应无输出
-sh scripts/check-core-pin.sh  # 实际模块 checkout、干净工作树与生成戳记必须匹配 pin
+sh scripts/check-core.sh  # 实际链接的 Core 检出必须干净,且与生成的戳记一致
 go vet ./...
 go test ./...       # 含端到端测试,不访问外网:用 httptest
 sh scripts/check-docs.sh
