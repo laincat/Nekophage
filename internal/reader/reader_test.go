@@ -8,6 +8,9 @@ import (
 	"net/url"
 	"strings"
 	"testing"
+
+	"github.com/laincat/nekophage/internal/store"
+	"github.com/laincat/nekophage/internal/vcmodule"
 )
 
 func TestReaderURLRoundTrip(t *testing.T) {
@@ -265,5 +268,62 @@ func TestKeepPageReachesTheWindow(t *testing.T) {
 	// The window may refuse, and the page is told so.
 	if code := call("source=s&comic=c&chapter=ch&page=0&u=" + url); code != http.StatusNotFound {
 		t.Errorf("refused keep: status = %d", code)
+	}
+}
+
+func TestConfigReflectsStoreAndVCModuleOverlay(t *testing.T) {
+	dir := t.TempDir()
+	st, err := store.OpenSettings(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	base := vcmodule.DefaultSettings()
+	base.Reader.PageGap = 4
+	if err := st.WriteBase(base); err != nil {
+		t.Fatal(err)
+	}
+
+	s := New(nil)
+	s.AttachSettings(st)
+
+	getConfig := func() vcmodule.ReaderSettings {
+		t.Helper()
+		rec := httptest.NewRecorder()
+		s.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, Scheme+"://localhost/config", nil))
+		if rec.Code != http.StatusOK {
+			t.Fatalf("status = %d", rec.Code)
+		}
+		var cfg vcmodule.ReaderSettings
+		if err := json.Unmarshal(rec.Body.Bytes(), &cfg); err != nil {
+			t.Fatalf("decode config: %v", err)
+		}
+		return cfg
+	}
+
+	if cfg := getConfig(); cfg.PageGap != 4 || cfg.KeepScreenOn {
+		t.Fatalf("base config = %+v", cfg)
+	}
+
+	mgr, err := st.Modules()
+	if err != nil {
+		t.Fatal(err)
+	}
+	raw := []byte("#!name=阅读偏好\n#!version=0.1.0\n#!format=veneracat-module/1-draft\n[Reader]\npage-gap = 8\nkeep-screen-on = true\n")
+	if _, err := mgr.Install("reader.pref", "test", "", raw); err != nil {
+		t.Fatal(err)
+	}
+	if err := mgr.Enable("reader.pref"); err != nil {
+		t.Fatal(err)
+	}
+
+	if cfg := getConfig(); cfg.PageGap != 8 || !cfg.KeepScreenOn {
+		t.Fatalf("overlaid config = %+v", cfg)
+	}
+
+	if err := mgr.Disable("reader.pref"); err != nil {
+		t.Fatal(err)
+	}
+	if cfg := getConfig(); cfg.PageGap != 4 || cfg.KeepScreenOn {
+		t.Fatalf("reverted config = %+v", cfg)
 	}
 }

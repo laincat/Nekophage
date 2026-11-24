@@ -18,9 +18,12 @@ import (
 	"net/url"
 	"runtime"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/laincat/nekophage/internal/core"
+	"github.com/laincat/nekophage/internal/store"
+	"github.com/laincat/nekophage/internal/vcmodule"
 )
 
 // Scheme is the custom scheme the page and its images are served from.
@@ -65,9 +68,51 @@ type Server struct {
 	// Timeout bounds one image fetch.
 	Timeout time.Duration
 
+	mu         sync.RWMutex
+	onConfig   func() vcmodule.ReaderSettings
 	onProgress func(Progress)
 	onSwitch   func(Switch) (string, bool)
 	onKeep     func(Keep) bool
+}
+
+// SetConfigProvider sets how effective reader settings (base + `.vcmodule`
+// overlays) are resolved when the reader asks for `/config`.
+func (s *Server) SetConfigProvider(fn func() vcmodule.ReaderSettings) {
+	s.mu.Lock()
+	s.onConfig = fn
+	s.mu.Unlock()
+}
+
+// AttachSettings wires the reader to a persistent settings store so effective
+// reader preferences reflect both base settings and enabled `.vcmodule`
+// overlays.
+func (s *Server) AttachSettings(st *store.SettingsStore) {
+	if st == nil {
+		s.SetConfigProvider(nil)
+		return
+	}
+	s.SetConfigProvider(func() vcmodule.ReaderSettings {
+		cfg, err := st.EffectiveReader()
+		if err != nil {
+			return vcmodule.DefaultReaderSettings()
+		}
+		return cfg
+	})
+}
+
+// EffectiveConfig returns the currently active reader settings.
+func (s *Server) EffectiveConfig() vcmodule.ReaderSettings {
+	s.mu.RLock()
+	fn := s.onConfig
+	s.mu.RUnlock()
+	if fn == nil {
+		return vcmodule.DefaultReaderSettings()
+	}
+	cfg := fn()
+	if err := cfg.Validate(); err != nil {
+		return vcmodule.DefaultReaderSettings()
+	}
+	return cfg
 }
 
 // OnProgress sets what receives the reader's position as it scrolls. The
@@ -101,9 +146,19 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		s.openChapter(w, r)
 	case "/keep":
 		s.keepPage(w, r)
+	case "/config":
+		s.config(w, r)
 	default:
 		http.NotFound(w, r)
 	}
+}
+
+// config returns effective reader settings resolved from base preferences and
+// enabled `.vcmodule` overlays.
+func (s *Server) config(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	w.Header().Set("Cache-Control", "no-store")
+	_ = json.NewEncoder(w).Encode(s.EffectiveConfig())
 }
 
 // progress records where the reader is. The page sends it as it scrolls;

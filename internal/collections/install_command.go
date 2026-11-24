@@ -12,6 +12,7 @@ import (
 	"github.com/laincat/nekophage/internal/core"
 	"github.com/laincat/nekophage/internal/services"
 	"github.com/laincat/nekophage/internal/sourceapi"
+	"github.com/laincat/nekophage/internal/vcmodule"
 	"github.com/laincat/veneracat-core/gohost/library"
 	"github.com/laincat/veneracat-core/plugin"
 	"github.com/laincat/veneracat-core/subscription"
@@ -61,7 +62,21 @@ func InstallEntry(ctx context.Context, m *Manager, collectionID, entryID, dataDi
 	digest := strings.ToLower(entry.Artifact.SHA256)
 	switch kind {
 	case "service.js":
-		return services.InstallExpecting(ctx, dataDir, entry.Key, origin, digest, body)
+		expectedID := entry.Key
+		if expectedID == "" {
+			expectedID = entry.ID
+		}
+		return services.InstallExpecting(ctx, dataDir, expectedID, origin, digest, body)
+	case vcmodule.Capability:
+		modID := entry.Key
+		if modID == "" {
+			modID = entry.ID
+		}
+		mgr, err := vcmodule.Open(dataDir)
+		if err != nil {
+			return nil, err
+		}
+		return mgr.Install(modID, origin, digest, body)
 	case "comic-source.js":
 		return lib.InstallExpecting(ctx, entry.Key, plugin.TypeComic, string(body), origin, digest)
 	case subscription.CapabilityNovelJS:
@@ -75,8 +90,16 @@ func installKind(entry Entry) (string, bool) {
 	switch entry.Kind {
 	case "comic-source.js", "service.js", subscription.CapabilityNovelJS:
 		return entry.Kind, true
+	case "service":
+		if slices.Contains(entry.Supports.RequiresCapabilities, "service.v1") ||
+			slices.Contains(entry.Supports.RequiresCapabilities, "service.js") {
+			return "service.js", true
+		}
+		return "", false
 	case "novel-source":
 		return subscription.CapabilityNovelJS, slices.Contains(entry.Supports.RequiresCapabilities, subscription.CapabilityNovelJS)
+	case "settings-module":
+		return vcmodule.Capability, slices.Contains(entry.Supports.RequiresCapabilities, vcmodule.Capability)
 	default:
 		return "", false
 	}
@@ -101,5 +124,5 @@ func Platform() string {
 
 // Capabilities is what this client can install from a collection.
 func Capabilities() []string {
-	return []string{"comic-source.js", subscription.CapabilityNovelJS, "service.js"}
+	return []string{"comic-source.js", subscription.CapabilityNovelJS, "service.js", "service.v1", vcmodule.Capability}
 }

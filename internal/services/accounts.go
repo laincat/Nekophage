@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"sync"
 )
 
 // Accounts stores the values a user enters for one service.
@@ -17,6 +18,7 @@ import (
 // otherwise would be worse than saying so. A client with a keychain swaps this
 // for its own implementation; the interface is deliberately small for that.
 type Accounts struct {
+	mu   sync.Mutex
 	path string
 	id   string
 }
@@ -32,20 +34,30 @@ func OpenAccounts(dataDir, id string) (*Accounts, error) {
 
 // Set stores one value.
 func (a *Accounts) Set(ctx context.Context, key, value string) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
 	if key == "" {
 		return errors.New("账号键不能为空")
 	}
-	values, err := a.read()
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	values, err := a.readLocked()
 	if err != nil {
 		return err
 	}
 	values[key] = value
-	return a.write(values)
+	return a.writeLocked(values)
 }
 
 // Get returns one value.
 func (a *Accounts) Get(ctx context.Context, key string) (string, error) {
-	values, err := a.read()
+	if err := ctx.Err(); err != nil {
+		return "", err
+	}
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	values, err := a.readLocked()
 	if err != nil {
 		return "", err
 	}
@@ -59,7 +71,9 @@ func (a *Accounts) Get(ctx context.Context, key string) (string, error) {
 // Keys lists the stored keys, never the values. It is what a settings screen
 // shows: which account fields exist, not what they hold.
 func (a *Accounts) Keys() ([]string, error) {
-	values, err := a.read()
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	values, err := a.readLocked()
 	if err != nil {
 		return nil, err
 	}
@@ -71,9 +85,33 @@ func (a *Accounts) Keys() ([]string, error) {
 	return out, nil
 }
 
+// Missing returns the subset of requiredKeys not present (or empty) in this
+// service's isolated account store. It never exposes secret values.
+func (a *Accounts) Missing(requiredKeys ...string) ([]string, error) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	values, err := a.readLocked()
+	if err != nil {
+		return nil, err
+	}
+	var missing []string
+	for _, key := range requiredKeys {
+		if key == "" {
+			continue
+		}
+		if v, ok := values[key]; !ok || v == "" {
+			missing = append(missing, key)
+		}
+	}
+	sort.Strings(missing)
+	return missing, nil
+}
+
 // Count reports how many values are stored.
 func (a *Accounts) Count() (int, error) {
-	values, err := a.read()
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	values, err := a.readLocked()
 	if err != nil {
 		return 0, err
 	}
@@ -82,7 +120,12 @@ func (a *Accounts) Count() (int, error) {
 
 // Remove deletes one value.
 func (a *Accounts) Remove(ctx context.Context, key string) error {
-	values, err := a.read()
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	values, err := a.readLocked()
 	if err != nil {
 		return err
 	}
@@ -90,11 +133,29 @@ func (a *Accounts) Remove(ctx context.Context, key string) error {
 		return fmt.Errorf("没有为服务 %s 保存账号项 %q", a.id, key)
 	}
 	delete(values, key)
-	return a.write(values)
+	return a.writeLocked(values)
 }
 
-// read loads the stored values.
-func (a *Accounts) read() (map[string]string, error) {
+// snapshot returns a copy of stored values for internal upgrade preservation
+// and secret-redaction checks. It is intentionally unexported.
+func (a *Accounts) snapshot() (map[string]string, error) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	return a.readLocked()
+}
+
+// restore writes a snapshot back atomically (used across package upgrades).
+func (a *Accounts) restore(values map[string]string) error {
+	if len(values) == 0 {
+		return nil
+	}
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	return a.writeLocked(values)
+}
+
+// readLocked loads the stored values.
+func (a *Accounts) readLocked() (map[string]string, error) {
 	values := map[string]string{}
 	data, err := os.ReadFile(a.path)
 	if err != nil {
@@ -112,15 +173,42 @@ func (a *Accounts) read() (map[string]string, error) {
 	return values, nil
 }
 
-// write replaces the file, keeping it private to its owner.
-func (a *Accounts) write(values map[string]string) error {
+// writeLocked atomically replaces the file, keeping it private to its owner.
+func (a *Accounts) writeLocked(values map[string]string) error {
 	data, err := json.MarshalIndent(values, "", "  ")
 	if err != nil {
 		return err
 	}
-	tmp := a.path + ".tmp"
-	if err := os.WriteFile(tmp, data, 0o600); err != nil {
+	dir := filepath.Dir(a.path)
+	tmp, err := os.CreateTemp(dir, ".accounts-*")
+	if err != nil {
 		return err
 	}
-	return os.Rename(tmp, a.path)
+	tmpName := tmp.Name()
+	cleanup := true
+	defer func() {
+		if cleanup {
+			_ = os.Remove(tmpName)
+		}
+	}()
+	if err := tmp.Chmod(0o600); err != nil {
+		_ = tmp.Close()
+		return err
+	}
+	if _, err := tmp.Write(data); err != nil {
+		_ = tmp.Close()
+		return err
+	}
+	if err := tmp.Sync(); err != nil {
+		_ = tmp.Close()
+		return err
+	}
+	if err := tmp.Close(); err != nil {
+		return err
+	}
+	if err := os.Rename(tmpName, a.path); err != nil {
+		return err
+	}
+	cleanup = false
+	return nil
 }

@@ -30,6 +30,7 @@ import (
 	"github.com/laincat/nekophage/internal/reader"
 	"github.com/laincat/nekophage/internal/servicecli"
 	"github.com/laincat/nekophage/internal/sourceapi"
+	"github.com/laincat/nekophage/internal/store"
 	"github.com/laincat/nekophage/internal/ui"
 	"github.com/laincat/veneracat-core/gohost/cookies"
 	"github.com/laincat/veneracat-core/gohost/library"
@@ -157,6 +158,11 @@ func main() {
 
 	lib := library.New(c)
 	srv := reader.New(c)
+	if settingsStore, err := store.OpenSettings(dataDir); err != nil {
+		log.Printf("nekophage: reading settings store: %v", err)
+	} else {
+		srv.AttachSettings(settingsStore)
+	}
 	// The scheme must be registered before the reader's window is made.
 	if err := mygo.Protocol.Handle(reader.Scheme, srv); err != nil {
 		log.Fatal(err)

@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -271,5 +272,72 @@ func TestUnknownActionAndArgumentsAreRefused(t *testing.T) {
 	}
 	if err := RunCommand(context.Background(), "call", []string{"only-one"}, t.TempDir(), &out, "Nekophage/test"); err == nil {
 		t.Fatal("a call without a method was accepted")
+	}
+}
+
+func TestInstallPermissionsCheckAndDescribeCLI(t *testing.T) {
+	ctx := context.Background()
+	data := t.TempDir()
+	zipDir := t.TempDir()
+	manifest := `{"id":"service.bangumi","name":"Bangumi","version":"1.0.0","kind":"service.js","entry":"index.mjs","permissions":["network","storage","secrets"]}`
+	entry := `export function describe() { return { methods: [{ name: "account.me", title: "账号" }] }; }
+export function handle(m) { return { ok: true, method: m }; }`
+	zipPath := filepath.Join(zipDir, "bangumi.zip")
+	if err := os.WriteFile(zipPath, zipPackage(t, map[string]string{
+		"service.json": manifest,
+		"index.mjs":    entry,
+	}), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	// Inspect manifest directly from local zip.
+	var out bytes.Buffer
+	if err := RunCommand(ctx, "info", []string{zipPath}, data, &out, "Nekophage/test"); err != nil {
+		t.Fatalf("info zip: %v", err)
+	}
+	if !strings.Contains(out.String(), "service.bangumi") {
+		t.Fatalf("info = %s", out.String())
+	}
+
+	// Install local zip with expected ID check.
+	out.Reset()
+	if err := RunCommand(ctx, "install", []string{zipPath, "service.bangumi"}, data, &out, "Nekophage/test"); err != nil {
+		t.Fatalf("install zip: %v", err)
+	}
+	if !strings.Contains(out.String(), `"denied":["secrets"]`) {
+		t.Fatalf("install output should report denied secrets before account setup: %s", out.String())
+	}
+
+	// check-permissions must fail explicitly reporting missing secrets grant.
+	out.Reset()
+	err := RunCommand(ctx, "check-permissions", []string{"service.bangumi"}, data, &out, "Nekophage/test")
+	if !errors.Is(err, services.ErrPermissionDenied) || !strings.Contains(err.Error(), "secrets") {
+		t.Fatalf("check-permissions error = %v, want ErrPermissionDenied(secrets)", err)
+	}
+
+	// Store account secret -> check-permissions passes under defaults.
+	out.Reset()
+	if err := RunCommand(ctx, "account-set", []string{"service.bangumi", "access_token", "bgm-tok"}, data, &out, "Nekophage/test"); err != nil {
+		t.Fatalf("account-set: %v", err)
+	}
+	out.Reset()
+	if err := RunCommand(ctx, "check-permissions", []string{"service.bangumi"}, data, &out, "Nekophage/test"); err != nil {
+		t.Fatalf("check-permissions after account-set: %v", err)
+	}
+
+	// Explicit permission trimming via CSV rejects missing network.
+	out.Reset()
+	err = RunCommand(ctx, "check-permissions", []string{"service.bangumi", "storage,secrets"}, data, &out, "Nekophage/test")
+	if !errors.Is(err, services.ErrPermissionDenied) || !strings.Contains(err.Error(), "network") {
+		t.Fatalf("trimmed check-permissions error = %v, want ErrPermissionDenied(network)", err)
+	}
+
+	// describe prints exported methods.
+	out.Reset()
+	if err := RunCommand(ctx, "describe", []string{"service.bangumi"}, data, &out, "Nekophage/test"); err != nil {
+		t.Fatalf("describe: %v", err)
+	}
+	if !strings.Contains(out.String(), "account.me") {
+		t.Fatalf("describe output = %s", out.String())
 	}
 }

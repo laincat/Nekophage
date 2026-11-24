@@ -1,10 +1,9 @@
 // Package servicecli runs a service package from the command line.
 //
-// It is the first consumer of the Core service contract: the package on disk
-// is loaded, its methods are called, and the result is printed as JSON. The
-// command line has no account store, so the secrets permission is not granted;
-// the network and storage permissions are, because the user asked for this
-// package by name.
+// It is the command-line consumer of the Core service contract: packages can
+// be installed or upgraded from local `.zip` archives, inspected for requested
+// and denied permissions (`network`/`storage`/`secrets`), described, and
+// invoked with isolated per-service accounts.
 package servicecli
 
 import (
@@ -31,6 +30,37 @@ const requestTimeout = 20 * time.Second
 // RunCommand runs one service action and writes its result to out.
 func RunCommand(ctx context.Context, action string, args []string, dataDir string, out io.Writer, userAgent string) error {
 	switch action {
+	case "install":
+		if len(args) < 1 || len(args) > 2 {
+			return errors.New("服务命令 install 需要 <服务包 zip 路径> [期望服务 ID]")
+		}
+		expectedID := ""
+		if len(args) == 2 {
+			expectedID = strings.TrimSpace(args[1])
+		}
+		rec, report, err := services.InstallZipFile(ctx, dataDir, args[0], expectedID)
+		if err != nil {
+			return err
+		}
+		return writeJSON(out, map[string]any{
+			"installed":   rec,
+			"permissions": report,
+		})
+	case "permissions":
+		if len(args) < 1 || len(args) > 2 {
+			return errors.New("服务命令 permissions 需要 <zip/包目录/服务 ID> [允许权限列表]")
+		}
+		return permissionsCmd(dataDir, args, false, out)
+	case "check-permissions":
+		if len(args) < 1 || len(args) > 2 {
+			return errors.New("服务命令 check-permissions 需要 <zip/包目录/服务 ID> [允许权限列表]")
+		}
+		return permissionsCmd(dataDir, args, true, out)
+	case "describe":
+		if len(args) != 1 {
+			return errors.New("服务命令 describe 需要 <包目录或服务 ID>")
+		}
+		return describe(ctx, args[0], dataDir, out, userAgent)
 	case "call":
 		if len(args) < 2 || len(args) > 3 {
 			return errors.New("服务命令 call 需要 <包目录或服务 ID> <方法> [负载 JSON]")
@@ -38,7 +68,7 @@ func RunCommand(ctx context.Context, action string, args []string, dataDir strin
 		return call(ctx, args[0], args[1], payloadArg(args), dataDir, out, userAgent)
 	case "info":
 		if len(args) != 1 {
-			return errors.New("服务命令 info 需要 <包目录或服务 ID>")
+			return errors.New("服务命令 info 需要 <zip/包目录/服务 ID>")
 		}
 		return info(dataDir, args[0], out)
 	case "list":
@@ -92,13 +122,67 @@ func RunCommand(ctx context.Context, action string, args []string, dataDir strin
 		}
 		return writeJSON(out, map[string]any{"service": args[0], "key": args[1], "removed": true})
 	default:
-		return errors.New("服务命令须为 call、info、list、remove、account-set、account-list 或 account-remove")
+		return errors.New("服务命令须为 install、permissions、check-permissions、describe、call、info、list、remove、account-set、account-list 或 account-remove")
 	}
+}
+
+func permissionsCmd(dataDir string, args []string, strict bool, out io.Writer) error {
+	m, err := readManifest(dataDir, args[0])
+	if err != nil {
+		return err
+	}
+	var allowed []service.Permission
+	if len(args) == 2 {
+		parsed, err := parsePermissionCSV(args[1])
+		if err != nil {
+			return err
+		}
+		allowed = parsed
+	} else {
+		// Default host grants: network + storage, plus secrets only if the
+		// service already has stored isolated account values.
+		allowed = []service.Permission{service.PermissionNetwork, service.PermissionStorage}
+		if accounts, err := services.OpenAccounts(dataDir, m.ID); err == nil {
+			if count, err := accounts.Count(); err == nil && count > 0 {
+				allowed = append(allowed, service.PermissionSecrets)
+			}
+		}
+	}
+	var report services.PermissionReport
+	if strict {
+		report, err = services.RequirePermissions(m, allowed)
+		if err != nil {
+			return err
+		}
+	} else {
+		report, err = services.EvaluatePermissions(m, allowed)
+		if err != nil {
+			return err
+		}
+	}
+	return writeJSON(out, report)
+}
+
+func parsePermissionCSV(raw string) ([]service.Permission, error) {
+	trimmed := strings.TrimSpace(raw)
+	if trimmed == "" || strings.EqualFold(trimmed, "none") {
+		return []service.Permission{}, nil
+	}
+	parts := strings.Split(trimmed, ",")
+	out := make([]service.Permission, 0, len(parts))
+	for _, p := range parts {
+		token := strings.TrimSpace(p)
+		if token == "" {
+			continue
+		}
+		out = append(out, service.Permission(token))
+	}
+	return out, nil
 }
 
 // info prints the manifest of a package without running it.
 func info(dataDir, target string, out io.Writer) error {
-	m, _, err := read(dataDir, target)
+	m, err := readManifest(dataDir, target)
 	if err != nil {
 		return err
 	}
@@ -112,24 +196,26 @@ func info(dataDir, target string, out io.Writer) error {
 	})
 }
 
+// describe loads a service and prints the methods exported by describe().
+func describe(ctx context.Context, target, dataDir string, out io.Writer, userAgent string) error {
+	rt, _, err := openTarget(ctx, dataDir, target, userAgent)
+	if err != nil {
+		return err
+	}
+	defer rt.Close()
+	methods, err := rt.Describe(ctx)
+	if err != nil {
+		return err
+	}
+	if methods == nil {
+		methods = []service.Method{}
+	}
+	return writeJSON(out, map[string]any{"methods": methods})
+}
+
 // call runs one method of a package and prints its result.
 func call(ctx context.Context, dir, method string, payload []byte, dataDir string, out io.Writer, userAgent string) error {
-	target := strings.TrimSpace(dir)
-	var rt *service.Runtime
-	var manifest *service.Manifest
-	var err error
-	if info, statErr := os.Stat(target); statErr == nil && info.IsDir() {
-		// A package directory on disk: read it, then host it the same way an
-		// installed one is hosted.
-		var source string
-		manifest, source, err = service.ReadPackage(target)
-		if err != nil {
-			return err
-		}
-		rt, err = services.HostPackage(ctx, dataDir, manifest, source)
-	} else {
-		rt, manifest, err = services.Open(ctx, dataDir, target, userAgent)
-	}
+	rt, manifest, err := openTarget(ctx, dataDir, dir, userAgent)
 	if err != nil {
 		return err
 	}
@@ -141,6 +227,19 @@ func call(ctx context.Context, dir, method string, payload []byte, dataDir strin
 	fmt.Fprintln(out, strings.TrimSpace(string(result)))
 	_ = manifest
 	return nil
+}
+
+func openTarget(ctx context.Context, dataDir, dir, userAgent string) (*service.Runtime, *service.Manifest, error) {
+	target := strings.TrimSpace(dir)
+	if info, statErr := os.Stat(target); statErr == nil && info.IsDir() {
+		manifest, source, err := service.ReadPackage(target)
+		if err != nil {
+			return nil, nil, err
+		}
+		rt, err := services.HostPackageWithOptions(ctx, dataDir, manifest, source, services.HostOptions{UserAgent: userAgent})
+		return rt, manifest, err
+	}
+	return services.Open(ctx, dataDir, target, userAgent)
 }
 
 // list prints the installed services.
@@ -155,13 +254,21 @@ func list(dataDir string, out io.Writer) error {
 	return writeJSON(out, all)
 }
 
-// read resolves a package: a directory when the argument is one, otherwise an
-// installed service by id.
-func read(dataDir, target string) (*service.Manifest, string, error) {
-	if info, err := os.Stat(target); err == nil && info.IsDir() {
-		return service.ReadPackage(target)
+// readManifest resolves a package manifest from a `.zip` file, directory, or
+// installed service ID.
+func readManifest(dataDir, target string) (*service.Manifest, error) {
+	if stat, err := os.Stat(target); err == nil {
+		if stat.IsDir() {
+			m, _, err := service.ReadPackage(target)
+			return m, err
+		}
+		if strings.HasSuffix(strings.ToLower(target), ".zip") {
+			m, _, _, err := services.InspectZipFile(target)
+			return m, err
+		}
 	}
-	return services.Load(context.Background(), dataDir, target)
+	m, _, err := services.Load(context.Background(), dataDir, target)
+	return m, err
 }
 
 // payloadArg returns the request payload, or an empty JSON document.

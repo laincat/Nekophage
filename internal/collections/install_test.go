@@ -1,6 +1,8 @@
 package collections
 
 import (
+	"archive/zip"
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
@@ -16,6 +18,8 @@ import (
 	"github.com/laincat/veneracat-core/subscription"
 
 	"github.com/laincat/nekophage/internal/core"
+	"github.com/laincat/nekophage/internal/services"
+	"github.com/laincat/nekophage/internal/vcmodule"
 	"github.com/laincat/veneracat-core/gohost/library"
 	"github.com/laincat/veneracat-core/plugin"
 )
@@ -326,5 +330,135 @@ func TestUnifiedCollectionNovelSourceInstallAndToggleLifecycle(t *testing.T) {
 	found, err := reopened.NovelSearch(ctx, rec.Key, "星海", 1)
 	if err != nil || found == nil || len(found.Items) != 1 || found.Items[0].Title != "搜索:星海" {
 		t.Fatalf("re-enabled search = %+v, %v", found, err)
+	}
+}
+
+func makeServiceZip(t *testing.T, id, version string) []byte {
+	t.Helper()
+	var buf bytes.Buffer
+	w := zip.NewWriter(&buf)
+	files := map[string]string{
+		"service.json": `{"id":"` + id + `","name":"` + id + `","version":"` + version + `","kind":"service.js","entry":"index.mjs","permissions":["network","storage","secrets"]}`,
+		"index.mjs":    `export function describe() { return { methods: [{ name: "account.me", title: "账号" }] }; } export function handle(m) { return { id: "` + id + `", version: "` + version + `", method: m }; }`,
+	}
+	for name, body := range files {
+		f, err := w.Create(name)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := f.Write([]byte(body)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := w.Close(); err != nil {
+		t.Fatal(err)
+	}
+	return buf.Bytes()
+}
+
+func TestUnifiedCollectionInstallsServicePackagesAndVCModule(t *testing.T) {
+	ctx := context.Background()
+	traktZip := makeServiceZip(t, services.ServiceIDTrakt, "1.0.0")
+	tmdbZip := makeServiceZip(t, services.ServiceIDTMDB, "1.0.0")
+	bgmZip := makeServiceZip(t, services.ServiceIDBangumi, "1.0.0")
+	modBytes := []byte("#!name=阅读偏好示例\n#!desc=合集模块\n#!version=0.1.0\n#!format=veneracat-module/1-draft\n\n[Reader]\npage-gap = 8\nkeep-screen-on = true\n")
+
+	sha := func(b []byte) string {
+		s := sha256.Sum256(b)
+		return hex.EncodeToString(s[:])
+	}
+
+	artifacts := map[string][]byte{
+		"/packages/service.trakt.zip":          traktZip,
+		"/packages/service.tmdb.zip":           tmdbZip,
+		"/packages/service.bangumi.zip":        bgmZip,
+		"/modules/reader-preferences.vcmodule": modBytes,
+	}
+
+	doc := subscription.Collection{
+		Schema: subscription.CollectionSchema, ID: "veneracat.official", Name: "VeneraCat 官方合集", Version: "0.2.0",
+		Entries: []subscription.CollectionEntry{
+			{
+				ID: services.ServiceIDTrakt, Kind: "service", Name: "Trakt", Version: "1.0.0", Status: "experimental",
+				Supports: subscription.CollectionSupport{Platforms: []string{"ios", "macos", "windows", "linux"}, RequiresCapabilities: []string{"service.v1"}},
+				Artifact: &subscription.CollectionArtifact{URL: "packages/service.trakt.zip", SHA256: sha(traktZip), Bytes: int64(len(traktZip))},
+			},
+			{
+				ID: services.ServiceIDTMDB, Kind: "service", Name: "TMDB", Version: "1.0.0", Status: "experimental",
+				Supports: subscription.CollectionSupport{Platforms: []string{"ios", "macos", "windows", "linux"}, RequiresCapabilities: []string{"service.v1"}},
+				Artifact: &subscription.CollectionArtifact{URL: "packages/service.tmdb.zip", SHA256: sha(tmdbZip), Bytes: int64(len(tmdbZip))},
+			},
+			{
+				ID: services.ServiceIDBangumi, Kind: "service", Name: "Bangumi", Version: "1.0.0", Status: "experimental",
+				Supports: subscription.CollectionSupport{Platforms: []string{"ios", "macos", "windows", "linux"}, RequiresCapabilities: []string{"service.v1"}},
+				Artifact: &subscription.CollectionArtifact{URL: "packages/service.bangumi.zip", SHA256: sha(bgmZip), Bytes: int64(len(bgmZip))},
+			},
+			{
+				ID: "reader-preferences", Kind: "settings-module", Name: "阅读偏好示例", Version: "0.1.0", Status: "prototype",
+				Supports: subscription.CollectionSupport{Platforms: []string{"ios", "macos", "windows", "linux"}, RequiresCapabilities: []string{vcmodule.Capability}},
+				Artifact: &subscription.CollectionArtifact{URL: "modules/reader-preferences.vcmodule", SHA256: sha(modBytes), Bytes: int64(len(modBytes))},
+			},
+		},
+	}
+
+	mux := http.NewServeMux()
+	mux.HandleFunc("/source.json", func(w http.ResponseWriter, r *http.Request) {
+		_ = json.NewEncoder(w).Encode(doc)
+	})
+	for p, b := range artifacts {
+		body := b
+		mux.HandleFunc(p, func(w http.ResponseWriter, r *http.Request) { _, _ = w.Write(body) })
+	}
+	server := httptest.NewServer(mux)
+	defer server.Close()
+
+	root := t.TempDir()
+	m, err := Open(root, core.NewTransport(nil, "Nekophage/test", 0))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer m.Close()
+
+	if err := m.Follow(ctx, server.URL+"/source.json"); err != nil {
+		t.Fatalf("follow: %v", err)
+	}
+
+	c, err := core.Open(core.Options{DataDir: root})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer c.Close()
+	lib := library.New(c)
+
+	for _, svcID := range []string{services.ServiceIDTrakt, services.ServiceIDTMDB, services.ServiceIDBangumi} {
+		res, err := InstallEntry(ctx, m, "veneracat.official", svcID, root, lib)
+		if err != nil {
+			t.Fatalf("install %s: %v", svcID, err)
+		}
+		rec, ok := res.(*services.Record)
+		if !ok || rec.ID != svcID {
+			t.Fatalf("installed %s = %#v", svcID, res)
+		}
+	}
+
+	modRes, err := InstallEntry(ctx, m, "veneracat.official", "reader-preferences", root, lib)
+	if err != nil {
+		t.Fatalf("install vcmodule: %v", err)
+	}
+	modRec, ok := modRes.(*vcmodule.Record)
+	if !ok || modRec.ID != "reader-preferences" || modRec.Enabled {
+		t.Fatalf("installed vcmodule = %#v", modRes)
+	}
+
+	mgr, err := vcmodule.Open(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := mgr.Enable("reader-preferences"); err != nil {
+		t.Fatal(err)
+	}
+	resolved := mgr.Resolve(vcmodule.DefaultSettings())
+	if resolved.Effective.Reader.PageGap != 8 || !resolved.Effective.Reader.KeepScreenOn {
+		t.Fatalf("resolved = %+v", resolved)
 	}
 }
