@@ -790,6 +790,12 @@ func (c *Client) unwrapEnvelope(method string, raw json.RawMessage) (json.RawMes
 	if err := json.Unmarshal(raw, &env); err != nil || env.OK == nil {
 		return raw, nil
 	}
+	// Only treat the response as a standard `{ok, service, method, data, error}`
+	// service envelope when envelope metadata/fields are actually present, so
+	// raw objects like `{status, ok, body}` pass through untouched.
+	if env.Service == "" && env.Method == "" && len(env.Data) == 0 && env.Error == nil {
+		return raw, nil
+	}
 	if !*env.OK {
 		svcErr := env.Error
 		if svcErr == nil {

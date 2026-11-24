@@ -3,6 +3,7 @@ package services
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -659,6 +660,141 @@ func stubJSONResp(status int, body string) *http.Response {
 	}
 }
 
+// TestFetchInitForwardsMethodHeadersBodyAndNon2xxStatus verifies fetch(url, init)
+// forwarding of HTTP method (POST/PATCH), Authorization/trakt-api-key headers,
+// request body, and non-2xx status codes through Core's service.Bridge and
+// HostOptions.Transport without requiring sibling repositories.
+func TestFetchInitForwardsMethodHeadersBodyAndNon2xxStatus(t *testing.T) {
+	ctx := context.Background()
+	dataDir := t.TempDir()
+	manifest := `{"id":"service.trakt","name":"Trakt","version":"0.1.0","kind":"service.js","entry":"index.mjs","permissions":["network","storage","secrets"]}`
+	entry := `export function handle(method, rawPayload) {
+  const payload = rawPayload ? JSON.parse(rawPayload) : {};
+  const cid = secret("client_id");
+  const tok = secret("access_token");
+  if (method === "post.check") {
+    const res = fetch("https://api.trakt.tv/scrobble/start", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer " + tok,
+        "trakt-api-key": cid,
+        "trakt-api-version": "2"
+      },
+      body: JSON.stringify({ progress: payload.progress, movie: payload.movie })
+    });
+    return { status: res.status, ok: res.ok, body: res.body };
+  }
+  if (method === "patch.check") {
+    const res = fetch("https://api.trakt.tv/sync/collection", {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer " + tok,
+        "trakt-api-key": cid
+      },
+      body: JSON.stringify({ episode_id: [1, 2], type: 2 })
+    });
+    return { status: res.status, ok: res.ok, body: res.body };
+  }
+  if (method === "status.401") {
+    const res = fetch("https://api.trakt.tv/users/settings", {
+      method: "GET",
+      headers: { "Authorization": "Bearer expired", "trakt-api-key": cid }
+    });
+    return { status: res.status, ok: res.ok, body: res.body };
+  }
+  throw new Error("unknown: " + method);
+}
+`
+	zipPath := writeZipFile(t, t.TempDir(), "trakt-fetch-init.zip", map[string]string{
+		"service.json": manifest,
+		"index.mjs":    entry,
+	})
+	if _, _, err := InstallZipFile(ctx, dataDir, zipPath, ServiceIDTrakt); err != nil {
+		t.Fatal(err)
+	}
+
+	var gotMethods []string
+	transport := roundTripFunc(func(r *http.Request) (*http.Response, error) {
+		gotMethods = append(gotMethods, r.Method+" "+r.URL.Path)
+		var bodyBytes []byte
+		if r.Body != nil {
+			bodyBytes, _ = io.ReadAll(r.Body)
+		}
+		switch r.URL.Path {
+		case "/scrobble/start":
+			if r.Method != http.MethodPost {
+				t.Errorf("POST method = %s, want POST", r.Method)
+			}
+			if r.Header.Get("Authorization") != "Bearer init-tok" || r.Header.Get("trakt-api-key") != "init-cid" || r.Header.Get("trakt-api-version") != "2" {
+				t.Errorf("unexpected POST headers: %v", r.Header)
+			}
+			if !strings.Contains(string(bodyBytes), `"progress":42.5`) {
+				t.Errorf("unexpected POST body: %s", bodyBytes)
+			}
+			return stubJSONResp(201, `{"created":true}`), nil
+		case "/sync/collection":
+			if r.Method != http.MethodPatch {
+				t.Errorf("PATCH method = %s, want PATCH", r.Method)
+			}
+			if r.Header.Get("Authorization") != "Bearer init-tok" || r.Header.Get("trakt-api-key") != "init-cid" {
+				t.Errorf("unexpected PATCH headers: %v", r.Header)
+			}
+			if !strings.Contains(string(bodyBytes), `"episode_id":[1,2]`) {
+				t.Errorf("unexpected PATCH body: %s", bodyBytes)
+			}
+			return stubJSONResp(200, `{"patched":true}`), nil
+		case "/users/settings":
+			return stubJSONResp(401, `{"error":"invalid_token"}`), nil
+		default:
+			return nil, fmt.Errorf("unexpected request %s %s", r.Method, r.URL.String())
+		}
+	})
+
+	client, err := NewClient(dataDir, ServiceIDTrakt, HostOptions{
+		BridgePolicy: service.BridgePolicy{Hosts: DefaultHosts(ServiceIDTrakt)},
+		Transport:    transport,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer client.Close()
+	if err := client.SetAccount(ctx, SecretKeyClientID, "init-cid"); err != nil {
+		t.Fatal(err)
+	}
+	if err := client.SetAccount(ctx, SecretKeyAccessToken, "init-tok"); err != nil {
+		t.Fatal(err)
+	}
+
+	var res struct {
+		Status int    `json:"status"`
+		OK     bool   `json:"ok"`
+		Body   string `json:"body"`
+	}
+	if err := client.CallJSON(ctx, "post.check", map[string]any{"progress": 42.5, "movie": map[string]any{"ids": map[string]any{"trakt": 1}}}, &res, nil, nil); err != nil {
+		t.Fatalf("post.check: %v", err)
+	}
+	if res.Status != 201 || !res.OK || !strings.Contains(res.Body, `"created":true`) {
+		t.Fatalf("post.check res = %+v", res)
+	}
+	if err := client.CallJSON(ctx, "patch.check", nil, &res, nil, nil); err != nil {
+		t.Fatalf("patch.check: %v", err)
+	}
+	if res.Status != 200 || !res.OK || !strings.Contains(res.Body, `"patched":true`) {
+		t.Fatalf("patch.check res = %+v", res)
+	}
+	if err := client.CallJSON(ctx, "status.401", nil, &res, nil, nil); err != nil {
+		t.Fatalf("status.401: %v", err)
+	}
+	if res.Status != 401 || res.OK || !strings.Contains(res.Body, `invalid_token`) {
+		t.Fatalf("status.401 res = %+v", res)
+	}
+	if len(gotMethods) != 3 {
+		t.Fatalf("methods = %v", gotMethods)
+	}
+}
+
 // TestOfficialVeneraCatSourcesArtifactsContract verifies Nekophage against the
 // actual built artifacts in the sibling `VeneraCat Sources` checkout when
 // present on disk (skipped cleanly in standalone CI checkouts).
@@ -696,8 +832,10 @@ func TestOfficialVeneraCatSourcesArtifactsContract(t *testing.T) {
 		t.Fatalf("official vcmodule overlay = %+v", eff)
 	}
 
-	// 2. Install all three real built zip packages and verify describe() + typed calls
-	// against an offline RoundTripper while enforcing DefaultHosts(id) allowlists!
+	// 2. Install all three real built zip packages and verify describe(),
+	// headers (Authorization / trakt-api-key), methods (GET/POST/PUT/PATCH),
+	// JSON request bodies, and non-2xx HTTP status forwarding through
+	// HostOptions.Transport while enforcing DefaultHosts(id) allowlists!
 	if _, _, err := InstallZipFile(ctx, dataDir, traktPath, ServiceIDTrakt); err != nil {
 		t.Fatalf("install official service.trakt.zip: %v", err)
 	}
@@ -708,44 +846,132 @@ func TestOfficialVeneraCatSourcesArtifactsContract(t *testing.T) {
 		t.Fatalf("install official service.bangumi.zip: %v", err)
 	}
 
+	var mu sync.Mutex
+	seen := map[string]int{}
 	offlineTransport := roundTripFunc(func(r *http.Request) (*http.Response, error) {
+		var bodyBytes []byte
+		if r.Body != nil {
+			bodyBytes, _ = io.ReadAll(r.Body)
+		}
+		key := r.Method + " " + r.URL.Host + r.URL.Path
+		mu.Lock()
+		seen[key]++
+		mu.Unlock()
+
 		switch r.URL.Host + r.URL.Path {
 		case "api.trakt.tv/users/settings":
+			if r.Method != http.MethodGet || r.Header.Get("trakt-api-key") != "official-cid" || r.Header.Get("trakt-api-version") != "2" {
+				return stubJSONResp(400, `{"error":"bad trakt headers"}`), nil
+			}
+			if r.Header.Get("Authorization") != "Bearer official-tok" {
+				return stubJSONResp(401, `{"error":"invalid_grant"}`), nil
+			}
 			return stubJSONResp(200, `{"user":{"username":"lain","name":"Lain","ids":{"slug":"lain"}}}`), nil
 		case "api.trakt.tv/search/show":
+			if r.Method != http.MethodGet || r.Header.Get("trakt-api-key") != "official-cid" {
+				return stubJSONResp(403, `{"error":"missing trakt-api-key"}`), nil
+			}
 			return stubJSONResp(200, `[{"type":"show","score":99,"show":{"title":"Serial Experiments Lain","year":1998,"ids":{"trakt":42}}}]`), nil
 		case "api.trakt.tv/sync/watchlist/shows":
+			if r.Method != http.MethodGet || r.Header.Get("Authorization") != "Bearer official-tok" || r.Header.Get("trakt-api-key") != "official-cid" {
+				return stubJSONResp(401, `{"error":"unauthorized"}`), nil
+			}
 			return stubJSONResp(200, `[{"id":11,"rank":1,"listed_at":"2026-11-24T00:00:00Z","type":"show","show":{"title":"Serial Experiments Lain","year":1998,"ids":{"trakt":42}}}]`), nil
 		case "api.trakt.tv/sync/history/shows":
+			if r.Method != http.MethodGet || r.Header.Get("Authorization") != "Bearer official-tok" || r.Header.Get("trakt-api-key") != "official-cid" {
+				return stubJSONResp(401, `{"error":"unauthorized"}`), nil
+			}
 			return stubJSONResp(200, `[{"id":22,"watched_at":"2026-11-24T01:00:00Z","action":"scrobble","type":"show","show":{"title":"Serial Experiments Lain","year":1998,"ids":{"trakt":42}}}]`), nil
 		case "api.trakt.tv/scrobble/start":
-			return stubJSONResp(200, `{"id":33,"action":"start","progress":15}`), nil
+			if r.Method != http.MethodPost || r.Header.Get("Authorization") != "Bearer official-tok" || r.Header.Get("trakt-api-key") != "official-cid" {
+				return stubJSONResp(401, `{"error":"unauthorized"}`), nil
+			}
+			var body map[string]any
+			if err := json.Unmarshal(bodyBytes, &body); err != nil || body["progress"] != float64(15) || body["movie"] == nil {
+				return stubJSONResp(400, `{"error":"bad scrobble start body"}`), nil
+			}
+			return stubJSONResp(201, `{"id":33,"action":"start","progress":15}`), nil
 		case "api.trakt.tv/scrobble/stop":
-			return stubJSONResp(200, `{"id":34,"action":"stop","progress":90}`), nil
+			if r.Method != http.MethodPost || r.Header.Get("Authorization") != "Bearer official-tok" || r.Header.Get("trakt-api-key") != "official-cid" {
+				return stubJSONResp(401, `{"error":"unauthorized"}`), nil
+			}
+			var body map[string]any
+			if err := json.Unmarshal(bodyBytes, &body); err != nil || body["progress"] != float64(90) || body["movie"] == nil {
+				return stubJSONResp(400, `{"error":"bad scrobble stop body"}`), nil
+			}
+			return stubJSONResp(201, `{"id":34,"action":"stop","progress":90}`), nil
 		case "api.themoviedb.org/3/search/tv":
+			if r.Method != http.MethodGet {
+				return stubJSONResp(405, `{"error":"method not allowed"}`), nil
+			}
+			if r.Header.Get("Authorization") != "Bearer official-tmdb-bearer" {
+				return stubJSONResp(401, `{"status_message":"Invalid API key"}`), nil
+			}
 			return stubJSONResp(200, `{"page":1,"total_pages":1,"total_results":1,"results":[{"id":1396,"name":"绝命毒师","original_name":"Breaking Bad"}]}`), nil
 		case "api.themoviedb.org/3/tv/1396":
+			if r.Header.Get("Authorization") != "Bearer official-tmdb-bearer" {
+				return stubJSONResp(401, `{"status_message":"Invalid API key"}`), nil
+			}
 			return stubJSONResp(200, `{"id":1396,"name":"绝命毒师","number_of_seasons":5,"number_of_episodes":62,"genres":[{"id":18,"name":"剧情"}]}`), nil
 		case "api.themoviedb.org/3/tv/1396/images":
+			if r.Header.Get("Authorization") != "Bearer official-tmdb-bearer" {
+				return stubJSONResp(401, `{"status_message":"Invalid API key"}`), nil
+			}
 			return stubJSONResp(200, `{"id":1396,"posters":[{"file_path":"/poster.jpg","width":1000,"height":1500}]}`), nil
 		case "api.bgm.tv/v0/me":
+			if r.Method != http.MethodGet || r.Header.Get("Authorization") != "Bearer official-bgm-pat" {
+				return stubJSONResp(401, `{"title":"Unauthorized"}`), nil
+			}
 			return stubJSONResp(200, `{"id":1001,"username":"nekocat","nickname":"猫猫"}`), nil
 		case "api.bgm.tv/v0/search/subjects":
+			if r.Method != http.MethodPost {
+				return stubJSONResp(405, `{"error":"expected POST"}`), nil
+			}
+			var body map[string]any
+			if err := json.Unmarshal(bodyBytes, &body); err != nil || body["keyword"] != "孤独摇滚" {
+				return stubJSONResp(400, `{"error":"missing keyword in POST body"}`), nil
+			}
 			return stubJSONResp(200, `{"total":1,"limit":20,"offset":0,"data":[{"id":328609,"type":2,"name":"ぼっち・ざ・ろっく！","name_cn":"孤独摇滚！","eps":12}]}`), nil
 		case "api.bgm.tv/v0/subjects/328609":
 			return stubJSONResp(200, `{"id":328609,"type":2,"name":"ぼっち・ざ・ろっく！","name_cn":"孤独摇滚！","eps":12,"total_episodes":12}`), nil
 		case "api.bgm.tv/v0/users/nekocat/collections":
+			if r.Header.Get("Authorization") != "Bearer official-bgm-pat" {
+				return stubJSONResp(401, `{"title":"Unauthorized"}`), nil
+			}
 			return stubJSONResp(200, `{"total":1,"limit":30,"offset":0,"data":[{"subject_id":328609,"subject_type":2,"type":3,"rate":9,"ep_status":8}]}`), nil
 		case "api.bgm.tv/v0/users/-/collections/328609":
-			return stubJSONResp(200, ``), nil
+			if r.Method != http.MethodPost || r.Header.Get("Authorization") != "Bearer official-bgm-pat" {
+				return stubJSONResp(401, `{"title":"Unauthorized"}`), nil
+			}
+			var body map[string]any
+			if err := json.Unmarshal(bodyBytes, &body); err != nil || body["type"] != float64(3) || body["ep_status"] != float64(9) {
+				return stubJSONResp(400, `{"error":"bad collection update body"}`), nil
+			}
+			return stubJSONResp(202, ``), nil
 		case "api.bgm.tv/v0/users/-/collections/-/episodes/110001":
-			return stubJSONResp(200, ``), nil
+			if r.Method != http.MethodPut || r.Header.Get("Authorization") != "Bearer official-bgm-pat" {
+				return stubJSONResp(401, `{"title":"Unauthorized"}`), nil
+			}
+			var body map[string]any
+			if err := json.Unmarshal(bodyBytes, &body); err != nil || body["type"] != float64(2) {
+				return stubJSONResp(400, `{"error":"bad episode PUT body"}`), nil
+			}
+			return stubJSONResp(204, ``), nil
+		case "api.bgm.tv/v0/users/-/collections/328609/episodes":
+			if r.Method != http.MethodPatch || r.Header.Get("Authorization") != "Bearer official-bgm-pat" {
+				return stubJSONResp(401, `{"title":"Unauthorized"}`), nil
+			}
+			var body map[string]any
+			if err := json.Unmarshal(bodyBytes, &body); err != nil || body["type"] != float64(2) || body["episode_id"] == nil {
+				return stubJSONResp(400, `{"error":"bad episode PATCH body"}`), nil
+			}
+			return stubJSONResp(204, ``), nil
 		default:
-			return nil, fmt.Errorf("unexpected offline request: %s", r.URL.String())
+			return nil, fmt.Errorf("unexpected offline request: %s %s", r.Method, r.URL.String())
 		}
 	})
 
-	// Official Trakt zip
+	// Official Trakt zip: verify Authorization, trakt-api-key, POST scrobble bodies, and non-2xx 401 status forwarding.
 	trakt, err := NewTraktClient(dataDir, HostOptions{
 		BridgePolicy: service.BridgePolicy{Hosts: DefaultHosts(ServiceIDTrakt)},
 		Transport:    offlineTransport,
@@ -756,6 +982,14 @@ func TestOfficialVeneraCatSourcesArtifactsContract(t *testing.T) {
 	defer trakt.Close()
 	if err := trakt.SetAccount(ctx, SecretKeyClientID, "official-cid"); err != nil {
 		t.Fatal(err)
+	}
+	if err := trakt.SetAccount(ctx, SecretKeyAccessToken, "expired-tok"); err != nil {
+		t.Fatal(err)
+	}
+	_, err = trakt.AccountMe(ctx)
+	var svcErr *ServiceError
+	if !errors.As(err, &svcErr) || svcErr.Code != "AUTH_ERROR" || svcErr.Status != 401 {
+		t.Fatalf("official trakt 401 error = %v (want ServiceError AUTH_ERROR status 401)", err)
 	}
 	if err := trakt.SetAccount(ctx, SecretKeyAccessToken, "official-tok"); err != nil {
 		t.Fatal(err)
@@ -782,7 +1016,7 @@ func TestOfficialVeneraCatSourcesArtifactsContract(t *testing.T) {
 		t.Fatalf("official trakt scrobble.stop = %+v (%v)", sc, err)
 	}
 
-	// Official TMDB zip (using api_key, which is also passed as query parameter)
+	// Official TMDB zip: verify Bearer Authorization header forwarding and non-2xx 401 handling.
 	tmdb, err := NewTMDBClient(dataDir, HostOptions{
 		BridgePolicy: service.BridgePolicy{Hosts: DefaultHosts(ServiceIDTMDB)},
 		Transport:    offlineTransport,
@@ -791,7 +1025,14 @@ func TestOfficialVeneraCatSourcesArtifactsContract(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer tmdb.Close()
-	if err := tmdb.SetAccount(ctx, SecretKeyAPIKey, "official-tmdb-key"); err != nil {
+	if err := tmdb.SetAccount(ctx, SecretKeyAPIReadToken, "bad-tmdb-bearer"); err != nil {
+		t.Fatal(err)
+	}
+	_, err = tmdb.MetadataSearch(ctx, TMDBSearchRequest{Query: "毒师", MediaType: "tv"})
+	if !errors.As(err, &svcErr) || svcErr.Code != "AUTH_ERROR" || svcErr.Status != 401 {
+		t.Fatalf("official tmdb 401 error = %v (want ServiceError AUTH_ERROR status 401)", err)
+	}
+	if err := tmdb.SetAccount(ctx, SecretKeyAPIReadToken, "official-tmdb-bearer"); err != nil {
 		t.Fatal(err)
 	}
 	if m, err := tmdb.Describe(ctx); err != nil || len(m) != 3 {
@@ -807,7 +1048,7 @@ func TestOfficialVeneraCatSourcesArtifactsContract(t *testing.T) {
 		t.Fatalf("official tmdb artwork = %+v (%v)", art, err)
 	}
 
-	// Official Bangumi zip
+	// Official Bangumi zip: verify Authorization, POST/PUT/PATCH methods + JSON bodies.
 	bgm, err := NewBangumiClient(dataDir, HostOptions{
 		BridgePolicy: service.BridgePolicy{Hosts: DefaultHosts(ServiceIDBangumi)},
 		Transport:    offlineTransport,
@@ -825,7 +1066,7 @@ func TestOfficialVeneraCatSourcesArtifactsContract(t *testing.T) {
 	if me, err := bgm.AccountMe(ctx); err != nil || me.Username != "nekocat" {
 		t.Fatalf("official bangumi account.me = %+v (%v)", me, err)
 	}
-	if res, err := bgm.MetadataSearch(ctx, BangumiSearchRequest{Keyword: "孤独摇滚"}); err != nil || len(res.Items) != 1 {
+	if res, err := bgm.MetadataSearch(ctx, BangumiSearchRequest{Keyword: "孤独摇滚"}); err != nil || len(res.Items) != 1 || res.FallbackUsed {
 		t.Fatalf("official bangumi search = %+v (%v)", res, err)
 	}
 	if d, err := bgm.MetadataDetail(ctx, BangumiDetailRequest{SubjectID: 328609}); err != nil || d.TotalEpisodes == nil || *d.TotalEpisodes != 12 {
@@ -838,7 +1079,24 @@ func TestOfficialVeneraCatSourcesArtifactsContract(t *testing.T) {
 	if upd, err := bgm.CollectionUpdate(ctx, BangumiCollectionUpdateRequest{SubjectID: 328609, Type: "doing", EpStatus: &epStat}); err != nil || !upd.Updated {
 		t.Fatalf("official bangumi collection.update = %+v (%v)", upd, err)
 	}
-	if epUpd, err := bgm.EpisodeUpdate(ctx, BangumiEpisodeUpdateRequest{EpisodeID: 110001, Type: "done"}); err != nil || !epUpd.Updated {
-		t.Fatalf("official bangumi episode.update = %+v (%v)", epUpd, err)
+	if epUpd, err := bgm.EpisodeUpdate(ctx, BangumiEpisodeUpdateRequest{EpisodeID: 110001, Type: "done"}); err != nil || !epUpd.Updated || epUpd.Mode != "single" {
+		t.Fatalf("official bangumi episode.update single = %+v (%v)", epUpd, err)
+	}
+	if epBatch, err := bgm.EpisodeUpdate(ctx, BangumiEpisodeUpdateRequest{SubjectID: 328609, EpisodeIDs: []int64{110001, 110002}, Type: "done"}); err != nil || !epBatch.Updated || epBatch.Mode != "batch" {
+		t.Fatalf("official bangumi episode.update batch = %+v (%v)", epBatch, err)
+	}
+
+	// Confirm every critical HTTP verb actually crossed HostOptions.Transport.
+	for _, want := range []string{
+		"POST api.trakt.tv/scrobble/start",
+		"POST api.trakt.tv/scrobble/stop",
+		"POST api.bgm.tv/v0/search/subjects",
+		"POST api.bgm.tv/v0/users/-/collections/328609",
+		"PUT api.bgm.tv/v0/users/-/collections/-/episodes/110001",
+		"PATCH api.bgm.tv/v0/users/-/collections/328609/episodes",
+	} {
+		if seen[want] == 0 {
+			t.Errorf("expected request %q was never observed; seen=%v", want, seen)
+		}
 	}
 }

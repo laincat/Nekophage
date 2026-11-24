@@ -11,6 +11,7 @@
 package services
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
@@ -24,6 +25,7 @@ import (
 	"sort"
 	"strings"
 
+	corehost "github.com/laincat/veneracat-core/host"
 	"github.com/laincat/veneracat-core/service"
 )
 
@@ -440,8 +442,10 @@ func NewSupervisorWithOptions(dataDir string, opts HostOptions) (*service.Superv
 }
 
 func buildHost(stored *service.Storage, accounts *Accounts, opts HostOptions) service.Host {
+	fetchFn, fetchReqFn := buildBridgeCallbacks(opts.BridgePolicy, opts.UserAgent, opts.Transport, accounts)
 	host := service.Host{
-		Fetch: buildFetch(opts.BridgePolicy, opts.UserAgent, opts.Transport, accounts),
+		Fetch:        fetchFn,
+		FetchRequest: fetchReqFn,
 	}
 	if stored != nil {
 		host.StorageGet = stored.Get
@@ -456,58 +460,100 @@ func buildHost(stored *service.Storage, accounts *Accounts, opts HostOptions) se
 	return host
 }
 
-// buildFetch wraps Core's Bridge policy (scheme, host allowlist, redirect
-// validation, cookie stripping, response size ceiling and timeout) while also
-// setting User-Agent and redacting any stored account secrets from errors.
-func buildFetch(policy service.BridgePolicy, userAgent string, transport http.RoundTripper, accounts *Accounts) func(context.Context, string) (string, error) {
+type bridgeTransport struct {
+	client    *http.Client
+	userAgent string
+	maxBytes  int64
+}
+
+func (t *bridgeTransport) Do(ctx context.Context, req *corehost.Request) (*corehost.Response, error) {
+	var bodyReader io.Reader
+	if len(req.Body) > 0 {
+		bodyReader = bytes.NewReader(req.Body)
+	}
+	httpReq, err := http.NewRequestWithContext(ctx, req.Method, req.URL, bodyReader)
+	if err != nil {
+		return nil, err
+	}
+	for k, vals := range req.Header {
+		for _, v := range vals {
+			httpReq.Header.Add(k, v)
+		}
+	}
+	if httpReq.Header.Get("User-Agent") == "" && strings.TrimSpace(t.userAgent) != "" {
+		httpReq.Header.Set("User-Agent", t.userAgent)
+	}
+	if !req.Cookies {
+		httpReq.Header.Del("Cookie")
+	}
+	resp, err := t.client.Do(httpReq)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	body, err := io.ReadAll(io.LimitReader(resp.Body, t.maxBytes+1))
+	if err != nil {
+		return nil, err
+	}
+	finalURL := req.URL
+	if resp.Request != nil && resp.Request.URL != nil {
+		finalURL = resp.Request.URL.String()
+	}
+	return &corehost.Response{
+		Status:   resp.StatusCode,
+		Header:   resp.Header.Clone(),
+		Body:     body,
+		FinalURL: finalURL,
+	}, nil
+}
+
+// buildBridgeCallbacks wires both single-arg Fetch and full FetchRequest
+// (method, headers, body, non-2xx status forwarding) through Core's
+// service.Bridge while enforcing BridgePolicy, default User-Agent, and
+// secret-redacted error sanitization.
+func buildBridgeCallbacks(policy service.BridgePolicy, userAgent string, transport http.RoundTripper, accounts *Accounts) (
+	func(context.Context, string) (string, error),
+	func(context.Context, service.FetchRequest) (*service.FetchResponse, error),
+) {
 	if policy.MaxBytes <= 0 {
 		policy.MaxBytes = service.DefaultBridgeMaxBytes
 	}
 	if policy.Timeout <= 0 {
 		policy.Timeout = service.DefaultBridgeTimeout
 	}
+	if policy.Transport == nil {
+		checker := service.NewBridge(policy)
+		policy.Transport = &bridgeTransport{
+			client: &http.Client{
+				Timeout:   policy.Timeout,
+				Transport: transport,
+				CheckRedirect: func(req *http.Request, via []*http.Request) error {
+					if len(via) >= 5 {
+						return errors.New("service: too many redirects")
+					}
+					return checker.Allows(req.URL.String())
+				},
+			},
+			userAgent: userAgent,
+			maxBytes:  policy.MaxBytes,
+		}
+	}
 	bridge := service.NewBridge(policy)
-	client := &http.Client{
-		Timeout:   policy.Timeout,
-		Transport: transport,
-		CheckRedirect: func(req *http.Request, via []*http.Request) error {
-			if len(via) >= 5 {
-				return errors.New("service: too many redirects")
-			}
-			return bridge.Allows(req.URL.String())
-		},
+	fetchFn := func(ctx context.Context, rawURL string) (string, error) {
+		body, err := bridge.Fetch(ctx, rawURL)
+		if err != nil {
+			return "", sanitizeError(accounts, err)
+		}
+		return body, nil
 	}
-	return func(ctx context.Context, rawURL string) (string, error) {
-		if err := bridge.Allows(rawURL); err != nil {
-			return "", sanitizeError(accounts, err)
-		}
-		req, err := http.NewRequestWithContext(ctx, http.MethodGet, rawURL, nil)
+	fetchReqFn := func(ctx context.Context, req service.FetchRequest) (*service.FetchResponse, error) {
+		resp, err := bridge.FetchRequest(ctx, req)
 		if err != nil {
-			return "", sanitizeError(accounts, err)
+			return nil, sanitizeError(accounts, err)
 		}
-		if strings.TrimSpace(userAgent) != "" {
-			req.Header.Set("User-Agent", userAgent)
-		}
-		if !policy.AllowCookies {
-			req.Header.Del("Cookie")
-		}
-		resp, err := client.Do(req)
-		if err != nil {
-			return "", sanitizeError(accounts, err)
-		}
-		defer resp.Body.Close()
-		if resp.StatusCode < 200 || resp.StatusCode > 299 {
-			return "", fmt.Errorf("service: %s returned HTTP %s", req.URL.Host, resp.Status)
-		}
-		body, err := io.ReadAll(io.LimitReader(resp.Body, policy.MaxBytes+1))
-		if err != nil {
-			return "", sanitizeError(accounts, err)
-		}
-		if int64(len(body)) > policy.MaxBytes {
-			return "", fmt.Errorf("service: response is larger than %d bytes", policy.MaxBytes)
-		}
-		return string(body), nil
+		return resp, nil
 	}
+	return fetchFn, fetchReqFn
 }
 
 // guardedStorageSet prevents a service from copying any secret from the
