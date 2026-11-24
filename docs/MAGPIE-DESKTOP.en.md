@@ -20,7 +20,7 @@ iOS still needs in-app Magpie plugins, accounts and routing across providers, ru
 
 ## Checked interfaces and unverified details
 
-The following comes from local reference source, not a connection test against the user's installed version. Actual interfaces and capabilities must follow probing results.
+The table summarizes the local Magpie reference source. Results from the Windows installation are recorded below.
 
 | Item | Reference implementation | Integration |
 |---|---|---|
@@ -48,7 +48,7 @@ For example, map complex tasks to a strong-model group whose ordering is configu
 
 ## Implemented: the client connection layer
 
-`internal/magpie` can reach a gateway and has contract tests against a fake one. It is **not wired into the interface and has not been run against a real installation**.
+The desktop AI window connects to the gateway through `internal/magpie`. Offline contract tests cover the client protocols, and the installed gateway has been exercised on Windows.
 
 | File | Status | Content |
 |---|---|---|
@@ -59,7 +59,11 @@ For example, map complex tasks to a strong-model group whose ordering is configu
 | `internal/magpie/*_test.go` | Implemented | Twenty-four fake-gateway, settings and session tests, plus five window-logic tests (tier destination note, out-of-range guard, empty tier not stored, Chinese labels, preview length) passing under `-race`: catalog, three dialects, `[DONE]`, missing terminator, in-stream error, cancellation, 401/404/not-running diagnostics, address validation, plus settings round-trip, missing file, damaged file, wrong tier and blank-tier fallback |
 | `internal/ui/magpie.go` | Implemented | An "AI" window: type the address and test the connection, read the catalog, name a model, send one task and see it arrive, cancel it. Redraws are throttled to 80ms rather than one per token. The tier is selectable (simple/normal/complex); each tier names a model or group, an empty tier falls back to the default model and then to Magpie's own route, and the window shows where this request will go before it is sent |
 | `internal/ui/app.go` | Implemented | An "AI" button in the toolbar; one window, settings in `magpie.json` |
-| Real-installation probe | Not done | No request has been sent to a Magpie on the user's machine yet |
+| Windows installation probe | Passed | Model catalogue, Chat Completions, Responses, Messages and stream cancellation |
+
+The local Magpie returned 155 models or routing groups. All three streamed requests to `group/laincat` returned `ready` and emitted one completion event each. The Chat Completions and Responses replies reported `agy-cli/gemini-4-neon` as the model. Cancelling a long request after its first text delta closed the client stream immediately.
+
+The client accepts a gateway address ending in `/v1` and reads `display_name` from the catalogue. A final SSE chunk can carry both text and `finish_reason`. The client delivers the text, emits one completion event and closes the response. Rerun with `NK_MAGPIE_LIVE=1 go test -count=1 ./internal/magpie -run '^TestLiveMagpie$' -v`. Use `NK_MAGPIE_BASE_URL` and `NK_MAGPIE_MODEL` to select a gateway address and model when needed.
 
 Initially no new Core routing package, Bun IPC, plugin installer, provider login or full routing editor is needed. The previous 28–55-day self-hosted runtime/router estimate no longer applies to this delivery. Such a design remains a separate future evaluation if independence from an external Magpie installation becomes necessary.
 
@@ -80,4 +84,4 @@ Acceptance includes actual selection across providers/accounts and fallback, not
 
 The initial local-installation approach is selected; do not ask again whether to embed Bun or build a host. Before implementation, inspect/probe the actual environment and ask only for connection details that cannot be found. Plugins, accounts and routing rules stay managed in Magpie. After actual validation, consider status panels, MCP adapters, subscription expiry strategies or bundled deployment separately.
 
-Reference source: [gateway routing](https://github.com/yetone/magpie/blob/main/docs/subsystems/gateway-routing.md), [plugin runtime](https://github.com/yetone/magpie/blob/main/docs/subsystems/plugin-runtime.md). This evaluation checks a local reference snapshot, not the installed version.
+Reference source: [gateway routing](https://github.com/yetone/magpie/blob/main/docs/subsystems/gateway-routing.md), [plugin runtime](https://github.com/yetone/magpie/blob/main/docs/subsystems/plugin-runtime.md). The gateway interface table is based on the local reference snapshot.

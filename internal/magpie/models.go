@@ -29,8 +29,9 @@ func (c *Client) Models(ctx context.Context) ([]Model, error) {
 	}
 	var answer struct {
 		Data []struct {
-			ID   string `json:"id"`
-			Name string `json:"name"`
+			ID          string `json:"id"`
+			Name        string `json:"name"`
+			DisplayName string `json:"display_name"`
 		} `json:"data"`
 	}
 	decoder := json.NewDecoder(strings.NewReader(string(body)))
@@ -44,6 +45,9 @@ func (c *Client) Models(ctx context.Context) ([]Model, error) {
 			continue
 		}
 		name := entry.Name
+		if name == "" {
+			name = entry.DisplayName
+		}
 		if name == "" {
 			name = entry.ID
 		}

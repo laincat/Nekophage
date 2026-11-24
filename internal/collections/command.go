@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"runtime"
 
 	"github.com/laincat/nekophage/internal/core"
 )
@@ -47,11 +46,7 @@ func RunCommand(ctx context.Context, dataDir, action string, args []string, out 
 	if err != nil {
 		return err
 	}
-	platform := runtime.GOOS
-	if platform == "darwin" {
-		platform = "macos"
-	}
-	views, err := manager.List(platform, Capabilities())
+	views, err := manager.List(Platform(), Capabilities())
 	if err != nil {
 		return err
 	}

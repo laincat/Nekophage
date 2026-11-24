@@ -28,19 +28,23 @@ func TestModelsKeepTheCatalogIDs(t *testing.T) {
 		if r.Header.Get("Authorization") != "Bearer magpie" {
 			t.Errorf("authorization = %q", r.Header.Get("Authorization"))
 		}
-		_, _ = w.Write([]byte(`{"data":[{"id":"gpt-group","name":"强模型组"},{"id":"vendor/model-1"}]}`))
+		_, _ = w.Write([]byte(`{"data":[{"id":"gpt-group","name":"强模型组"},{"id":"vendor/model-1","display_name":"模型 1"},{"id":"vendor/model-2"}]}`))
 	}))
 	defer server.Close()
 
-	models, err := client(t, server, Chat).Models(context.Background())
+	c, err := New(Config{BaseURL: server.URL + "/v1/"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(models) != 2 || models[0].ID != "gpt-group" || models[0].Name != "强模型组" {
+	models, err := c.Models(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(models) != 3 || models[0].ID != "gpt-group" || models[0].Name != "强模型组" {
 		t.Fatalf("models = %+v", models)
 	}
-	if models[1].Name != "vendor/model-1" {
-		t.Fatalf("a missing name should fall back to the id: %+v", models[1])
+	if models[1].ID != "vendor/model-1" || models[1].Name != "模型 1" || models[2].Name != "vendor/model-2" {
+		t.Fatalf("model display names = %+v", models[1:])
 	}
 }
 
@@ -58,8 +62,8 @@ func TestChatStreamsTextAndReportsTheEnd(t *testing.T) {
 		}
 		w.Header().Set("Content-Type", "text/event-stream")
 		_, _ = w.Write([]byte("data: {\"choices\":[{\"delta\":{\"content\":\"你\"}}]}\n\n"))
-		_, _ = w.Write([]byte("data: {\"choices\":[{\"delta\":{\"content\":\"好\"}}]}\n\n"))
-		_, _ = w.Write([]byte("data: {\"choices\":[{\"delta\":{},\"finish_reason\":\"stop\"}]}\n\n"))
+		_, _ = w.Write([]byte("data: {\"choices\":[{\"delta\":{\"content\":\"好\"},\"finish_reason\":\"stop\"}]}\n\n"))
+		_, _ = w.Write([]byte("data: {\"choices\":[],\"usage\":{\"total_tokens\":10}}\n\n"))
 		_, _ = w.Write([]byte("data: [DONE]\n\n"))
 	}))
 	defer server.Close()
@@ -71,22 +75,19 @@ func TestChatStreamsTextAndReportsTheEnd(t *testing.T) {
 		t.Fatal(err)
 	}
 	var text strings.Builder
-	sawDone := false
+	completed := 0
 	for event := range events {
 		switch event.Kind {
 		case EventText:
 			text.WriteString(event.Text)
 		case EventDone:
-			sawDone = true
+			completed++
 		case EventError:
 			t.Fatalf("stream failed: %s", event.Text)
 		}
 	}
-	if text.String() != "你好" {
-		t.Fatalf("text = %q", text.String())
-	}
-	if !sawDone {
-		t.Fatal("the stream never reported completion")
+	if text.String() != "你好" || completed != 1 {
+		t.Fatalf("text = %q, completion events = %d", text.String(), completed)
 	}
 }
 
@@ -149,6 +150,7 @@ func TestAnthropicAndResponsesDialectsAreDecoded(t *testing.T) {
 
 func TestCancellingStopsTheStream(t *testing.T) {
 	release := make(chan struct{})
+	gatewayCancelled := make(chan struct{})
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/event-stream")
 		flusher, _ := w.(http.Flusher)
@@ -159,7 +161,7 @@ func TestCancellingStopsTheStream(t *testing.T) {
 		select {
 		case <-release:
 		case <-r.Context().Done():
-			// The client cancelled: this is the behaviour under test.
+			close(gatewayCancelled)
 		}
 	}))
 	defer server.Close()
@@ -180,7 +182,12 @@ func TestCancellingStopsTheStream(t *testing.T) {
 		select {
 		case _, ok := <-events:
 			if !ok {
-				return // closed: the reader stopped instead of hanging
+				select {
+				case <-gatewayCancelled:
+					return
+				case <-deadline:
+					t.Fatal("the gateway connection remained open after cancellation")
+				}
 			}
 		case <-deadline:
 			t.Fatal("the stream kept running after cancellation")

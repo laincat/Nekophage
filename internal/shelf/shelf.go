@@ -120,6 +120,7 @@ type Shelf struct {
 	pictures  []ImageFavourite
 	videos    []VideoHistory
 	subtitles []videoSubtitleRecord
+	novels    []NovelEntry
 }
 
 type videoSubtitleRecord struct {
@@ -135,6 +136,7 @@ type file struct {
 	Folders   []Folder              `json:"folders"`
 	Pictures  []ImageFavourite      `json:"pictures,omitempty"`
 	Videos    []VideoHistory        `json:"videos,omitempty"`
+	Novels    []NovelEntry          `json:"novels,omitempty"`
 }
 
 // Open reads the profile's records; a profile without any starts empty.
@@ -157,6 +159,7 @@ func Open(root string) (*Shelf, error) {
 	s.history, s.folders, s.pictures = f.History, f.Folders, f.Pictures
 	s.videos = f.Videos
 	s.subtitles = f.Subtitles
+	s.novels = f.Novels
 	// Migrate choices from the previous history-only format before a finished
 	// episode or history limit can discard the corresponding progress record.
 	for i := range s.videos {
@@ -766,7 +769,10 @@ func (s *Shelf) save() error {
 	if videos == nil {
 		videos = []VideoHistory{}
 	}
-	b, err := json.MarshalIndent(file{History: history, Folders: folders, Pictures: pictures, Videos: videos, Subtitles: s.subtitles}, "", "  ")
+	b, err := json.MarshalIndent(file{
+		History: history, Folders: folders, Pictures: pictures, Videos: videos,
+		Subtitles: s.subtitles, Novels: s.novels,
+	}, "", "  ")
 	if err != nil {
 		return err
 	}

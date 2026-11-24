@@ -84,9 +84,11 @@ func (a *App) collectionsSection(c *ui.Context, t *ui.Theme) {
 		ui.Text(c, "还没有订阅合集。").Padding(6, 16).TextColor(t.TextMuted).FontSize(12)
 		return
 	}
-	for _, view := range p.rows {
-		a.collectionGroup(c, t, view)
-	}
+	ui.Scroll(c).MaxHeight(185).Children(func() {
+		for _, view := range p.rows {
+			a.collectionGroup(c, t, view)
+		}
+	})
 }
 
 // collectionGroup draws one subscription and its entries.
@@ -121,10 +123,7 @@ func (a *App) collectionEntry(c *ui.Context, t *ui.Theme, view collections.View,
 			ui.Spinner(c)
 			return
 		}
-		if !entry.Compatible {
-			return
-		}
-		if entry.Kind != "comic-source.js" && entry.Kind != "service.js" {
+		if !collections.CanInstall(entry) {
 			return
 		}
 		if ui.Button(c, "安装").Key("collection-install:" + key).Clicked() {

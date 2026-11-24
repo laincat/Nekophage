@@ -144,7 +144,12 @@ func normalizeBase(raw string) (string, error) {
 	if u.RawQuery != "" || u.Fragment != "" || u.ForceQuery {
 		return "", errors.New("magpie: 网关地址不能带查询串或片段")
 	}
-	return strings.TrimRight(u.String(), "/"), nil
+	base := strings.TrimRight(u.String(), "/")
+	// Accept the API base the gateway advertises. Endpoints already include /v1.
+	if strings.HasSuffix(strings.TrimRight(u.EscapedPath(), "/"), "/v1") {
+		base = strings.TrimSuffix(base, "/v1")
+	}
+	return base, nil
 }
 
 // newRequest builds one authenticated request for path.
@@ -233,16 +238,15 @@ func suffix(detail string) string {
 // streamLimit bounds one SSE event.
 const streamLimit = sse.DefaultMaxEventBytes
 
-// decodeEvent turns one SSE message into an event. The dialects differ in
-// envelope but agree on "text arrived" and "it ended", which is all a caller
-// needs to render a reply and to know when to stop.
+// decodeEvent returns a text or error event and whether the reply is complete.
+// A final chunk can carry both text and a finish reason.
 func decodeEvent(protocol Protocol, msg sse.Event) (Event, bool) {
 	data := strings.TrimSpace(msg.Data)
 	if data == "" {
 		return Event{}, false
 	}
 	if data == "[DONE]" {
-		return Event{Kind: EventDone}, true
+		return Event{}, true
 	}
 	var payload map[string]json.RawMessage
 	decoder := json.NewDecoder(strings.NewReader(data))
@@ -256,26 +260,19 @@ func decodeEvent(protocol Protocol, msg sse.Event) (Event, bool) {
 	if failure := errorText(payload); failure != "" {
 		event.Kind = EventError
 		event.Text = failure
-		return event, true
+		return event, false
 	}
-	switch protocol {
-	case Messages:
-		if text, ok := anthropicText(payload); ok {
-			event.Kind = EventText
-			event.Text = text
-			return event, true
-		}
-	default:
-		if text, ok := openAIText(protocol, payload); ok {
-			event.Kind = EventText
-			event.Text = text
-			return event, true
-		}
+	var text string
+	var ok bool
+	if protocol == Messages {
+		text, ok = anthropicText(payload)
+	} else {
+		text, ok = openAIText(protocol, payload)
 	}
-	if done, ok := finished(payload); ok && done {
-		return Event{Kind: EventDone, Raw: data}, true
+	if ok {
+		event.Kind, event.Text = EventText, text
 	}
-	return Event{}, false
+	return event, finished(payload)
 }
 
 // errorText finds a provider error carried inside a 200 stream.
@@ -362,11 +359,11 @@ func anthropicText(payload map[string]json.RawMessage) (string, bool) {
 }
 
 // finished reports whether an event says the answer is complete.
-func finished(payload map[string]json.RawMessage) (bool, bool) {
+func finished(payload map[string]json.RawMessage) bool {
 	if raw, ok := payload["type"]; ok {
 		var kind string
 		if json.Unmarshal(raw, &kind) == nil && (kind == "message_stop" || kind == "response.completed") {
-			return true, true
+			return true
 		}
 	}
 	if raw, ok := payload["choices"]; ok {
@@ -376,10 +373,10 @@ func finished(payload map[string]json.RawMessage) (bool, bool) {
 		if json.Unmarshal(raw, &choices) == nil {
 			for _, choice := range choices {
 				if choice.FinishReason != nil && *choice.FinishReason != "" {
-					return true, true
+					return true
 				}
 			}
 		}
 	}
-	return false, false
+	return false
 }

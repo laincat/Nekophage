@@ -158,7 +158,7 @@ func (a *App) manageView(c *ui.Context) {
 		ui.Column(c).Padding(16).Gap(8).Children(func() {
 			ui.Text(c, "添加源").FontSize(16).Bold()
 			ui.Row(c).Gap(8).AlignItems(ui.Center).Children(func() {
-				ui.Select(c, &m.sourceKind, []string{"漫画源", "视频源", "Kazumi 规则"}).Width(150).Label("源类型").Disabled(m.busy != "").Changed()
+				ui.Select(c, &m.sourceKind, []string{"漫画源", "小说源", "视频源", "Kazumi 规则"}).Width(150).Label("源类型").Disabled(m.busy != "").Changed()
 				ui.TextInput(c, &m.scriptURL).Placeholder("源文件链接 https://…").Grow(1)
 				if ui.PrimaryButton(c, "安装").Disabled(m.busy != "").Clicked() {
 					a.installScript(m.scriptURL)
@@ -281,7 +281,7 @@ func (a *App) sourceRow(c *ui.Context, t *ui.Theme, rec plugin.Record) {
 				a.openSourceSettings(key)
 			}
 		}
-		if rec.Type == plugin.TypeComic || rec.Type == plugin.TypeVideoJS || rec.Type == plugin.TypeKazumi {
+		if rec.Type == plugin.TypeComic || rec.Type == plugin.TypeVideoJS || rec.Type == plugin.TypeNovelJS || rec.Type == plugin.TypeKazumi {
 			if ui.Button(c, "查看源码").Key("source-code:" + key).Clicked() {
 				a.openSourceCode(key)
 			}
@@ -429,6 +429,8 @@ func (a *App) pickSourceFile() {
 
 func (m *manageState) installType() plugin.Type {
 	switch m.sourceKind {
+	case "小说源":
+		return plugin.TypeNovelJS
 	case "视频源":
 		return plugin.TypeVideoJS
 	case "Kazumi 规则":
@@ -440,6 +442,8 @@ func (m *manageState) installType() plugin.Type {
 
 func sourceKindLabel(typ plugin.Type) string {
 	switch typ {
+	case plugin.TypeNovelJS:
+		return "小说源"
 	case plugin.TypeVideoJS:
 		return "视频源"
 	case plugin.TypeKazumi:

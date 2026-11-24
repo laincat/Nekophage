@@ -193,6 +193,8 @@ type App struct {
 	playerView     *mygo.WebView
 	playerSrv      *player.Server
 	playerSess     *player.Session
+	novelWin       *mygo.Window
+	novels         novelPanel
 	// defaultIndex is the index URL tried first in the manager.
 	defaultIndex string
 
@@ -362,6 +364,11 @@ func (a *App) Run() error {
 	if a.collectionManager != nil {
 		defer a.collectionManager.Close()
 	}
+	var shelfErr error
+	a.shelf, shelfErr = shelf.Open(a.core.DataDir())
+	a.initNovelPanel(shelfErr)
+	defer a.novels.writes.Wait()
+	defer a.novels.gen.next()
 	mygo.App.WhenReady(func() {
 		a.win = mygo.NewWindow(mygo.WindowOptions{
 			Title:   "Nekophage",
@@ -369,12 +376,10 @@ func (a *App) Run() error {
 			Height:  760,
 			Content: ui.View(a.view),
 		})
-		if sh, err := shelf.Open(a.core.DataDir()); err != nil {
+		if shelfErr != nil {
 			a.mu.Lock()
-			a.setNotice("读取书架失败:" + explain(err))
+			a.setNotice("读取书架失败:" + explain(shelfErr))
 			a.mu.Unlock()
-		} else {
-			a.shelf = sh
 		}
 		if a.scheme != nil {
 			// The reader reports its position, asks for the next chapter and
@@ -561,6 +566,7 @@ func (a *App) refreshSources() {
 	}
 	key := a.sourceKey
 	a.mu.Unlock()
+	a.refreshNovelSources()
 	// The filters belong to the source, so they are read whenever the list of
 	// sources changes under them.
 	go func() { a.loadSearchOptions(key) }()
@@ -1417,6 +1423,9 @@ func (a *App) header(c *ui.Context, t *ui.Theme, sources []plugin.Record, option
 		}
 		if ui.Button(c, "视频").Clicked() {
 			a.openVideo()
+		}
+		if ui.Button(c, "小说").Clicked() {
+			a.openNovel()
 		}
 	})
 	ui.Divider(c)

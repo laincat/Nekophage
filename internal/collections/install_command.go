@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"runtime"
+	"slices"
 	"strings"
 
 	"github.com/laincat/nekophage/internal/core"
@@ -13,6 +14,7 @@ import (
 	"github.com/laincat/nekophage/internal/sourceapi"
 	"github.com/laincat/veneracat-core/gohost/library"
 	"github.com/laincat/veneracat-core/plugin"
+	"github.com/laincat/veneracat-core/subscription"
 )
 
 // installEntry installs one collection artifact after checking that this client
@@ -47,19 +49,46 @@ func InstallEntry(ctx context.Context, m *Manager, collectionID, entryID, dataDi
 	if !entry.Compatible {
 		return nil, fmt.Errorf("合集条目 %s/%s 不支持当前平台,缺少 %v", collectionID, entryID, entry.Missing)
 	}
+	kind, ok := installKind(entry)
+	if !ok {
+		return nil, fmt.Errorf("合集条目类型 %s 暂不支持", entry.Kind)
+	}
 	body, err := m.Artifact(ctx, entry)
 	if err != nil {
 		return nil, err
 	}
 	origin := "collection:" + collectionID + "/" + entryID
 	digest := strings.ToLower(entry.Artifact.SHA256)
-	if entry.Kind == "service.js" {
+	switch kind {
+	case "service.js":
 		return services.InstallExpecting(ctx, dataDir, entry.Key, origin, digest, body)
-	}
-	if entry.Kind != "comic-source.js" {
+	case "comic-source.js":
+		return lib.InstallExpecting(ctx, entry.Key, plugin.TypeComic, string(body), origin, digest)
+	case subscription.CapabilityNovelJS:
+		return lib.InstallExpecting(ctx, entry.Key, plugin.TypeNovelJS, string(body), origin, digest)
+	default:
 		return nil, fmt.Errorf("合集条目类型 %s 暂不支持", entry.Kind)
 	}
-	return lib.InstallExpecting(ctx, entry.Key, plugin.TypeComic, string(body), origin, digest)
+}
+
+func installKind(entry Entry) (string, bool) {
+	switch entry.Kind {
+	case "comic-source.js", "service.js", subscription.CapabilityNovelJS:
+		return entry.Kind, true
+	case "novel-source":
+		return subscription.CapabilityNovelJS, slices.Contains(entry.Supports.RequiresCapabilities, subscription.CapabilityNovelJS)
+	default:
+		return "", false
+	}
+}
+
+// CanInstall reports whether this client can download and install entry.
+func CanInstall(entry Entry) bool {
+	if !entry.Compatible || entry.Artifact == nil {
+		return false
+	}
+	_, ok := installKind(entry)
+	return ok
 }
 
 // Platform is this client's platform in a collection's vocabulary.
@@ -72,5 +101,5 @@ func Platform() string {
 
 // Capabilities is what this client can install from a collection.
 func Capabilities() []string {
-	return []string{"comic-source.js", "service.js"}
+	return []string{"comic-source.js", subscription.CapabilityNovelJS, "service.js"}
 }

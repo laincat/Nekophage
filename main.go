@@ -61,7 +61,7 @@ func buildInfo() string {
 func main() {
 	showVersion := flag.Bool("version", false, "print the build and exit")
 	dataDirOverride := flag.String("data-dir", "", "store application data in this directory")
-	collectionAction := flag.String("collection", "", "follow URL, list, refresh ID, or unfollow ID; print JSON without opening a window")
+	collectionAction := flag.String("collection", "", "follow URL, list, refresh ID, unfollow ID, or install ID ENTRY; print JSON without opening a window")
 	serviceAction := flag.String("service", "", "call a method of a service package, or print its manifest; print JSON without opening a window")
 	flag.Parse()
 	if *showVersion {

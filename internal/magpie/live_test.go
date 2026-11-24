@@ -2,6 +2,7 @@ package magpie
 
 import (
 	"context"
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
@@ -27,6 +28,13 @@ func liveSession(t *testing.T) (*Session, *Client) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	settings := s.Settings()
+	if base := os.Getenv("NK_MAGPIE_BASE_URL"); base != "" {
+		settings.BaseURL = base
+	}
+	if err := s.Update(settings); err != nil {
+		t.Fatal(err)
+	}
 	c, err := New(s.Settings().ClientConfig())
 	if err != nil {
 		t.Fatal(err)
@@ -50,7 +58,7 @@ func TestLiveMagpie(t *testing.T) {
 	if len(models) == 0 {
 		t.Skip("the gateway offers no model; routing is not configured")
 	}
-	t.Logf("%d models, first is %q", len(models), models[0].ID)
+	t.Logf("%d models or routes, first is %q (%s)", len(models), models[0].ID, models[0].Name)
 
 	model := os.Getenv("NK_MAGPIE_MODEL")
 	if model == "" {
@@ -80,21 +88,69 @@ func TestLiveMagpie(t *testing.T) {
 			t.Fatalf("%s: %v", protocol, err)
 		}
 		var text strings.Builder
-		var events int
+		var events, completed int
+		var routedModel string
 		for ev := range stream {
 			events++
-			if ev.Kind == EventError {
+			switch ev.Kind {
+			case EventError:
 				t.Fatalf("%s stream error: %s", protocol, ev.Text)
+			case EventText:
+				text.WriteString(ev.Text)
+			case EventDone:
+				completed++
 			}
-			text.WriteString(ev.Text)
-		}
-		if events == 0 {
-			t.Fatalf("%s: the stream carried no events", protocol)
+			var info struct {
+				Model    string `json:"model"`
+				Response struct {
+					Model string `json:"model"`
+				} `json:"response"`
+			}
+			if json.Unmarshal([]byte(ev.Raw), &info) == nil {
+				if info.Model != "" {
+					routedModel = info.Model
+				} else if info.Response.Model != "" {
+					routedModel = info.Response.Model
+				}
+			}
 		}
 		reply := strings.TrimSpace(text.String())
-		if reply == "" {
-			t.Fatalf("%s: the stream carried no text", protocol)
+		if reply == "" || completed != 1 {
+			t.Fatalf("%s: reply %q, completion events %d", protocol, reply, completed)
 		}
-		t.Logf("%s: %d events, reply %q", protocol, events, reply)
+		t.Logf("%s: route %q, model %q, %d events, reply %q", protocol, model, routedModel, events, reply)
 	}
+
+	t.Run("cancel", func(t *testing.T) {
+		ctx, cancel := context.WithCancel(ctx)
+		defer cancel()
+		stream, err := s.Ask(ctx, TaskSimple, []Message{{
+			Role: "user", Content: "List the integers from 1 to 5000, one number per line. Start immediately.",
+		}})
+		if err != nil {
+			t.Fatal(err)
+		}
+		first, ok := <-stream
+		if !ok || first.Kind != EventText || first.Text == "" {
+			t.Fatalf("expected a text delta before cancellation, got %+v", first)
+		}
+		start := time.Now()
+		cancel()
+		deadline := time.NewTimer(2 * time.Second)
+		defer deadline.Stop()
+		for {
+			select {
+			case event, open := <-stream:
+				if !open {
+					t.Logf("stream closed %s after cancelling the first text delta", time.Since(start).Round(time.Microsecond))
+					return
+				}
+				if event.Kind != EventText {
+					t.Fatalf("unexpected event after cancellation: %+v", event)
+				}
+			case <-deadline.C:
+				t.Fatal("stream did not close after cancellation")
+			}
+		}
+	})
 }

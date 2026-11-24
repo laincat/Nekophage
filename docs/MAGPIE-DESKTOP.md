@@ -20,7 +20,7 @@ iOS 仍需在 App 内融入 Magpie 插件、账号及多供应商路由能力并
 
 ## 已核查的接口与未验证事项
 
-以下来自本地 Magpie 参考源码,尚未对用户机器上的实际安装版本做连通测试。实际版本的接口和能力以探测结果为准。
+下表依据本地 Magpie 参考源码整理。Windows 安装版的实测结果记录在下文。
 
 | 项目 | 参考实现 | 接入方式 |
 |---|---|---|
@@ -48,7 +48,7 @@ Nekophage 把任务送往用户配置的模型或路由组,由 Magpie 完成其�
 
 ## 已实现:客户端连接层
 
-`internal/magpie` 已可连接网关,并有对假网关的契约测试;**尚未接入界面,也尚未对真实安装版验证**。
+桌面端「AI」窗口通过 `internal/magpie` 连接网关。离线契约测试覆盖客户端协议，Windows 安装版也已实测。
 
 | 文件 | 状态 | 内容 |
 |---|---|---|
@@ -59,7 +59,11 @@ Nekophage 把任务送往用户配置的模型或路由组,由 Magpie 完成其�
 | `internal/magpie/*_test.go` | 已实现 | 假网关契约、配置与会话测试共 24 条;另有 5 条窗口逻辑测试(档位去向提示、越界保护、空档位不写入、中文标签、模型预览长度):`-race` 通过;覆盖目录、三种方言、`[DONE]`、无终止标记、流内错误、取消、鉴权/404/未启动诊断、地址校验,以及设置往返、缺文件、损坏文件、错误档位、空档位回落 |
 | `internal/ui/magpie.go` | 已实现 | 「AI」窗口:填地址并测试连接、读取模型目录、填模型名、发一条任务并边收边显示、可取消;回包按 80ms 节流重绘,不为每个 token 重画窗口。任务档位可选简单/普通/复杂,每个档位填一个模型或组,空档位回落到默认模型,再没有就交给 Magpie 的默认路由;窗口上方直接显示「这次会发到哪」 |
 | `internal/ui/app.go` | 已实现 | 顶栏「AI」按钮;窗口单例,设置存 `magpie.json` |
-| 真实安装版探测 | 未做 | 还没有对用户机器上的 Magpie 发起过请求 |
+| Windows 安装版探测 | 通过 | 模型目录、Chat Completions、Responses、Messages 和流式取消 |
+
+本机 Magpie 目录返回 155 个模型或路由组。对 `group/laincat` 的三种流式请求均返回 `ready`，各收到一次完成事件。Chat Completions 和 Responses 的回包报告模型为 `agy-cli/gemini-4-neon`。长回复收到第一段正文后发起取消，客户端流立即关闭。
+
+客户端支持以 `/v1` 结尾的网关地址和目录中的 `display_name`。同一个 SSE 结束块可以带正文和 `finish_reason`。客户端先保留正文，再发一次完成事件，并关闭响应。可用 `NK_MAGPIE_LIVE=1 go test -count=1 ./internal/magpie -run '^TestLiveMagpie$' -v` 复测，按需通过 `NK_MAGPIE_BASE_URL` 和 `NK_MAGPIE_MODEL` 选择网关地址与模型。
 
 首期无需新增 Core 路由包、Bun IPC、插件包安装器、供应商登录或完整路由编辑器。原先 28–55 日的“自建宿主与路由”预算不再适用于本期;该方案只作为以后脱离外部安装版时的独立评估方向。
 
@@ -80,4 +84,4 @@ Nekophage 把任务送往用户配置的模型或路由组,由 Magpie 完成其�
 
 用户已选择首期复用本机 Magpie,不再要求重选“嵌入 Bun 还是自建宿主”。实施时先读取或探测实际安装环境,只有缺少具体连接信息才询问用户。插件、账号和路由规则继续在 Magpie 中管理。待实际验证后,再决定是否增加状态面板、MCP 工具适配、订阅期限策略或内置部署。
 
-参考源码:[网关路由](https://github.com/yetone/magpie/blob/main/docs/subsystems/gateway-routing.md)、[插件运行时](https://github.com/yetone/magpie/blob/main/docs/subsystems/plugin-runtime.md)。本文核查的是本地参考快照,不是实际安装版的验收结果。
+参考源码:[网关路由](https://github.com/yetone/magpie/blob/main/docs/subsystems/gateway-routing.md)、[插件运行时](https://github.com/yetone/magpie/blob/main/docs/subsystems/plugin-runtime.md)。网关接口表依据本地参考快照整理。

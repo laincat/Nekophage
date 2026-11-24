@@ -88,7 +88,7 @@ func TestSourceCodeInstalledSnapshotIsReadOnly(t *testing.T) {
 }
 
 func TestSourceCodeKindsAndMissing(t *testing.T) {
-	for _, typ := range []plugin.Type{plugin.TypeComic, plugin.TypeVideoJS, plugin.TypeKazumi} {
+	for _, typ := range []plugin.Type{plugin.TypeComic, plugin.TypeVideoJS, plugin.TypeNovelJS, plugin.TypeKazumi} {
 		st, _, err := sourceCodeState([]plugin.Record{{Key: "x", Type: typ, Body: "{}"}}, "x")
 		if err != nil {
 			t.Fatal(err)

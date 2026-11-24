@@ -28,7 +28,7 @@ func sourceCodeState(records []plugin.Record, key string) (*editor.State, string
 		}
 		language := "JavaScript"
 		switch rec.Type {
-		case plugin.TypeComic, plugin.TypeVideoJS:
+		case plugin.TypeComic, plugin.TypeVideoJS, plugin.TypeNovelJS:
 		case plugin.TypeKazumi:
 			language = "JSON"
 		default:

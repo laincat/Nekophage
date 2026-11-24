@@ -86,36 +86,18 @@ func (c *Client) Chat(ctx context.Context, req Request) (<-chan Event, error) {
 	go func() {
 		defer close(out)
 		defer resp.Body.Close()
-		done := false
-		for {
+		for ctx.Err() == nil {
 			msg, err := decoder.Next()
 			if err != nil {
-				if errors.Is(err, io.EOF) {
-					if !done {
-						// The stream stopped without saying it finished: that is
-						// an interrupted answer, not a complete one.
-						send(ctx, out, Event{Kind: EventError, Text: ErrStreamInterrupted.Error()})
-					}
-					return
-				}
-				if err := ctx.Err(); err != nil {
-					send(ctx, out, Event{Kind: EventError, Text: err.Error()})
-					return
-				}
 				send(ctx, out, Event{Kind: EventError, Text: streamReason(err)})
 				return
 			}
-			event, ok := decodeEvent(c.protocol, msg)
-			if !ok {
-				continue
-			}
-			if event.Kind == EventDone {
-				done = true
-			}
-			if !send(ctx, out, event) {
+			event, done := decodeEvent(c.protocol, msg)
+			if event.Kind != "" && (!send(ctx, out, event) || event.Kind == EventError) {
 				return
 			}
-			if event.Kind == EventError {
+			if done {
+				send(ctx, out, Event{Kind: EventDone, Raw: event.Raw})
 				return
 			}
 		}
@@ -126,6 +108,9 @@ func (c *Client) Chat(ctx context.Context, req Request) (<-chan Event, error) {
 // send delivers one event unless the caller has already given up, so a closed
 // channel or a cancelled context never blocks the reader.
 func send(ctx context.Context, out chan<- Event, event Event) bool {
+	if ctx.Err() != nil {
+		return false
+	}
 	select {
 	case out <- event:
 		return true
@@ -136,6 +121,9 @@ func send(ctx context.Context, out chan<- Event, event Event) bool {
 
 // streamReason describes a broken stream in terms a user can act on.
 func streamReason(err error) string {
+	if errors.Is(err, io.EOF) {
+		return ErrStreamInterrupted.Error()
+	}
 	if errors.Is(err, sse.ErrEventTooLarge) {
 		return "Magpie 发来的单个流式事件超过了大小上限"
 	}

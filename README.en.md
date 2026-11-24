@@ -7,7 +7,7 @@ English | [简体中文](README.md)
   <img src="docs/assets/brand/nekophage-logo.png" alt="Nekophage" width="720">
 </picture>
 
-The desktop companion of Nekularity: read comics and play videos from Venera-compatible sources. Extension authoring and publishing come later. Written in Go, with an interface [MyGo](https://github.com/egoist/mygo) draws; licensed LGPL-3.0-or-later with the App Store / DRM Exception.
+The desktop companion to Nekularity reads comics and novels and plays videos from Venera-compatible sources. It uses Go and MyGo and is licensed under LGPL-3.0-or-later with the App Store / DRM Exception. [MyGo](https://github.com/egoist/mygo)
 
 Logic comes from [VeneraCat Core](https://github.com/laincat/VeneraCat-Core), compiled into the same executable: no FFI, no cgo, no separate Core process.
 
@@ -17,7 +17,8 @@ Logic comes from [VeneraCat Core](https://github.com/laincat/VeneraCat-Core), co
 - **Reader**: a web page in a WebView. Go fetches each page through the source's own rules and streams it, so a source that needs a Referer or a login still shows its pages.
 - **Verification**: a Cloudflare challenge opens in a window of its own and the app continues once it is passed.
 - **Search every source**: one keyword searches all installed sources, results are merged with their source on each card, and opening another source's comic switches to it.
-- **Source management**: select a comic source, video source or Kazumi rule and install it from a URL or local file. Kind, script and enabled state persist across restarts. The comic subscription entry still handles comic indexes only.
+- **Source management** installs comic sources, novel sources, video sources and Kazumi rules from a URL or local file. Unified collections subscribe to `source.json` and verify artifact size and SHA-256 before installation. Kind, script and enabled state persist across restarts.
+- **Novels** has a popular catalogue, search, details and a chapter list. Chapters render as plain text. The shelf keeps bookmarks and the most recently read chapter and page.
 - **Video**: choose a provider, search, select a line/episode and play. The local media proxy retains source headers and cookies; the player uses native MP4 or HLS.js and persists resume positions. Windows fixtures verify actual pixels, Range, authentication and resume; this does not establish live sites, DRM, subtitles or PiP.
 - **Source settings**: a source's `settings` declaration becomes selects, switches and inputs — MangaDex's image quality, Copy Manga's CDN line.
 - **Search filters**: the filters a source offers — sorting, content rating, status and the rest — instead of quietly searching with the defaults.

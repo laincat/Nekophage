@@ -193,3 +193,138 @@ func TestArtifactReportsAGrownArtifactAsAMismatch(t *testing.T) {
 		t.Fatalf("error = %v", err)
 	}
 }
+
+const novelProbeScript = `class NovelCollectionProbe extends NovelSource {
+  name = "小说测试源"; key = "novel_probe"; version = "1.0.0"
+  async popular(page) {
+    return {items: [{id: "n1", title: "热门小说 " + page, author: "作者"}], maxPage: 2}
+  }
+  async search(keyword, page) {
+    return {items: [{id: "n2", title: "搜索:" + keyword}], maxPage: 1}
+  }
+  async detail(id) {
+    return {id: id, title: "小说详情", author: "作者", summary: "简介", chapters: [{id: "ch1", title: "第一章"}]}
+  }
+  async chapter(novelId, chapId) {
+    return {html: "<p>正文 " + novelId + "/" + chapId + "</p>"}
+  }
+}
+`
+
+func TestUnifiedCollectionNovelSourceInstallAndToggleLifecycle(t *testing.T) {
+	ctx := context.Background()
+	served := []byte(novelProbeScript)
+	sum := sha256.Sum256(served)
+	digest := hex.EncodeToString(sum[:])
+
+	const artifact = "packages/novel_probe/novel_probe.js"
+	probe := subscription.CollectionEntry{
+		ID: "novel_probe", Kind: "novel-source", Name: "小说测试源",
+		Version: "1.0.0", Status: "experimental", Key: "novel_probe",
+		Supports: subscription.CollectionSupport{
+			Platforms: []string{"ios", "macos", "windows", "linux"}, RequiresCapabilities: []string{subscription.CapabilityNovelJS},
+		},
+		Artifact: &subscription.CollectionArtifact{URL: artifact, SHA256: digest, Bytes: int64(len(served))},
+	}
+	badDigest, wrongKey, broken := probe, probe, probe
+	badDigest.ID = "novel_bad_digest"
+	badDigest.Artifact = &subscription.CollectionArtifact{URL: artifact, SHA256: strings.Repeat("a", 64), Bytes: int64(len(served))}
+	wrongKey.ID, wrongKey.Key = "novel_wrong_key", "different_key"
+	broken.ID, broken.Status, broken.Artifact = "novel_broken", "broken", nil
+	doc := subscription.Collection{
+		Schema: subscription.CollectionSchema, ID: "veneracat.official", Name: "VeneraCat 官方合集", Version: "0.1.0",
+		Entries: []subscription.CollectionEntry{probe, badDigest, wrongKey, broken},
+	}
+	mux := http.NewServeMux()
+	mux.HandleFunc("/source.json", func(w http.ResponseWriter, r *http.Request) {
+		_ = json.NewEncoder(w).Encode(doc)
+	})
+	mux.HandleFunc("/"+artifact, func(w http.ResponseWriter, r *http.Request) { _, _ = w.Write(served) })
+	server := httptest.NewServer(mux)
+	defer server.Close()
+
+	root := t.TempDir()
+	m, err := Open(root, core.NewTransport(nil, "Nekophage/test", 0))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer m.Close()
+
+	if err := m.Follow(ctx, server.URL+"/source.json"); err != nil {
+		t.Fatalf("follow: %v", err)
+	}
+	views, err := m.List(Platform(), Capabilities())
+	if err != nil || len(views) != 1 || len(views[0].Entries) != 4 {
+		t.Fatalf("views = %+v, %v", views, err)
+	}
+	if !views[0].Entries[0].Compatible || !CanInstall(views[0].Entries[0]) {
+		t.Fatalf("valid novel entry should be installable: %+v", views[0].Entries[0])
+	}
+	if CanInstall(views[0].Entries[3]) {
+		t.Fatalf("broken novel entry without artifact must not be installable: %+v", views[0].Entries[3])
+	}
+
+	c, err := core.Open(core.Options{DataDir: root})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if c != nil {
+			c.Close()
+		}
+	})
+	lib := library.New(c)
+
+	if _, err := InstallEntry(ctx, m, "veneracat.official", "novel_bad_digest", root, lib); err == nil || !strings.Contains(err.Error(), "size or digest") {
+		t.Fatalf("digest mismatch should fail: %v", err)
+	}
+	if _, err := InstallEntry(ctx, m, "veneracat.official", "novel_wrong_key", root, lib); !errors.Is(err, plugin.ErrKey) {
+		t.Fatalf("key mismatch = %v, want ErrKey", err)
+	}
+	if _, err := InstallEntry(ctx, m, "veneracat.official", "novel_broken", root, lib); err == nil {
+		t.Fatal("broken entry without artifact was installed")
+	}
+
+	res, err := InstallEntry(ctx, m, "veneracat.official", "novel_probe", root, lib)
+	if err != nil {
+		t.Fatalf("install novel entry: %v", err)
+	}
+	rec := res.(*plugin.Record)
+	if rec.Type != plugin.TypeNovelJS || rec.Key != "novel_probe" || !rec.Enabled || rec.Origin != "collection:veneracat.official/novel_probe" {
+		t.Fatalf("installed record = %+v", rec)
+	}
+
+	page, err := c.NovelPopular(ctx, rec.Key, 1)
+	if err != nil || page == nil || len(page.Items) != 1 || page.Items[0].Title != "热门小说 1" {
+		t.Fatalf("popular = %+v, %v", page, err)
+	}
+	if err := lib.SetEnabled(ctx, rec.Key, false); err != nil {
+		t.Fatalf("disable: %v", err)
+	}
+	if _, err := c.NovelPopular(ctx, rec.Key, 1); !errors.Is(err, plugin.ErrDisabled) {
+		t.Fatalf("disabled source answered: %v", err)
+	}
+	c.Close()
+	c = nil
+
+	// Reopen Core and verify disabled novel source persists and can be re-enabled.
+	reopened, err := core.Open(core.Options{DataDir: root})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer reopened.Close()
+	restoredLib := library.New(reopened)
+	if failed, err := restoredLib.Restore(ctx); err != nil || len(failed) != 0 {
+		t.Fatalf("restore = %v, %v", failed, err)
+	}
+	if _, err := reopened.NovelSearch(ctx, rec.Key, "星海", 1); !errors.Is(err, plugin.ErrDisabled) {
+		t.Fatalf("restored disabled source answered: %v", err)
+	}
+	if err := restoredLib.SetEnabled(ctx, rec.Key, true); err != nil {
+		t.Fatalf("re-enable: %v", err)
+	}
+	found, err := reopened.NovelSearch(ctx, rec.Key, "星海", 1)
+	if err != nil || found == nil || len(found.Items) != 1 || found.Items[0].Title != "搜索:星海" {
+		t.Fatalf("re-enabled search = %+v, %v", found, err)
+	}
+}
