@@ -18,7 +18,7 @@ Logic comes from [VeneraCat Core](https://github.com/laincat/VeneraCat-Core), co
 - **Verification**: a Cloudflare challenge opens in a window of its own and the app continues once it is passed.
 - **Search every source**: one keyword searches all installed sources, results are merged with their source on each card, and opening another source's comic switches to it.
 - **Source management** installs comic sources, novel sources, video sources and Kazumi rules from a URL or local file. Unified collections subscribe to `source.json` and verify artifact size and SHA-256 before installation. Kind, script and enabled state persist across restarts.
-- **Novels** has a popular catalogue, search, details and a chapter list. Chapters render as plain text. The shelf keeps bookmarks and the most recently read chapter and page.
+- **Novels** has a popular catalogue, search, details and a chapter list. Chapters render as plain text. The shelf keeps bookmarks and the most recently read chapter and page, and the reader provides a static comic adaptation entry (storyboard generation/checkpoint resume, cross-chapter character sheets, panel/chapter rendering and budget caps).
 - **Video**: choose a provider, search, select a line/episode and play. The local media proxy retains source headers and cookies; the player uses native MP4 or HLS.js and persists resume positions. Windows fixtures verify actual pixels, Range, authentication and resume; this does not establish live sites, DRM, subtitles or PiP.
 - **Source settings**: a source's `settings` declaration becomes selects, switches and inputs — MangaDex's image quality, Copy Manga's CDN line.
 - **Search filters**: the filters a source offers — sorting, content rating, status and the rest — instead of quietly searching with the defaults.
@@ -54,7 +54,8 @@ On macOS, build the native program with `go build -o build/Nekophage .`. The Win
 
 | Directory | Contents |
 |---|---|
-| `internal/core` | Configures the desktop app’s shared Go host from Core `gohost` |
+| `internal/core` | Configures the desktop app’s shared Go host from Core `gohost` (including Wave 4B static comic adaptation) |
+| `internal/adapt` | Novel-to-static-comic adaptation state machine, multi-chunk checkpoints, storyboards, character sheets and local panel storage |
 | `internal/cookies` | Cookie jars isolated per source |
 | `internal/store` | Source data, settings and plugin records on disk |
 | `internal/library` | Installs, updates and removes sources; reads indexes |

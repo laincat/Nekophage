@@ -11,6 +11,7 @@ import (
 
 	"github.com/egoist/mygo"
 	"github.com/egoist/mygo/ui"
+	"github.com/laincat/nekophage/internal/adapt"
 	"github.com/laincat/nekophage/internal/core"
 	"github.com/laincat/nekophage/internal/novel"
 	"github.com/laincat/nekophage/internal/shelf"
@@ -24,6 +25,7 @@ const (
 	novelBooks
 	novelDetails
 	novelReading
+	novelAdapt
 )
 
 // novelPanel belongs to the UI thread. Workers hand results back through post.
@@ -35,24 +37,28 @@ type novelPanel struct {
 	gen    generation
 	writes sync.WaitGroup
 
-	sources     []plugin.Record
-	key         string
-	query       string
-	searched    string
-	catalog     *core.NovelPage
-	catalogPage int
-	screen      novelScreen
-	detailFrom  novelScreen
-	book        shelf.Novel
-	detail      *core.NovelDetail
-	chapter     int
-	pages       []string
-	page        int
-	entries     []shelf.NovelEntry
-	busy        bool
-	err         error
-	saving      bool
-	shelfErr    error
+	sources        []plugin.Record
+	key            string
+	query          string
+	searched       string
+	catalog        *core.NovelPage
+	catalogPage    int
+	screen         novelScreen
+	detailFrom     novelScreen
+	book           shelf.Novel
+	detail         *core.NovelDetail
+	chapter        int
+	chapterContent core.NovelChapterContent
+	pages          []string
+	page           int
+	entries        []shelf.NovelEntry
+	busy           bool
+	err            error
+	saving         bool
+	shelfErr       error
+	adapt          novelAdaptState
+	adaptMgrMu     sync.Mutex
+	adaptMgr       *adapt.Manager
 }
 
 func (a *App) initNovelPanel(shelfErr error) {
@@ -85,8 +91,9 @@ func (a *App) openNovel() {
 	win.OnClosed(func() {
 		a.novelWin = nil
 		p.clearRequest()
+		p.adapt.reset()
 		p.screen, p.key, p.query = novelCatalog, "", ""
-		p.catalog, p.detail, p.pages = nil, nil, nil
+		p.catalog, p.detail, p.pages, p.chapterContent = nil, nil, nil, core.NovelChapterContent{}
 	})
 	a.refreshNovelSources()
 	win.Show()
@@ -133,7 +140,8 @@ func (p *novelPanel) clearRequest() {
 
 func (p *novelPanel) backTo(screen novelScreen) {
 	p.clearRequest()
-	p.screen, p.pages = screen, nil
+	p.adapt.reset()
+	p.screen, p.pages, p.chapterContent = screen, nil, core.NovelChapterContent{}
 	if screen != novelDetails {
 		p.detail = nil
 	}
@@ -238,7 +246,7 @@ func (p *novelPanel) openChapter(index int) {
 			if saved := p.savedBook(); saved.ChapterID == chapter.ID {
 				page = max(0, min(saved.Page, len(pages)-1))
 			}
-			p.screen, p.chapter, p.pages = novelReading, index, pages
+			p.screen, p.chapter, p.pages, p.chapterContent = novelReading, index, pages, *content
 			p.readPage(page)
 		}, nil
 	})
@@ -290,6 +298,8 @@ func (p *novelPanel) view(c *ui.Context) {
 			p.detailView(c)
 		case novelReading:
 			p.readerView(c)
+		case novelAdapt:
+			p.adaptView(c)
 		}
 	})
 }
@@ -429,6 +439,9 @@ func (p *novelPanel) readerView(c *ui.Context) {
 		ui.Text(c, chapterTitle(detail.Chapters[chapter], chapter)).SingleLine().Grow(1)
 		if ui.Button(c, "下一章").Disabled(p.saving || chapter+1 >= len(detail.Chapters)).Clicked() {
 			p.openChapter(chapter + 1)
+		}
+		if ui.Button(c, "改编为静态漫画").Disabled(p.busy || p.saving || p.chapterContent.HTML == "").Clicked() {
+			p.openAdapt()
 		}
 	})
 	ui.Scroll(c).Key(fmt.Sprintf("chapter:%d/page:%d", chapter, page)).Grow(1).Children(func() {
