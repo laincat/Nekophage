@@ -109,6 +109,10 @@ type HostOptions struct {
 	StrictPermissions bool
 	// BridgePolicy controls HTTP host allowlist, response ceiling, timeout and cookies.
 	BridgePolicy service.BridgePolicy
+	// Transport optionally overrides the underlying HTTP RoundTripper (useful
+	// for offline stub testing against real upstream URLs while still enforcing
+	// BridgePolicy host allowlists).
+	Transport http.RoundTripper
 	// Log receives sanitized service log lines (account secret values are
 	// redacted before forwarding).
 	Log func(level, message string)
@@ -437,7 +441,7 @@ func NewSupervisorWithOptions(dataDir string, opts HostOptions) (*service.Superv
 
 func buildHost(stored *service.Storage, accounts *Accounts, opts HostOptions) service.Host {
 	host := service.Host{
-		Fetch: buildFetch(opts.BridgePolicy, opts.UserAgent, accounts),
+		Fetch: buildFetch(opts.BridgePolicy, opts.UserAgent, opts.Transport, accounts),
 	}
 	if stored != nil {
 		host.StorageGet = stored.Get
@@ -455,7 +459,7 @@ func buildHost(stored *service.Storage, accounts *Accounts, opts HostOptions) se
 // buildFetch wraps Core's Bridge policy (scheme, host allowlist, redirect
 // validation, cookie stripping, response size ceiling and timeout) while also
 // setting User-Agent and redacting any stored account secrets from errors.
-func buildFetch(policy service.BridgePolicy, userAgent string, accounts *Accounts) func(context.Context, string) (string, error) {
+func buildFetch(policy service.BridgePolicy, userAgent string, transport http.RoundTripper, accounts *Accounts) func(context.Context, string) (string, error) {
 	if policy.MaxBytes <= 0 {
 		policy.MaxBytes = service.DefaultBridgeMaxBytes
 	}
@@ -464,7 +468,8 @@ func buildFetch(policy service.BridgePolicy, userAgent string, accounts *Account
 	}
 	bridge := service.NewBridge(policy)
 	client := &http.Client{
-		Timeout: policy.Timeout,
+		Timeout:   policy.Timeout,
+		Transport: transport,
 		CheckRedirect: func(req *http.Request, via []*http.Request) error {
 			if len(via) >= 5 {
 				return errors.New("service: too many redirects")

@@ -34,6 +34,7 @@ type Record struct {
 	Desc      string    `json:"desc,omitempty"`
 	Version   string    `json:"version"`
 	Format    string    `json:"format"`
+	Requires  []string  `json:"requires,omitempty"`
 	Origin    string    `json:"origin,omitempty"`
 	SHA256    string    `json:"sha256"`
 	Enabled   bool      `json:"enabled"`
@@ -134,16 +135,29 @@ func Open(dataDir string) (*Manager, error) {
 
 // Install parses, validates and persists one `.vcmodule` under `<dataDir>/modules/<id>.vcmodule`.
 //
+// If id is empty and the module declares `#!id=...`, the declared ID is used.
+// If both are present and differ, Install rejects the mismatch.
 // Newly installed modules start disabled so installing never alters effective
 // settings without explicit user enablement. Upgrading an existing module
 // preserves its enablement and overlay stacking order.
 func (m *Manager) Install(id, origin, declaredSHA256 string, raw []byte) (*Record, error) {
-	if err := ValidateID(id); err != nil {
-		return nil, err
+	if id != "" {
+		if err := ValidateID(id); err != nil {
+			return nil, err
+		}
 	}
 	mod, err := Parse(raw)
 	if err != nil {
 		return nil, err
+	}
+	if id == "" {
+		id = mod.Meta.ID
+	}
+	if err := ValidateID(id); err != nil {
+		return nil, err
+	}
+	if mod.Meta.ID != "" && mod.Meta.ID != id {
+		return nil, fmt.Errorf("%w: declared #!id %q does not match install id %q", ErrInvalidID, mod.Meta.ID, id)
 	}
 	sum := sha256.Sum256(raw)
 	digest := hex.EncodeToString(sum[:])
@@ -185,6 +199,7 @@ func (m *Manager) Install(id, origin, declaredSHA256 string, raw []byte) (*Recor
 		Desc:      mod.Meta.Desc,
 		Version:   mod.Meta.Version,
 		Format:    mod.Meta.Format,
+		Requires:  slices.Clone(mod.Meta.Requires),
 		Origin:    origin,
 		SHA256:    digest,
 		Enabled:   false,
@@ -418,6 +433,7 @@ func (m *Manager) writeIndexLocked(records []Record) error {
 }
 
 func cloneRecord(r Record) Record {
+	r.Requires = slices.Clone(r.Requires)
 	r.Keys = slices.Clone(r.Keys)
 	return r
 }
@@ -427,6 +443,7 @@ func cloneModule(m *Module) *Module {
 		return nil
 	}
 	cp := *m
+	cp.Meta.Requires = slices.Clone(m.Meta.Requires)
 	cp.Keys = slices.Clone(m.Keys)
 	if m.Reader.PageGap != nil {
 		v := *m.Reader.PageGap

@@ -10,10 +10,12 @@ import (
 	"testing"
 )
 
-const sampleTemplate = `#!name=阅读偏好示例
+const sampleTemplate = `#!id=reader-preferences
+#!name=阅读偏好示例
 #!desc=声明式配置覆盖示例；当前客户端尚未实现此模块格式
 #!version=0.1.0
 #!format=veneracat-module/1-draft
+#!requires=settings-module.v1
 
 [Reader]
 page-gap = 8
@@ -28,8 +30,11 @@ func TestParseOfficialTemplateAndAllAllowlistedKeys(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse template: %v", err)
 	}
-	if mod.Meta.Name != "阅读偏好示例" || mod.Meta.Version != "0.1.0" || mod.Meta.Format != Format {
+	if mod.Meta.ID != "reader-preferences" || mod.Meta.Name != "阅读偏好示例" || mod.Meta.Version != "0.1.0" || mod.Meta.Format != Format {
 		t.Fatalf("meta = %+v", mod.Meta)
+	}
+	if len(mod.Meta.Requires) != 1 || mod.Meta.Requires[0] != Capability {
+		t.Fatalf("requires = %v, want [%s]", mod.Meta.Requires, Capability)
 	}
 	if mod.Reader.PageGap == nil || *mod.Reader.PageGap != 8 {
 		t.Fatalf("page-gap = %v", mod.Reader.PageGap)
@@ -154,6 +159,21 @@ func TestParseRejectsUnknownAndSurgeDirectives(t *testing.T) {
 			raw:  "#!name=A\n#!version=1\n[Reader]\n#!format=veneracat-module/1-draft\npage-gap = 4\n",
 			want: ErrInvalidFormat,
 		},
+		{
+			name: "invalid id header",
+			raw:  "#!id=../escape\n#!name=A\n#!version=1\n#!format=veneracat-module/1-draft\n[Reader]\npage-gap = 4\n",
+			want: ErrInvalidID,
+		},
+		{
+			name: "unsupported requires capability",
+			raw:  "#!name=A\n#!version=1\n#!format=veneracat-module/1-draft\n#!requires=future-cap.v2\n[Reader]\npage-gap = 4\n",
+			want: ErrUnsupportedCapability,
+		},
+		{
+			name: "forbidden requires capability",
+			raw:  "#!name=A\n#!version=1\n#!format=veneracat-module/1-draft\n#!requires=mitm.v1\n[Reader]\npage-gap = 4\n",
+			want: ErrForbiddenDirective,
+		},
 	}
 
 	for _, tc := range cases {
@@ -179,12 +199,13 @@ func TestManagerLifecycleStackingAndCleanWithdrawal(t *testing.T) {
 	baseSnapshot := base
 
 	sum := sha256.Sum256([]byte(sampleTemplate))
-	rec1, err := mgr.Install("reader.base", "collection:veneracat.official/reader-preferences", hex.EncodeToString(sum[:]), []byte(sampleTemplate))
+	// Empty install ID derives from #!id=reader-preferences.
+	rec1, err := mgr.Install("", "collection:veneracat.official/reader-preferences", hex.EncodeToString(sum[:]), []byte(sampleTemplate))
 	if err != nil {
-		t.Fatalf("install reader.base: %v", err)
+		t.Fatalf("install reader-preferences: %v", err)
 	}
-	if rec1.Enabled {
-		t.Fatal("newly installed module should start disabled")
+	if rec1.ID != "reader-preferences" || rec1.Enabled || len(rec1.Requires) != 1 || rec1.Requires[0] != Capability {
+		t.Fatalf("unexpected record: %+v", rec1)
 	}
 
 	// Disabled module does not alter effective settings.
@@ -194,14 +215,14 @@ func TestManagerLifecycleStackingAndCleanWithdrawal(t *testing.T) {
 	}
 
 	// Enable first module.
-	if err := mgr.Enable("reader.base"); err != nil {
+	if err := mgr.Enable("reader-preferences"); err != nil {
 		t.Fatalf("enable: %v", err)
 	}
 	r1 := mgr.Resolve(base)
 	if r1.Effective.Reader.PageGap != 8 || !r1.Effective.Reader.KeepScreenOn || r1.Effective.Reader.FitWidth != 880 || r1.Effective.Reader.Theme != "light" {
 		t.Fatalf("r1 = %+v", r1)
 	}
-	if r1.Sources["Reader.page-gap"] != "reader.base" {
+	if r1.Sources["Reader.page-gap"] != "reader-preferences" {
 		t.Fatalf("sources = %+v", r1.Sources)
 	}
 
@@ -225,16 +246,16 @@ theme = dark
 	if r2.Effective.Reader.PageGap != 0 || !r2.Effective.Reader.KeepScreenOn || !r2.Effective.Reader.Spread || r2.Effective.Reader.Direction != "rtl" || r2.Effective.Reader.Theme != "dark" {
 		t.Fatalf("stacked r2 = %+v", r2)
 	}
-	if r2.Sources["Reader.page-gap"] != "reader.manga-night" || r2.Sources["Reader.keep-screen-on"] != "reader.base" {
+	if r2.Sources["Reader.page-gap"] != "reader.manga-night" || r2.Sources["Reader.keep-screen-on"] != "reader-preferences" {
 		t.Fatalf("stacked sources = %+v", r2.Sources)
 	}
 
-	// Reorder so reader.base overlays reader.manga-night: page-gap becomes 8 again.
-	if err := mgr.Reorder([]string{"reader.manga-night", "reader.base"}); err != nil {
+	// Reorder so reader-preferences overlays reader.manga-night: page-gap becomes 8 again.
+	if err := mgr.Reorder([]string{"reader.manga-night", "reader-preferences"}); err != nil {
 		t.Fatalf("reorder: %v", err)
 	}
 	r3 := mgr.Resolve(base)
-	if r3.Effective.Reader.PageGap != 8 || r3.Sources["Reader.page-gap"] != "reader.base" || r3.Effective.Reader.Theme != "dark" {
+	if r3.Effective.Reader.PageGap != 8 || r3.Sources["Reader.page-gap"] != "reader-preferences" || r3.Effective.Reader.Theme != "dark" {
 		t.Fatalf("reordered r3 = %+v", r3)
 	}
 
@@ -244,12 +265,12 @@ theme = dark
 		t.Fatalf("reopen: %v", err)
 	}
 	list := reopened.List()
-	if len(list) != 2 || list[0].ID != "reader.manga-night" || list[1].ID != "reader.base" {
+	if len(list) != 2 || list[0].ID != "reader.manga-night" || list[1].ID != "reader-preferences" {
 		t.Fatalf("reopened list = %+v", list)
 	}
 
-	// Disabling reader.base cleanly restores page-gap=0 (from reader.manga-night) and keep-screen-on=false (from base).
-	if err := reopened.Disable("reader.base"); err != nil {
+	// Disabling reader-preferences cleanly restores page-gap=0 (from reader.manga-night) and keep-screen-on=false (from base).
+	if err := reopened.Disable("reader-preferences"); err != nil {
 		t.Fatalf("disable: %v", err)
 	}
 	r4 := reopened.Resolve(base)
@@ -280,27 +301,33 @@ func TestManagerPathTraversalAndIntegrityGuards(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	noIDTemplate := "#!name=NoID\n#!version=0.1.0\n#!format=veneracat-module/1-draft\n[Reader]\npage-gap = 8\n"
 	for _, bad := range []string{"", "..", "../escape", "a/b", `a\b`, "C:foo", ".hidden", "UPPER", "a..b"} {
-		if _, err := mgr.Install(bad, "test", "", []byte(sampleTemplate)); !errors.Is(err, ErrInvalidID) {
+		if _, err := mgr.Install(bad, "test", "", []byte(noIDTemplate)); !errors.Is(err, ErrInvalidID) {
 			t.Errorf("Install(%q) error = %v, want ErrInvalidID", bad, err)
 		}
 	}
 
 	// Wrong digest refused.
-	if _, err := mgr.Install("demo", "test", strings.Repeat("0", 64), []byte(sampleTemplate)); err == nil {
+	if _, err := mgr.Install("reader-preferences", "test", strings.Repeat("0", 64), []byte(sampleTemplate)); err == nil {
 		t.Fatal("wrong digest accepted")
 	}
 
+	// Mismatched #!id vs install ID refused.
+	if _, err := mgr.Install("different-id", "test", "", []byte(sampleTemplate)); !errors.Is(err, ErrInvalidID) {
+		t.Fatalf("mismatched #!id error = %v, want ErrInvalidID", err)
+	}
+
 	// Upgrade preserves enabled state and order.
-	if _, err := mgr.Install("demo", "test", "", []byte(sampleTemplate)); err != nil {
+	if _, err := mgr.Install("reader-preferences", "test", "", []byte(sampleTemplate)); err != nil {
 		t.Fatal(err)
 	}
-	if err := mgr.Enable("demo"); err != nil {
+	if err := mgr.Enable("reader-preferences"); err != nil {
 		t.Fatal(err)
 	}
 	v2 := strings.Replace(sampleTemplate, "page-gap = 8", "page-gap = 16", 1)
 	v2 = strings.Replace(v2, "0.1.0", "0.2.0", 1)
-	rec, err := mgr.Install("demo", "test", "", []byte(v2))
+	rec, err := mgr.Install("reader-preferences", "test", "", []byte(v2))
 	if err != nil {
 		t.Fatalf("upgrade: %v", err)
 	}
@@ -312,7 +339,7 @@ func TestManagerPathTraversalAndIntegrityGuards(t *testing.T) {
 	}
 
 	// Tampered file on disk is rejected on Open.
-	if err := os.WriteFile(filepath.Join(dir, "modules", "demo.vcmodule"), []byte(sampleTemplate), 0o600); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "modules", "reader-preferences.vcmodule"), []byte(sampleTemplate), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := Open(dir); err == nil {

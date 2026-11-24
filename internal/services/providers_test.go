@@ -1,10 +1,11 @@
 package services
 
 import (
+	"bytes"
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -14,6 +15,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/laincat/nekophage/internal/vcmodule"
 	"github.com/laincat/veneracat-core/service"
 )
 
@@ -26,18 +28,22 @@ func writeZipFile(t *testing.T, dir, name string, files map[string]string) strin
 	return path
 }
 
+// traktZipFiles builds a self-contained Trakt package matching the exact
+// VeneraCat Sources (fa1efa4) contract: envelope {ok, service, method, data},
+// client_id + access_token secrets, and the 6 official methods.
 func traktZipFiles(baseURL, version string) map[string]string {
 	manifest := fmt.Sprintf(`{"id":"service.trakt","name":"Trakt","version":%q,"kind":"service.js","entry":"index.mjs","permissions":["network","storage","secrets"]}`, version)
 	entry := fmt.Sprintf(`const BASE = %q;
+function ok(method, data) { return { ok: true, service: "service.trakt", method, data }; }
 export function describe() {
   return {
     methods: [
-      { name: "account.me", title: "当前账号" },
-      { name: "metadata.search", title: "搜索条目" },
-      { name: "metadata.detail", title: "条目详情" },
-      { name: "watchlist.list", title: "想看列表" },
-      { name: "watchlist.update", title: "更新想看" },
-      { name: "scrobble", title: "播放进度同步" }
+      { name: "account.me", title: "账号信息 / Account Profile" },
+      { name: "metadata.search", title: "条目搜索 / Search Media" },
+      { name: "watchlist.list", title: "片单列表 / Watchlist" },
+      { name: "history.list", title: "观看历史 / Watch History" },
+      { name: "scrobble.start", title: "开始播放上报 / Start Scrobble" },
+      { name: "scrobble.stop", title: "结束播放上报 / Stop Scrobble" }
     ]
   };
 }
@@ -45,89 +51,155 @@ export function handle(method, rawPayload) {
   const payload = rawPayload ? JSON.parse(rawPayload) : {};
   switch (method) {
     case "account.me": {
+      const cid = secret("client_id");
       const tok = secret("access_token");
-      log("info", "trakt auth check with " + tok);
-      return JSON.parse(fetch(BASE + "/trakt/me?token=" + encodeURIComponent(tok)));
+      log("info", "trakt auth check cid=" + cid + " tok=" + tok);
+      const body = JSON.parse(fetch(BASE + "/users/settings?cid=" + encodeURIComponent(cid) + "&token=" + encodeURIComponent(tok)));
+      return ok("account.me", { username: body.user.username, slug: body.user.ids.slug, name: body.user.name, private: false, vip: true, vipEp: false });
     }
-    case "metadata.search":
-      return JSON.parse(fetch(BASE + "/trakt/search?q=" + encodeURIComponent(payload.query || "")));
-    case "metadata.detail":
-      return JSON.parse(fetch(BASE + "/trakt/detail?id=" + encodeURIComponent(payload.id || "")));
+    case "metadata.search": {
+      const cid = secret("client_id");
+      const type = payload.type || "movie,show";
+      const rows = JSON.parse(fetch(BASE + "/search/" + type + "?query=" + encodeURIComponent(payload.query || "") + "&cid=" + encodeURIComponent(cid)));
+      return ok("metadata.search", {
+        query: payload.query || "",
+        type,
+        page: payload.page || 1,
+        limit: payload.limit || 20,
+        items: rows.map(r => ({ type: r.type, score: r.score, title: r.show.title, year: r.show.year, ids: r.show.ids }))
+      });
+    }
     case "watchlist.list": {
+      const cid = secret("client_id");
       const tok = secret("access_token");
-      return JSON.parse(fetch(BASE + "/trakt/watchlist?token=" + encodeURIComponent(tok)));
+      const rows = JSON.parse(fetch(BASE + "/sync/watchlist?cid=" + encodeURIComponent(cid) + "&token=" + encodeURIComponent(tok)));
+      return ok("watchlist.list", {
+        type: payload.type || "all",
+        page: payload.page || 1,
+        limit: payload.limit || 20,
+        items: rows.map(r => ({ id: r.id, rank: r.rank, listedAt: r.listed_at, type: r.type, title: r.show.title, year: r.show.year, ids: r.show.ids }))
+      });
     }
-    case "watchlist.update": {
+    case "history.list": {
+      const cid = secret("client_id");
       const tok = secret("access_token");
-      return JSON.parse(fetch(BASE + "/trakt/watchlist/update?id=" + encodeURIComponent(payload.id || "") + "&action=" + encodeURIComponent(payload.action || "") + "&token=" + encodeURIComponent(tok)));
+      const rows = JSON.parse(fetch(BASE + "/sync/history?cid=" + encodeURIComponent(cid) + "&token=" + encodeURIComponent(tok)));
+      return ok("history.list", {
+        type: payload.type || "all",
+        page: payload.page || 1,
+        limit: payload.limit || 20,
+        items: rows.map(r => ({ id: r.id, watchedAt: r.watched_at, action: r.action, type: r.type, title: r.show.title, year: r.show.year, ids: r.show.ids }))
+      });
     }
-    case "scrobble": {
+    case "scrobble.start":
+    case "scrobble.stop": {
+      const cid = secret("client_id");
       const tok = secret("access_token");
-      return JSON.parse(fetch(BASE + "/trakt/scrobble?id=" + encodeURIComponent(payload.id || "") + "&action=" + encodeURIComponent(payload.action || "") + "&progress=" + encodeURIComponent(String(payload.progress || 0)) + "&token=" + encodeURIComponent(tok)));
+      const action = method.split(".")[1];
+      const res = JSON.parse(fetch(BASE + "/scrobble/" + action + "?progress=" + encodeURIComponent(String(payload.progress)) + "&cid=" + encodeURIComponent(cid) + "&token=" + encodeURIComponent(tok)));
+      return ok(method, { id: res.id, action: res.action, progress: res.progress, movie: payload.movie || null, episode: payload.episode || null });
     }
     case "leak.storage": {
       const tok = secret("access_token");
       storageSet("cached_tok", "bearer=" + tok);
-      return { ok: true };
+      return ok(method, { leaked: true });
     }
     case "leak.error": {
       const tok = secret("access_token");
       throw new Error("upstream rejected token=" + tok);
     }
     case "slow":
-      return JSON.parse(fetch(BASE + "/slow"));
+      return ok(method, JSON.parse(fetch(BASE + "/slow")));
     default:
-      throw new Error("unknown method: " + method);
+      return { ok: false, service: "service.trakt", method, error: { code: "UNSUPPORTED_METHOD", message: "unsupported: " + method } };
   }
 }
 `, baseURL)
 	return map[string]string{"service.json": manifest, "index.mjs": entry}
 }
 
+// tmdbZipFiles builds a self-contained TMDB package matching the exact
+// VeneraCat Sources (fa1efa4) contract: api_read_token OR api_key, 3 official methods.
 func tmdbZipFiles(baseURL, version string) map[string]string {
 	manifest := fmt.Sprintf(`{"id":"service.tmdb","name":"TMDB","version":%q,"kind":"service.js","entry":"index.mjs","permissions":["network","storage","secrets"]}`, version)
 	entry := fmt.Sprintf(`const BASE = %q;
+function ok(method, data) { return { ok: true, service: "service.tmdb", method, data }; }
+function readAuth() {
+  try { const v = secret("api_read_token"); if (v) return v; } catch (_) {}
+  return secret("api_key");
+}
 export function describe() {
   return {
     methods: [
-      { name: "account.me", title: "账号信息" },
-      { name: "metadata.search", title: "搜索影视" },
-      { name: "metadata.detail", title: "影视详情" },
-      { name: "watchlist.list", title: "待看片单" }
+      { name: "metadata.search", title: "多类型搜索 / Multi Search" },
+      { name: "metadata.detail", title: "影视与季集详情 / Media & Season Detail" },
+      { name: "artwork.list", title: "海报与背景图集 / Artwork Gallery" }
     ]
   };
 }
 export function handle(method, rawPayload) {
   const payload = rawPayload ? JSON.parse(rawPayload) : {};
-  const tok = secret("api_read_token");
+  const tok = readAuth();
   switch (method) {
-    case "account.me":
-      return JSON.parse(fetch(BASE + "/tmdb/me?token=" + encodeURIComponent(tok)));
-    case "metadata.search":
-      return JSON.parse(fetch(BASE + "/tmdb/search?q=" + encodeURIComponent(payload.query || "") + "&token=" + encodeURIComponent(tok)));
-    case "metadata.detail":
-      return JSON.parse(fetch(BASE + "/tmdb/detail?id=" + encodeURIComponent(payload.id || "") + "&token=" + encodeURIComponent(tok)));
-    case "watchlist.list":
-      return JSON.parse(fetch(BASE + "/tmdb/watchlist?token=" + encodeURIComponent(tok)));
+    case "metadata.search": {
+      const mt = payload.mediaType || "multi";
+      const body = JSON.parse(fetch(BASE + "/3/search/" + mt + "?query=" + encodeURIComponent(payload.query || "") + "&api_key=" + encodeURIComponent(tok)));
+      return ok("metadata.search", {
+        query: payload.query || "",
+        mediaType: mt,
+        language: payload.language || "zh-CN",
+        page: body.page,
+        totalPages: body.total_pages,
+        totalResults: body.total_results,
+        items: body.results.map(x => ({ id: x.id, mediaType: x.media_type || mt, title: x.title || x.name, originalTitle: x.original_name || "", overview: x.overview || "" }))
+      });
+    }
+    case "metadata.detail": {
+      const body = JSON.parse(fetch(BASE + "/3/" + payload.mediaType + "/" + payload.id + "?api_key=" + encodeURIComponent(tok)));
+      return ok("metadata.detail", {
+        id: body.id,
+        mediaType: payload.mediaType,
+        title: body.name || body.title,
+        numberOfSeasons: body.number_of_seasons,
+        numberOfEpisodes: body.number_of_episodes,
+        genres: body.genres || []
+      });
+    }
+    case "artwork.list": {
+      const body = JSON.parse(fetch(BASE + "/3/" + payload.mediaType + "/" + payload.id + "/images?api_key=" + encodeURIComponent(tok)));
+      return ok("artwork.list", {
+        id: body.id,
+        mediaType: payload.mediaType,
+        baseUrl: "https://image.tmdb.org/t/p/",
+        posters: body.posters.map(p => ({ filePath: p.file_path, url: "https://image.tmdb.org/t/p/original" + p.file_path, width: p.width, height: p.height })),
+        backdrops: [],
+        logos: [],
+        stills: []
+      });
+    }
     default:
-      throw new Error("unknown method: " + method);
+      return { ok: false, service: "service.tmdb", method, error: { code: "UNSUPPORTED_METHOD", message: "unsupported: " + method } };
   }
 }
 `, baseURL)
 	return map[string]string{"service.json": manifest, "index.mjs": entry}
 }
 
+// bangumiZipFiles builds a self-contained Bangumi package matching the exact
+// VeneraCat Sources (fa1efa4) contract: 6 official methods.
 func bangumiZipFiles(baseURL, version string) map[string]string {
 	manifest := fmt.Sprintf(`{"id":"service.bangumi","name":"Bangumi","version":%q,"kind":"service.js","entry":"index.mjs","permissions":["network","storage","secrets"]}`, version)
 	entry := fmt.Sprintf(`const BASE = %q;
+function ok(method, data) { return { ok: true, service: "service.bangumi", method, data }; }
 export function describe() {
   return {
     methods: [
-      { name: "account.me", title: "Bangumi 账号" },
-      { name: "metadata.search", title: "搜索条目" },
-      { name: "metadata.detail", title: "条目详情" },
-      { name: "collection.list", title: "收藏列表" },
-      { name: "collection.update", title: "更新收藏进度" }
+      { name: "account.me", title: "账号自检 / Account Profile" },
+      { name: "metadata.search", title: "条目搜索 / Search Subjects" },
+      { name: "metadata.detail", title: "条目详情 / Subject Detail" },
+      { name: "collection.get", title: "读取收藏 / Get Collection" },
+      { name: "collection.update", title: "更新收藏 / Update Collection" },
+      { name: "episode.update", title: "更新章节进度 / Update Episode Progress" }
     ]
   };
 }
@@ -136,22 +208,54 @@ export function handle(method, rawPayload) {
   switch (method) {
     case "account.me": {
       const tok = secret("access_token");
-      return JSON.parse(fetch(BASE + "/bgm/me?token=" + encodeURIComponent(tok)));
+      const u = JSON.parse(fetch(BASE + "/v0/me?token=" + encodeURIComponent(tok)));
+      return ok("account.me", { id: u.id, username: u.username, nickname: u.nickname, url: "https://bgm.tv/user/" + u.username });
     }
-    case "metadata.search":
-      return JSON.parse(fetch(BASE + "/bgm/search?q=" + encodeURIComponent(payload.query || "")));
-    case "metadata.detail":
-      return JSON.parse(fetch(BASE + "/bgm/detail?id=" + encodeURIComponent(payload.id || "")));
-    case "collection.list": {
-      const tok = secret("access_token");
-      return JSON.parse(fetch(BASE + "/bgm/collection?token=" + encodeURIComponent(tok)));
+    case "metadata.search": {
+      const kw = payload.keyword || payload.query || "";
+      const body = JSON.parse(fetch(BASE + "/v0/search/subjects?keyword=" + encodeURIComponent(kw)));
+      return ok("metadata.search", {
+        keyword: kw,
+        items: body.data.map(s => ({ id: s.id, type: s.type, name: s.name, nameCn: s.name_cn, eps: s.eps })),
+        total: body.total,
+        limit: 20,
+        offset: 0,
+        fallbackUsed: false
+      });
+    }
+    case "metadata.detail": {
+      const id = payload.subjectId || payload.id;
+      const s = JSON.parse(fetch(BASE + "/v0/subjects/" + id));
+      return ok("metadata.detail", { id: s.id, type: s.type, name: s.name, nameCn: s.name_cn, eps: s.eps, totalEpisodes: s.total_episodes });
+    }
+    case "collection.get": {
+      let username = payload.username || "";
+      if (!username) {
+        const tok = secret("access_token");
+        const u = JSON.parse(fetch(BASE + "/v0/me?token=" + encodeURIComponent(tok)));
+        username = u.username;
+      }
+      const body = JSON.parse(fetch(BASE + "/v0/users/" + username + "/collections"));
+      return ok("collection.get", {
+        username,
+        items: body.data.map(x => ({ subjectId: x.subject_id, subjectType: x.subject_type, type: x.type, rate: x.rate, epStatus: x.ep_status })),
+        total: body.total,
+        limit: 30,
+        offset: 0
+      });
     }
     case "collection.update": {
       const tok = secret("access_token");
-      return JSON.parse(fetch(BASE + "/bgm/collection/update?id=" + encodeURIComponent(payload.id || "") + "&status=" + encodeURIComponent(payload.status || "") + "&progress=" + encodeURIComponent(String(payload.progress || 0)) + "&token=" + encodeURIComponent(tok)));
+      fetch(BASE + "/v0/users/-/collections/" + payload.subjectId + "?token=" + encodeURIComponent(tok));
+      return ok("collection.update", { subjectId: payload.subjectId, updated: true, payload: { type: payload.type, ep_status: payload.epStatus } });
+    }
+    case "episode.update": {
+      const tok = secret("access_token");
+      fetch(BASE + "/v0/users/-/collections/-/episodes/" + payload.episodeId + "?token=" + encodeURIComponent(tok));
+      return ok("episode.update", { mode: "single", episodeId: payload.episodeId, type: 2, updated: true });
     }
     default:
-      throw new Error("unknown method: " + method);
+      return { ok: false, service: "service.bangumi", method, error: { code: "UNSUPPORTED_METHOD", message: "unsupported: " + method } };
   }
 }
 `, baseURL)
@@ -169,84 +273,53 @@ func newStubProviderServer(t *testing.T) (*httptest.Server, chan struct{}, *stri
 		mu.Unlock()
 		w.Header().Set("Content-Type", "application/json")
 		switch r.URL.Path {
-		case "/trakt/me":
-			if r.URL.Query().Get("token") != "trakt-secret-999" {
+		case "/users/settings":
+			if r.URL.Query().Get("cid") != "trakt-cid-123" || r.URL.Query().Get("token") != "trakt-secret-999" {
 				http.Error(w, `{"error":"unauthorized"}`, http.StatusUnauthorized)
 				return
 			}
-			_ = json.NewEncoder(w).Encode(AccountProfile{ID: "u-trakt", Username: "lain", DisplayName: "Lain", Provider: "trakt"})
-		case "/trakt/search":
-			_ = json.NewEncoder(w).Encode(MetadataSearchResult{
-				Page: 1, TotalPages: 1, TotalResults: 1,
-				Items: []MetadataItem{{ID: "trakt-42", MediaType: "show", Title: "Serial Experiments Lain", Year: 1998}},
-			})
-		case "/trakt/detail":
-			_ = json.NewEncoder(w).Encode(MetadataDetail{
-				MetadataItem: MetadataItem{ID: r.URL.Query().Get("id"), MediaType: "show", Title: "Serial Experiments Lain", Year: 1998},
-				Episodes:     13, Status: "ended",
-			})
-		case "/trakt/watchlist":
-			if r.URL.Query().Get("token") != "trakt-secret-999" {
+			_, _ = w.Write([]byte(`{"user":{"username":"lain","name":"Lain Iwakura","ids":{"slug":"lain-slug"}}}`))
+		case "/search/show", "/search/movie,show":
+			if r.URL.Query().Get("cid") != "trakt-cid-123" {
+				http.Error(w, `{"error":"missing client_id"}`, http.StatusForbidden)
+				return
+			}
+			_, _ = w.Write([]byte(`[{"type":"show","score":98.5,"show":{"title":"Serial Experiments Lain","year":1998,"ids":{"trakt":42,"slug":"serial-experiments-lain"}}}]`))
+		case "/sync/watchlist":
+			_, _ = w.Write([]byte(`[{"id":701,"rank":1,"listed_at":"2026-11-24T00:00:00Z","type":"show","show":{"title":"Serial Experiments Lain","year":1998,"ids":{"trakt":42}}}]`))
+		case "/sync/history":
+			_, _ = w.Write([]byte(`[{"id":801,"watched_at":"2026-11-24T12:00:00Z","action":"scrobble","type":"show","show":{"title":"Serial Experiments Lain","year":1998,"ids":{"trakt":42}}}]`))
+		case "/scrobble/start":
+			_, _ = w.Write([]byte(`{"id":901,"action":"start","progress":12.5}`))
+		case "/scrobble/stop":
+			_, _ = w.Write([]byte(`{"id":902,"action":"stop","progress":95.0}`))
+		case "/3/search/tv", "/3/search/multi":
+			key := r.URL.Query().Get("api_key")
+			if key != "tmdb-read-secret-777" && key != "tmdb-apikey-888" {
 				http.Error(w, `{"error":"unauthorized"}`, http.StatusUnauthorized)
 				return
 			}
-			_ = json.NewEncoder(w).Encode(WatchlistResult{
-				Total: 1,
-				Items: []WatchlistItem{{ID: "trakt-42", MediaType: "show", Title: "Serial Experiments Lain"}},
-			})
-		case "/trakt/watchlist/update":
-			_ = json.NewEncoder(w).Encode(WatchlistMutationResult{OK: true, ID: r.URL.Query().Get("id"), Action: r.URL.Query().Get("action")})
-		case "/trakt/scrobble":
-			_ = json.NewEncoder(w).Encode(ScrobbleResult{OK: true, ID: r.URL.Query().Get("id"), Action: r.URL.Query().Get("action"), Progress: 85.5})
-		case "/tmdb/me":
-			if r.URL.Query().Get("token") != "tmdb-read-secret-777" {
-				http.Error(w, `{"error":"unauthorized"}`, http.StatusUnauthorized)
-				return
-			}
-			_ = json.NewEncoder(w).Encode(AccountProfile{ID: "u-tmdb", Username: "tmdb_user", Provider: "tmdb"})
-		case "/tmdb/search":
-			if r.URL.Query().Get("token") != "tmdb-read-secret-777" {
-				http.Error(w, `{"error":"unauthorized"}`, http.StatusUnauthorized)
-				return
-			}
-			_ = json.NewEncoder(w).Encode(MetadataSearchResult{
-				Page: 1, TotalResults: 1,
-				Items: []MetadataItem{{ID: "1396", MediaType: "tv", Title: "绝命毒师", Year: 2008}},
-			})
-		case "/tmdb/detail":
-			_ = json.NewEncoder(w).Encode(MetadataDetail{
-				MetadataItem: MetadataItem{ID: r.URL.Query().Get("id"), MediaType: "tv", Title: "绝命毒师", Year: 2008},
-				Seasons:      5, Episodes: 62,
-			})
-		case "/tmdb/watchlist":
-			_ = json.NewEncoder(w).Encode(WatchlistResult{Total: 1, Items: []WatchlistItem{{ID: "1396", MediaType: "tv", Title: "绝命毒师"}}})
-		case "/bgm/me":
+			_, _ = w.Write([]byte(`{"page":1,"total_pages":1,"total_results":1,"results":[{"id":1396,"media_type":"tv","name":"绝命毒师","original_name":"Breaking Bad","overview":"chemistry"}]}`))
+		case "/3/tv/1396":
+			_, _ = w.Write([]byte(`{"id":1396,"name":"绝命毒师","number_of_seasons":5,"number_of_episodes":62,"genres":[{"id":18,"name":"剧情"}]}`))
+		case "/3/tv/1396/images":
+			_, _ = w.Write([]byte(`{"id":1396,"posters":[{"file_path":"/ggFHVNu6YYI5L9pCfOacjizRGt.jpg","width":1000,"height":1500}]}`))
+		case "/v0/me":
 			if r.URL.Query().Get("token") != "bgm-pat-secret-555" {
 				http.Error(w, `{"error":"unauthorized"}`, http.StatusUnauthorized)
 				return
 			}
-			_ = json.NewEncoder(w).Encode(AccountProfile{ID: "1001", Username: "nekocat", DisplayName: "猫猫", Provider: "bangumi"})
-		case "/bgm/search":
-			_ = json.NewEncoder(w).Encode(MetadataSearchResult{
-				Page: 1, TotalResults: 1,
-				Items: []MetadataItem{{ID: "328609", MediaType: "anime", Title: "孤独摇滚！", Year: 2022}},
-			})
-		case "/bgm/detail":
-			_ = json.NewEncoder(w).Encode(MetadataDetail{
-				MetadataItem: MetadataItem{ID: r.URL.Query().Get("id"), MediaType: "anime", Title: "孤独摇滚！", Year: 2022},
-				Episodes:     12, Status: "finished",
-			})
-		case "/bgm/collection":
-			if r.URL.Query().Get("token") != "bgm-pat-secret-555" {
-				http.Error(w, `{"error":"unauthorized"}`, http.StatusUnauthorized)
-				return
-			}
-			_ = json.NewEncoder(w).Encode(CollectionListResult{
-				Total: 1,
-				Items: []CollectionEntry{{ID: "328609", MediaType: "anime", Title: "孤独摇滚！", Status: "watching", Progress: 8, Total: 12, Score: 9.5}},
-			})
-		case "/bgm/collection/update":
-			_ = json.NewEncoder(w).Encode(CollectionUpdateResult{OK: true, ID: r.URL.Query().Get("id"), Status: r.URL.Query().Get("status"), Progress: 9})
+			_, _ = w.Write([]byte(`{"id":1001,"username":"nekocat","nickname":"猫猫"}`))
+		case "/v0/search/subjects":
+			_, _ = w.Write([]byte(`{"total":1,"data":[{"id":328609,"type":2,"name":"ぼっち・ざ・ろっく！","name_cn":"孤独摇滚！","eps":12}]}`))
+		case "/v0/subjects/328609":
+			_, _ = w.Write([]byte(`{"id":328609,"type":2,"name":"ぼっち・ざ・ろっく！","name_cn":"孤独摇滚！","eps":12,"total_episodes":12}`))
+		case "/v0/users/nekocat/collections":
+			_, _ = w.Write([]byte(`{"total":1,"data":[{"subject_id":328609,"subject_type":2,"type":3,"rate":9,"ep_status":8}]}`))
+		case "/v0/users/-/collections/328609":
+			_, _ = w.Write([]byte(`{}`))
+		case "/v0/users/-/collections/-/episodes/110001":
+			_, _ = w.Write([]byte(`{}`))
 		case "/slow":
 			select {
 			case slowStarted <- struct{}{}:
@@ -267,9 +340,9 @@ func TestTraktTMDBBangumiEndToEndTypedAdaptersAndUpgrade(t *testing.T) {
 	dataDir := t.TempDir()
 	zipDir := t.TempDir()
 
-	traktZip := writeZipFile(t, zipDir, "trakt-v1.zip", traktZipFiles(srv.URL, "1.0.0"))
-	tmdbZip := writeZipFile(t, zipDir, "tmdb-v1.zip", tmdbZipFiles(srv.URL, "1.0.0"))
-	bgmZip := writeZipFile(t, zipDir, "bangumi-v1.zip", bangumiZipFiles(srv.URL, "1.0.0"))
+	traktZip := writeZipFile(t, zipDir, "trakt-v1.zip", traktZipFiles(srv.URL, "0.1.0"))
+	tmdbZip := writeZipFile(t, zipDir, "tmdb-v1.zip", tmdbZipFiles(srv.URL, "0.1.0"))
+	bgmZip := writeZipFile(t, zipDir, "bangumi-v1.zip", bangumiZipFiles(srv.URL, "0.1.0"))
 
 	recT, reportT, err := InstallZipFile(ctx, dataDir, traktZip, ServiceIDTrakt)
 	if err != nil {
@@ -302,91 +375,95 @@ func TestTraktTMDBBangumiEndToEndTypedAdaptersAndUpgrade(t *testing.T) {
 	}
 	defer trakt.Close()
 
-	// Missing secret must fail clearly naming access_token.
-	if _, err := trakt.AccountMe(ctx); !errors.Is(err, ErrMissingSecrets) || !strings.Contains(err.Error(), SecretKeyAccessToken) {
-		t.Fatalf("missing secret error = %v, want ErrMissingSecrets(access_token)", err)
+	// Trakt metadata.search requires client_id; missing must report client_id.
+	if _, err := trakt.MetadataSearch(ctx, TraktSearchRequest{Query: "lain"}); !errors.Is(err, ErrMissingSecrets) || !strings.Contains(err.Error(), SecretKeyClientID) {
+		t.Fatalf("missing client_id error = %v", err)
 	}
-
-	// Store isolated Trakt token and run full typed workflow.
+	if err := trakt.SetAccount(ctx, SecretKeyClientID, "trakt-cid-123"); err != nil {
+		t.Fatal(err)
+	}
+	// account.me still requires access_token in addition to client_id.
+	if _, err := trakt.AccountMe(ctx); !errors.Is(err, ErrMissingSecrets) || !strings.Contains(err.Error(), SecretKeyAccessToken) {
+		t.Fatalf("missing access_token error = %v", err)
+	}
 	if err := trakt.SetAccount(ctx, SecretKeyAccessToken, "trakt-secret-999"); err != nil {
 		t.Fatal(err)
 	}
+
 	methods, err := trakt.Describe(ctx)
 	if err != nil || len(methods) != 6 {
 		t.Fatalf("trakt describe = %+v (%v)", methods, err)
 	}
 	me, err := trakt.AccountMe(ctx)
-	if err != nil || me.Username != "lain" {
+	if err != nil || me.Username != "lain" || me.Slug != "lain-slug" {
 		t.Fatalf("trakt account.me = %+v (%v)", me, err)
 	}
 	if *lastUA != "Nekophage-Test/1.0" {
 		t.Fatalf("User-Agent = %q, want Nekophage-Test/1.0", *lastUA)
 	}
-	search, err := trakt.MetadataSearch(ctx, MetadataQuery{Query: "lain", MediaType: "show"})
-	if err != nil || len(search.Items) != 1 || search.Items[0].ID != "trakt-42" {
+	search, err := trakt.MetadataSearch(ctx, TraktSearchRequest{Query: "lain", Type: "show"})
+	if err != nil || len(search.Items) != 1 || search.Items[0].Title != "Serial Experiments Lain" {
 		t.Fatalf("trakt search = %+v (%v)", search, err)
 	}
-	detail, err := trakt.MetadataDetail(ctx, MetadataDetailRequest{ID: "trakt-42", MediaType: "show"})
-	if err != nil || detail.Episodes != 13 {
-		t.Fatalf("trakt detail = %+v (%v)", detail, err)
-	}
-	wl, err := trakt.Watchlist(ctx, WatchlistRequest{MediaType: "show"})
-	if err != nil || len(wl.Items) != 1 {
+	wl, err := trakt.Watchlist(ctx, TraktWatchlistRequest{Type: "shows"})
+	if err != nil || len(wl.Items) != 1 || wl.Items[0].ID != 701 {
 		t.Fatalf("trakt watchlist = %+v (%v)", wl, err)
 	}
-	mut, err := trakt.UpdateWatchlist(ctx, WatchlistMutationRequest{ID: "trakt-42", MediaType: "show", Action: "add"})
-	if err != nil || !mut.OK || mut.Action != "add" {
-		t.Fatalf("trakt update watchlist = %+v (%v)", mut, err)
+	hist, err := trakt.History(ctx, TraktHistoryRequest{Type: "shows"})
+	if err != nil || len(hist.Items) != 1 || hist.Items[0].ID != 801 {
+		t.Fatalf("trakt history = %+v (%v)", hist, err)
 	}
-	scrob, err := trakt.Scrobble(ctx, ScrobbleRequest{ID: "trakt-42", MediaType: "show", Action: "stop", Episode: 1, Progress: 85.5})
-	if err != nil || !scrob.OK || scrob.Progress != 85.5 {
-		t.Fatalf("trakt scrobble = %+v (%v)", scrob, err)
+	scStart, err := trakt.ScrobbleStart(ctx, TraktScrobbleRequest{Progress: 12.5, Episode: map[string]any{"ids": map[string]any{"trakt": 1}}})
+	if err != nil || scStart.Action != "start" || scStart.Progress != 12.5 {
+		t.Fatalf("trakt scrobble.start = %+v (%v)", scStart, err)
+	}
+	scStop, err := trakt.ScrobbleStop(ctx, TraktScrobbleRequest{Progress: 95.0, Episode: map[string]any{"ids": map[string]any{"trakt": 1}}})
+	if err != nil || scStop.Action != "stop" || scStop.Progress != 95.0 {
+		t.Fatalf("trakt scrobble.stop = %+v (%v)", scStop, err)
 	}
 
-	// Verify log redaction: token must NEVER appear in host logs.
+	// Verify log redaction: neither client_id nor access_token may appear in host logs.
 	logMu.Lock()
 	joinedLogs := strings.Join(capturedLogs, "\n")
 	logMu.Unlock()
-	if strings.Contains(joinedLogs, "trakt-secret-999") || !strings.Contains(joinedLogs, "[REDACTED]") {
+	if strings.Contains(joinedLogs, "trakt-secret-999") || strings.Contains(joinedLogs, "trakt-cid-123") || !strings.Contains(joinedLogs, "[REDACTED]") {
 		t.Fatalf("secret leaked or not redacted in logs: %q", joinedLogs)
 	}
 
-	// Upgrade Trakt zip to v2 and confirm isolated account secret is preserved.
-	traktZipV2 := writeZipFile(t, zipDir, "trakt-v2.zip", traktZipFiles(srv.URL, "2.0.0"))
+	// Upgrade Trakt zip to 0.2.0 and confirm both isolated secrets survive upgrade.
+	traktZipV2 := writeZipFile(t, zipDir, "trakt-v2.zip", traktZipFiles(srv.URL, "0.2.0"))
 	recV2, reportV2, err := InstallZipFile(ctx, dataDir, traktZipV2, ServiceIDTrakt)
 	if err != nil {
 		t.Fatalf("upgrade trakt: %v", err)
 	}
-	if recV2.Version != "2.0.0" || recV2.Accounts != 1 || len(reportV2.Denied) != 0 {
+	if recV2.Version != "0.2.0" || recV2.Accounts != 2 || len(reportV2.Denied) != 0 {
 		t.Fatalf("upgraded trakt rec=%+v report=%+v", recV2, reportV2)
 	}
 
-	// TMDB typed workflow.
+	// TMDB typed workflow: verify api_read_token OR api_key fallback.
 	tmdb, err := NewTMDBClient(dataDir, opts)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer tmdb.Close()
-	if _, err := tmdb.MetadataSearch(ctx, MetadataQuery{Query: "breaking"}); !errors.Is(err, ErrMissingSecrets) || !strings.Contains(err.Error(), SecretKeyAPIReadToken) {
+	if _, err := tmdb.MetadataSearch(ctx, TMDBSearchRequest{Query: "毒师"}); !errors.Is(err, ErrMissingSecrets) || !strings.Contains(err.Error(), SecretKeyAPIReadToken) || !strings.Contains(err.Error(), SecretKeyAPIKey) {
 		t.Fatalf("tmdb missing secret = %v", err)
 	}
-	if err := tmdb.SetAccount(ctx, SecretKeyAPIReadToken, "tmdb-read-secret-777"); err != nil {
+	// Configure api_key only (without api_read_token) and verify calls succeed.
+	if err := tmdb.SetAccount(ctx, SecretKeyAPIKey, "tmdb-apikey-888"); err != nil {
 		t.Fatal(err)
 	}
-	if m, err := tmdb.Describe(ctx); err != nil || len(m) != 4 {
+	if m, err := tmdb.Describe(ctx); err != nil || len(m) != 3 {
 		t.Fatalf("tmdb describe = %+v (%v)", m, err)
 	}
-	if me, err := tmdb.AccountMe(ctx); err != nil || me.Username != "tmdb_user" {
-		t.Fatalf("tmdb me = %+v (%v)", me, err)
-	}
-	if res, err := tmdb.MetadataSearch(ctx, MetadataQuery{Query: "毒师"}); err != nil || len(res.Items) != 1 || res.Items[0].Title != "绝命毒师" {
+	if res, err := tmdb.MetadataSearch(ctx, TMDBSearchRequest{Query: "毒师", MediaType: "tv"}); err != nil || len(res.Items) != 1 || res.Items[0].ID != 1396 || res.Items[0].Title != "绝命毒师" {
 		t.Fatalf("tmdb search = %+v (%v)", res, err)
 	}
-	if d, err := tmdb.MetadataDetail(ctx, MetadataDetailRequest{ID: "1396"}); err != nil || d.Seasons != 5 {
+	if d, err := tmdb.MetadataDetail(ctx, TMDBDetailRequest{ID: 1396, MediaType: "tv"}); err != nil || d.NumberOfSeasons == nil || *d.NumberOfSeasons != 5 || len(d.Genres) != 1 {
 		t.Fatalf("tmdb detail = %+v (%v)", d, err)
 	}
-	if wl, err := tmdb.Watchlist(ctx, WatchlistRequest{}); err != nil || len(wl.Items) != 1 {
-		t.Fatalf("tmdb watchlist = %+v (%v)", wl, err)
+	if art, err := tmdb.ArtworkList(ctx, TMDBArtworkRequest{ID: 1396, MediaType: "tv"}); err != nil || len(art.Posters) != 1 || !strings.HasPrefix(*art.Posters[0].URL, "https://image.tmdb.org/") {
+		t.Fatalf("tmdb artwork = %+v (%v)", art, err)
 	}
 
 	// Bangumi typed workflow.
@@ -395,29 +472,34 @@ func TestTraktTMDBBangumiEndToEndTypedAdaptersAndUpgrade(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer bgm.Close()
-	if _, err := bgm.Collection(ctx, CollectionListRequest{}); !errors.Is(err, ErrMissingSecrets) {
-		t.Fatalf("bgm missing secret = %v", err)
+	if _, err := bgm.CollectionGet(ctx, BangumiCollectionGetRequest{}); !errors.Is(err, ErrMissingSecrets) {
+		t.Fatalf("bgm collection.get without username or token = %v", err)
+	}
+	// Public collection.get with explicit username works without token.
+	if col, err := bgm.CollectionGet(ctx, BangumiCollectionGetRequest{Username: "nekocat"}); err != nil || len(col.Items) != 1 || col.Items[0].SubjectID != 328609 {
+		t.Fatalf("bgm public collection.get = %+v (%v)", col, err)
 	}
 	if err := bgm.SetAccount(ctx, SecretKeyAccessToken, "bgm-pat-secret-555"); err != nil {
 		t.Fatal(err)
 	}
-	if m, err := bgm.Describe(ctx); err != nil || len(m) != 5 {
+	if m, err := bgm.Describe(ctx); err != nil || len(m) != 6 {
 		t.Fatalf("bgm describe = %+v (%v)", m, err)
 	}
-	if me, err := bgm.AccountMe(ctx); err != nil || me.Username != "nekocat" {
+	if me, err := bgm.AccountMe(ctx); err != nil || me.ID != 1001 || me.Username != "nekocat" {
 		t.Fatalf("bgm me = %+v (%v)", me, err)
 	}
-	if res, err := bgm.MetadataSearch(ctx, MetadataQuery{Query: "孤独摇滚"}); err != nil || len(res.Items) != 1 || res.Items[0].ID != "328609" {
+	if res, err := bgm.MetadataSearch(ctx, BangumiSearchRequest{Keyword: "孤独摇滚"}); err != nil || len(res.Items) != 1 || res.Items[0].ID != 328609 {
 		t.Fatalf("bgm search = %+v (%v)", res, err)
 	}
-	if d, err := bgm.MetadataDetail(ctx, MetadataDetailRequest{ID: "328609"}); err != nil || d.Episodes != 12 {
+	if d, err := bgm.MetadataDetail(ctx, BangumiDetailRequest{SubjectID: 328609}); err != nil || d.TotalEpisodes == nil || *d.TotalEpisodes != 12 {
 		t.Fatalf("bgm detail = %+v (%v)", d, err)
 	}
-	if col, err := bgm.Collection(ctx, CollectionListRequest{Status: "watching"}); err != nil || len(col.Items) != 1 || col.Items[0].Progress != 8 {
-		t.Fatalf("bgm collection = %+v (%v)", col, err)
+	epStat := 9
+	if upd, err := bgm.CollectionUpdate(ctx, BangumiCollectionUpdateRequest{SubjectID: 328609, Type: "doing", EpStatus: &epStat}); err != nil || !upd.Updated {
+		t.Fatalf("bgm collection.update = %+v (%v)", upd, err)
 	}
-	if upd, err := bgm.UpdateCollection(ctx, CollectionUpdateRequest{ID: "328609", Status: "watching", Progress: 9}); err != nil || !upd.OK || upd.Progress != 9 {
-		t.Fatalf("bgm update = %+v (%v)", upd, err)
+	if epUpd, err := bgm.EpisodeUpdate(ctx, BangumiEpisodeUpdateRequest{EpisodeID: 110001, Type: "done"}); err != nil || !epUpd.Updated || epUpd.EpisodeID != 110001 {
+		t.Fatalf("bgm episode.update = %+v (%v)", epUpd, err)
 	}
 }
 
@@ -425,13 +507,13 @@ func TestPermissionTrimmingAndStrictDenial(t *testing.T) {
 	ctx := context.Background()
 	srv, _, _ := newStubProviderServer(t)
 	dataDir := t.TempDir()
-	zipPath := writeZipFile(t, t.TempDir(), "trakt.zip", traktZipFiles(srv.URL, "1.0.0"))
-	if _, _, err := InstallZipFile(ctx, dataDir, zipPath, ServiceIDTrakt); err != nil {
+	zipPath := writeZipFile(t, t.TempDir(), "bangumi.zip", bangumiZipFiles(srv.URL, "0.1.0"))
+	if _, _, err := InstallZipFile(ctx, dataDir, zipPath, ServiceIDBangumi); err != nil {
 		t.Fatal(err)
 	}
 
 	// Trim secrets permission while allowing network + storage.
-	trimmed, err := NewTraktClient(dataDir, HostOptions{
+	trimmed, err := NewBangumiClient(dataDir, HostOptions{
 		AllowedPermissions: []service.Permission{service.PermissionNetwork, service.PermissionStorage},
 	})
 	if err != nil {
@@ -447,7 +529,7 @@ func TestPermissionTrimmingAndStrictDenial(t *testing.T) {
 		t.Fatalf("report = %+v, want denied=[secrets]", report)
 	}
 	// Public metadata search still succeeds.
-	if res, err := trimmed.MetadataSearch(ctx, MetadataQuery{Query: "lain"}); err != nil || len(res.Items) != 1 {
+	if res, err := trimmed.MetadataSearch(ctx, BangumiSearchRequest{Keyword: "孤独摇滚"}); err != nil || len(res.Items) != 1 {
 		t.Fatalf("search under trimmed secrets = %+v (%v)", res, err)
 	}
 	// Authenticated call must fail explicitly naming denied secrets permission.
@@ -461,7 +543,7 @@ func TestPermissionTrimmingAndStrictDenial(t *testing.T) {
 	}
 
 	// StrictPermissions refuses OpenWithOptions upfront when network/secrets are missing.
-	_, _, rep, err := OpenWithOptions(ctx, dataDir, ServiceIDTrakt, HostOptions{
+	_, _, rep, err := OpenWithOptions(ctx, dataDir, ServiceIDBangumi, HostOptions{
 		AllowedPermissions: []service.Permission{service.PermissionStorage},
 		StrictPermissions:  true,
 	})
@@ -474,7 +556,7 @@ func TestSecretLeakageBlockedInKVStorageAndErrors(t *testing.T) {
 	ctx := context.Background()
 	srv, _, _ := newStubProviderServer(t)
 	dataDir := t.TempDir()
-	zipPath := writeZipFile(t, t.TempDir(), "trakt.zip", traktZipFiles(srv.URL, "1.0.0"))
+	zipPath := writeZipFile(t, t.TempDir(), "trakt.zip", traktZipFiles(srv.URL, "0.1.0"))
 	if _, _, err := InstallZipFile(ctx, dataDir, zipPath, ServiceIDTrakt); err != nil {
 		t.Fatal(err)
 	}
@@ -510,7 +592,7 @@ func TestSecretLeakageBlockedInKVStorageAndErrors(t *testing.T) {
 func TestProviderTimeoutAndCancellation(t *testing.T) {
 	srv, slowStarted, _ := newStubProviderServer(t)
 	dataDir := t.TempDir()
-	zipPath := writeZipFile(t, t.TempDir(), "trakt.zip", traktZipFiles(srv.URL, "1.0.0"))
+	zipPath := writeZipFile(t, t.TempDir(), "trakt.zip", traktZipFiles(srv.URL, "0.1.0"))
 	if _, _, err := InstallZipFile(context.Background(), dataDir, zipPath, ServiceIDTrakt); err != nil {
 		t.Fatal(err)
 	}
@@ -533,6 +615,9 @@ func TestProviderTimeoutAndCancellation(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer trakt.Close()
+	if err := trakt.SetAccount(context.Background(), SecretKeyClientID, "trakt-cid-123"); err != nil {
+		t.Fatal(err)
+	}
 
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan error, 1)
@@ -556,7 +641,204 @@ func TestProviderTimeoutAndCancellation(t *testing.T) {
 	}
 
 	// After cancellation, subsequent call loads cleanly and succeeds.
-	if res, err := trakt.MetadataSearch(context.Background(), MetadataQuery{Query: "lain"}); err != nil || len(res.Items) != 1 {
+	if res, err := trakt.MetadataSearch(context.Background(), TraktSearchRequest{Query: "lain", Type: "show"}); err != nil || len(res.Items) != 1 {
 		t.Fatalf("post-cancel call = %+v (%v)", res, err)
+	}
+}
+
+type roundTripFunc func(*http.Request) (*http.Response, error)
+
+func (f roundTripFunc) RoundTrip(r *http.Request) (*http.Response, error) { return f(r) }
+
+func stubJSONResp(status int, body string) *http.Response {
+	return &http.Response{
+		StatusCode: status,
+		Status:     fmt.Sprintf("%d %s", status, http.StatusText(status)),
+		Header:     http.Header{"Content-Type": []string{"application/json"}},
+		Body:       io.NopCloser(bytes.NewBufferString(body)),
+	}
+}
+
+// TestOfficialVeneraCatSourcesArtifactsContract verifies Nekophage against the
+// actual built artifacts in the sibling `VeneraCat Sources` checkout when
+// present on disk (skipped cleanly in standalone CI checkouts).
+func TestOfficialVeneraCatSourcesArtifactsContract(t *testing.T) {
+	sourcesRoot := filepath.Join("..", "..", "..", "VeneraCat Sources")
+	modPath := filepath.Join(sourcesRoot, "templates", "modules", "reader-preferences.vcmodule")
+	traktPath := filepath.Join(sourcesRoot, "build", "packages", "service.trakt", "service.trakt.zip")
+	tmdbPath := filepath.Join(sourcesRoot, "build", "packages", "service.tmdb", "service.tmdb.zip")
+	bgmPath := filepath.Join(sourcesRoot, "build", "packages", "service.bangumi", "service.bangumi.zip")
+	for _, p := range []string{modPath, traktPath, tmdbPath, bgmPath} {
+		if _, err := os.Stat(p); err != nil {
+			t.Skipf("sibling VeneraCat Sources artifact %s unavailable: %v", p, err)
+		}
+	}
+
+	ctx := context.Background()
+	dataDir := t.TempDir()
+
+	// 1. Parse and install actual reader-preferences.vcmodule template directly.
+	mgr, err := vcmodule.Open(dataDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	modRec, err := mgr.InstallFile("", modPath)
+	if err != nil {
+		t.Fatalf("install official reader-preferences.vcmodule: %v", err)
+	}
+	if modRec.ID != "reader-preferences" || len(modRec.Requires) != 1 || modRec.Requires[0] != vcmodule.Capability {
+		t.Fatalf("official vcmodule record = %+v", modRec)
+	}
+	if err := mgr.Enable(modRec.ID); err != nil {
+		t.Fatal(err)
+	}
+	if eff := mgr.Resolve(vcmodule.DefaultSettings()).Effective.Reader; eff.PageGap != 8 || !eff.KeepScreenOn {
+		t.Fatalf("official vcmodule overlay = %+v", eff)
+	}
+
+	// 2. Install all three real built zip packages and verify describe() + typed calls
+	// against an offline RoundTripper while enforcing DefaultHosts(id) allowlists!
+	if _, _, err := InstallZipFile(ctx, dataDir, traktPath, ServiceIDTrakt); err != nil {
+		t.Fatalf("install official service.trakt.zip: %v", err)
+	}
+	if _, _, err := InstallZipFile(ctx, dataDir, tmdbPath, ServiceIDTMDB); err != nil {
+		t.Fatalf("install official service.tmdb.zip: %v", err)
+	}
+	if _, _, err := InstallZipFile(ctx, dataDir, bgmPath, ServiceIDBangumi); err != nil {
+		t.Fatalf("install official service.bangumi.zip: %v", err)
+	}
+
+	offlineTransport := roundTripFunc(func(r *http.Request) (*http.Response, error) {
+		switch r.URL.Host + r.URL.Path {
+		case "api.trakt.tv/users/settings":
+			return stubJSONResp(200, `{"user":{"username":"lain","name":"Lain","ids":{"slug":"lain"}}}`), nil
+		case "api.trakt.tv/search/show":
+			return stubJSONResp(200, `[{"type":"show","score":99,"show":{"title":"Serial Experiments Lain","year":1998,"ids":{"trakt":42}}}]`), nil
+		case "api.trakt.tv/sync/watchlist/shows":
+			return stubJSONResp(200, `[{"id":11,"rank":1,"listed_at":"2026-11-24T00:00:00Z","type":"show","show":{"title":"Serial Experiments Lain","year":1998,"ids":{"trakt":42}}}]`), nil
+		case "api.trakt.tv/sync/history/shows":
+			return stubJSONResp(200, `[{"id":22,"watched_at":"2026-11-24T01:00:00Z","action":"scrobble","type":"show","show":{"title":"Serial Experiments Lain","year":1998,"ids":{"trakt":42}}}]`), nil
+		case "api.trakt.tv/scrobble/start":
+			return stubJSONResp(200, `{"id":33,"action":"start","progress":15}`), nil
+		case "api.trakt.tv/scrobble/stop":
+			return stubJSONResp(200, `{"id":34,"action":"stop","progress":90}`), nil
+		case "api.themoviedb.org/3/search/tv":
+			return stubJSONResp(200, `{"page":1,"total_pages":1,"total_results":1,"results":[{"id":1396,"name":"绝命毒师","original_name":"Breaking Bad"}]}`), nil
+		case "api.themoviedb.org/3/tv/1396":
+			return stubJSONResp(200, `{"id":1396,"name":"绝命毒师","number_of_seasons":5,"number_of_episodes":62,"genres":[{"id":18,"name":"剧情"}]}`), nil
+		case "api.themoviedb.org/3/tv/1396/images":
+			return stubJSONResp(200, `{"id":1396,"posters":[{"file_path":"/poster.jpg","width":1000,"height":1500}]}`), nil
+		case "api.bgm.tv/v0/me":
+			return stubJSONResp(200, `{"id":1001,"username":"nekocat","nickname":"猫猫"}`), nil
+		case "api.bgm.tv/v0/search/subjects":
+			return stubJSONResp(200, `{"total":1,"limit":20,"offset":0,"data":[{"id":328609,"type":2,"name":"ぼっち・ざ・ろっく！","name_cn":"孤独摇滚！","eps":12}]}`), nil
+		case "api.bgm.tv/v0/subjects/328609":
+			return stubJSONResp(200, `{"id":328609,"type":2,"name":"ぼっち・ざ・ろっく！","name_cn":"孤独摇滚！","eps":12,"total_episodes":12}`), nil
+		case "api.bgm.tv/v0/users/nekocat/collections":
+			return stubJSONResp(200, `{"total":1,"limit":30,"offset":0,"data":[{"subject_id":328609,"subject_type":2,"type":3,"rate":9,"ep_status":8}]}`), nil
+		case "api.bgm.tv/v0/users/-/collections/328609":
+			return stubJSONResp(200, ``), nil
+		case "api.bgm.tv/v0/users/-/collections/-/episodes/110001":
+			return stubJSONResp(200, ``), nil
+		default:
+			return nil, fmt.Errorf("unexpected offline request: %s", r.URL.String())
+		}
+	})
+
+	// Official Trakt zip
+	trakt, err := NewTraktClient(dataDir, HostOptions{
+		BridgePolicy: service.BridgePolicy{Hosts: DefaultHosts(ServiceIDTrakt)},
+		Transport:    offlineTransport,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer trakt.Close()
+	if err := trakt.SetAccount(ctx, SecretKeyClientID, "official-cid"); err != nil {
+		t.Fatal(err)
+	}
+	if err := trakt.SetAccount(ctx, SecretKeyAccessToken, "official-tok"); err != nil {
+		t.Fatal(err)
+	}
+	if m, err := trakt.Describe(ctx); err != nil || len(m) != 6 {
+		t.Fatalf("official trakt describe = %+v (%v)", m, err)
+	}
+	if me, err := trakt.AccountMe(ctx); err != nil || me.Username != "lain" {
+		t.Fatalf("official trakt account.me = %+v (%v)", me, err)
+	}
+	if res, err := trakt.MetadataSearch(ctx, TraktSearchRequest{Query: "lain", Type: "show"}); err != nil || len(res.Items) != 1 {
+		t.Fatalf("official trakt search = %+v (%v)", res, err)
+	}
+	if wl, err := trakt.Watchlist(ctx, TraktWatchlistRequest{Type: "shows"}); err != nil || len(wl.Items) != 1 {
+		t.Fatalf("official trakt watchlist = %+v (%v)", wl, err)
+	}
+	if h, err := trakt.History(ctx, TraktHistoryRequest{Type: "shows"}); err != nil || len(h.Items) != 1 {
+		t.Fatalf("official trakt history = %+v (%v)", h, err)
+	}
+	if sc, err := trakt.ScrobbleStart(ctx, TraktScrobbleRequest{Progress: 15, Movie: map[string]any{"ids": map[string]any{"trakt": 1}}}); err != nil || sc.Action != "start" {
+		t.Fatalf("official trakt scrobble.start = %+v (%v)", sc, err)
+	}
+	if sc, err := trakt.ScrobbleStop(ctx, TraktScrobbleRequest{Progress: 90, Movie: map[string]any{"ids": map[string]any{"trakt": 1}}}); err != nil || sc.Action != "stop" {
+		t.Fatalf("official trakt scrobble.stop = %+v (%v)", sc, err)
+	}
+
+	// Official TMDB zip (using api_key, which is also passed as query parameter)
+	tmdb, err := NewTMDBClient(dataDir, HostOptions{
+		BridgePolicy: service.BridgePolicy{Hosts: DefaultHosts(ServiceIDTMDB)},
+		Transport:    offlineTransport,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer tmdb.Close()
+	if err := tmdb.SetAccount(ctx, SecretKeyAPIKey, "official-tmdb-key"); err != nil {
+		t.Fatal(err)
+	}
+	if m, err := tmdb.Describe(ctx); err != nil || len(m) != 3 {
+		t.Fatalf("official tmdb describe = %+v (%v)", m, err)
+	}
+	if res, err := tmdb.MetadataSearch(ctx, TMDBSearchRequest{Query: "毒师", MediaType: "tv"}); err != nil || len(res.Items) != 1 || res.Items[0].ID != 1396 {
+		t.Fatalf("official tmdb search = %+v (%v)", res, err)
+	}
+	if d, err := tmdb.MetadataDetail(ctx, TMDBDetailRequest{ID: 1396, MediaType: "tv"}); err != nil || d.NumberOfSeasons == nil || *d.NumberOfSeasons != 5 {
+		t.Fatalf("official tmdb detail = %+v (%v)", d, err)
+	}
+	if art, err := tmdb.ArtworkList(ctx, TMDBArtworkRequest{ID: 1396, MediaType: "tv"}); err != nil || len(art.Posters) != 1 {
+		t.Fatalf("official tmdb artwork = %+v (%v)", art, err)
+	}
+
+	// Official Bangumi zip
+	bgm, err := NewBangumiClient(dataDir, HostOptions{
+		BridgePolicy: service.BridgePolicy{Hosts: DefaultHosts(ServiceIDBangumi)},
+		Transport:    offlineTransport,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer bgm.Close()
+	if err := bgm.SetAccount(ctx, SecretKeyAccessToken, "official-bgm-pat"); err != nil {
+		t.Fatal(err)
+	}
+	if m, err := bgm.Describe(ctx); err != nil || len(m) != 6 {
+		t.Fatalf("official bangumi describe = %+v (%v)", m, err)
+	}
+	if me, err := bgm.AccountMe(ctx); err != nil || me.Username != "nekocat" {
+		t.Fatalf("official bangumi account.me = %+v (%v)", me, err)
+	}
+	if res, err := bgm.MetadataSearch(ctx, BangumiSearchRequest{Keyword: "孤独摇滚"}); err != nil || len(res.Items) != 1 {
+		t.Fatalf("official bangumi search = %+v (%v)", res, err)
+	}
+	if d, err := bgm.MetadataDetail(ctx, BangumiDetailRequest{SubjectID: 328609}); err != nil || d.TotalEpisodes == nil || *d.TotalEpisodes != 12 {
+		t.Fatalf("official bangumi detail = %+v (%v)", d, err)
+	}
+	if col, err := bgm.CollectionGet(ctx, BangumiCollectionGetRequest{}); err != nil || len(col.Items) != 1 || col.Items[0].SubjectID != 328609 {
+		t.Fatalf("official bangumi collection.get = %+v (%v)", col, err)
+	}
+	epStat := 9
+	if upd, err := bgm.CollectionUpdate(ctx, BangumiCollectionUpdateRequest{SubjectID: 328609, Type: "doing", EpStatus: &epStat}); err != nil || !upd.Updated {
+		t.Fatalf("official bangumi collection.update = %+v (%v)", upd, err)
+	}
+	if epUpd, err := bgm.EpisodeUpdate(ctx, BangumiEpisodeUpdateRequest{EpisodeID: 110001, Type: "done"}); err != nil || !epUpd.Updated {
+		t.Fatalf("official bangumi episode.update = %+v (%v)", epUpd, err)
 	}
 }

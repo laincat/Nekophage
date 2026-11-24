@@ -41,7 +41,13 @@ var (
 	ErrInvalidID = errors.New("vcmodule: invalid module id")
 	// ErrNotFound reports a module id that is not installed.
 	ErrNotFound = errors.New("vcmodule: module not found")
+	// ErrUnsupportedCapability reports a `#!requires` capability this host does not provide.
+	ErrUnsupportedCapability = errors.New("vcmodule: unsupported capability")
 )
+
+var supportedCapabilities = map[string]bool{
+	Capability: true,
+}
 
 const (
 	minPageGap  = 0
@@ -86,10 +92,12 @@ var forbiddenMetaKeys = map[string]bool{
 
 // Meta holds the `#!` metadata header of a `.vcmodule` file.
 type Meta struct {
-	Name    string `json:"name"`
-	Desc    string `json:"desc,omitempty"`
-	Version string `json:"version"`
-	Format  string `json:"format"`
+	ID       string   `json:"id,omitempty"`
+	Name     string   `json:"name"`
+	Desc     string   `json:"desc,omitempty"`
+	Version  string   `json:"version"`
+	Format   string   `json:"format"`
+	Requires []string `json:"requires,omitempty"`
 }
 
 // ReaderSettings holds the declarative reader settings that can be configured
@@ -248,6 +256,11 @@ func Parse(raw []byte) (*Module, error) {
 			}
 			seenMeta[key] = true
 			switch key {
+			case "id":
+				if err := ValidateID(val); err != nil {
+					return nil, fmt.Errorf("%w: line %d: invalid #!id %q", ErrInvalidID, lineNum, val)
+				}
+				mod.Meta.ID = val
 			case "name":
 				if val == "" || len(val) > 128 {
 					return nil, fmt.Errorf("%w: line %d: #!name must be 1..128 bytes", ErrInvalidFormat, lineNum)
@@ -265,6 +278,12 @@ func Parse(raw []byte) (*Module, error) {
 				mod.Meta.Version = val
 			case "format":
 				mod.Meta.Format = val
+			case "requires":
+				reqs, err := parseRequires(val, lineNum)
+				if err != nil {
+					return nil, err
+				}
+				mod.Meta.Requires = reqs
 			default:
 				return nil, fmt.Errorf("%w: line %d: unknown metadata header #!%s", ErrInvalidFormat, lineNum, key)
 			}
@@ -335,6 +354,36 @@ func Parse(raw []byte) (*Module, error) {
 	sort.Strings(declaredKeys)
 	mod.Keys = declaredKeys
 	return &mod, nil
+}
+
+func parseRequires(val string, lineNum int) ([]string, error) {
+	if strings.TrimSpace(val) == "" {
+		return nil, fmt.Errorf("%w: line %d: empty #!requires", ErrInvalidFormat, lineNum)
+	}
+	parts := strings.Split(val, ",")
+	seen := map[string]bool{}
+	reqs := make([]string, 0, len(parts))
+	for _, part := range parts {
+		capName := strings.TrimSpace(part)
+		if capName == "" {
+			return nil, fmt.Errorf("%w: line %d: empty capability in #!requires", ErrInvalidFormat, lineNum)
+		}
+		lower := strings.ToLower(capName)
+		for _, bad := range []string{"mitm", "proxy", "script", "rewrite", "surge"} {
+			if strings.Contains(lower, bad) {
+				return nil, fmt.Errorf("%w: line %d: capability %q is forbidden", ErrForbiddenDirective, lineNum, capName)
+			}
+		}
+		if !supportedCapabilities[capName] {
+			return nil, fmt.Errorf("%w: line %d: %q", ErrUnsupportedCapability, lineNum, capName)
+		}
+		if !seen[capName] {
+			seen[capName] = true
+			reqs = append(reqs, capName)
+		}
+	}
+	sort.Strings(reqs)
+	return reqs, nil
 }
 
 func stripInlineComment(val string) string {

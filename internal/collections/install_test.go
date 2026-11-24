@@ -361,7 +361,7 @@ func TestUnifiedCollectionInstallsServicePackagesAndVCModule(t *testing.T) {
 	traktZip := makeServiceZip(t, services.ServiceIDTrakt, "1.0.0")
 	tmdbZip := makeServiceZip(t, services.ServiceIDTMDB, "1.0.0")
 	bgmZip := makeServiceZip(t, services.ServiceIDBangumi, "1.0.0")
-	modBytes := []byte("#!name=阅读偏好示例\n#!desc=合集模块\n#!version=0.1.0\n#!format=veneracat-module/1-draft\n\n[Reader]\npage-gap = 8\nkeep-screen-on = true\n")
+	modBytes := []byte("#!id=reader-preferences\n#!name=阅读偏好示例\n#!desc=合集模块\n#!version=0.1.0\n#!format=veneracat-module/1-draft\n#!requires=settings-module.v1\n\n[Reader]\npage-gap = 8\nkeep-screen-on = true\n")
 
 	sha := func(b []byte) string {
 		s := sha256.Sum256(b)
